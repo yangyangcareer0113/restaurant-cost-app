@@ -1,0 +1,276 @@
+/* ============================================================
+   餐飲業成本物料控管系統 — 自定義樣式
+   ============================================================ */
+
+:root {
+  --primary: #2563eb;
+  --sidebar-bg: #1e293b;
+  --sidebar-text: #94a3b8;
+  --sidebar-active: #ffffff;
+  --sidebar-width: 240px;
+  --header-height: 56px;
+}
+
+body {
+  font-family: -apple-system, 'Noto Sans TC', sans-serif;
+  background: #f1f5f9;
+  font-size: 15px;
+}
+
+/* ============================================================
+   Sidebar
+   ============================================================ */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--sidebar-bg);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease;
+}
+
+.sidebar-brand {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.sidebar-brand h5 {
+  color: #fff;
+  font-size: 1rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.sidebar-brand small {
+  color: var(--sidebar-text);
+  font-size: 0.75rem;
+}
+
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0;
+}
+
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 1.25rem;
+  color: var(--sidebar-text);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-nav a:hover,
+.sidebar-nav a.active {
+  background: rgba(255,255,255,0.08);
+  color: var(--sidebar-active);
+}
+
+.sidebar-nav a .nav-icon {
+  font-size: 1.1rem;
+  width: 20px;
+  text-align: center;
+}
+
+.sidebar-footer {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  font-size: 0.8rem;
+  color: var(--sidebar-text);
+}
+
+/* ============================================================
+   主內容區
+   ============================================================ */
+.main-content {
+  margin-left: var(--sidebar-width);
+  min-height: 100vh;
+}
+
+.top-header {
+  height: var(--header-height);
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  padding: 0 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.page-body {
+  padding: 1.5rem;
+}
+
+/* ============================================================
+   Cards
+   ============================================================ */
+.stat-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  border: 1px solid #e2e8f0;
+}
+
+.stat-card .stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.stat-card .stat-label {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+
+/* ============================================================
+   表格
+   ============================================================ */
+.table-card {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.table-card .table-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.table th {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.table td {
+  vertical-align: middle;
+  font-size: 0.9rem;
+}
+
+/* ============================================================
+   庫存警示
+   ============================================================ */
+.stock-ok { color: #16a34a; }
+.stock-warning { color: #d97706; }
+.stock-danger { color: #dc2626; font-weight: 600; }
+
+.badge-stock-ok { background: #dcfce7; color: #166534; }
+.badge-stock-warning { background: #fef3c7; color: #92400e; }
+.badge-stock-danger { background: #fee2e2; color: #991b1b; }
+
+/* ============================================================
+   毛利率顏色
+   ============================================================ */
+.margin-high { color: #16a34a; font-weight: 600; }
+.margin-mid { color: #2563eb; }
+.margin-low { color: #dc2626; }
+
+/* ============================================================
+   Toast 容器
+   ============================================================ */
+#toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* ============================================================
+   手機響應式（< 768px）
+   ============================================================ */
+@media (max-width: 767.98px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+
+  .sidebar.show {
+    transform: translateX(0);
+  }
+
+  .main-content {
+    margin-left: 0;
+  }
+
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+  }
+
+  .sidebar-overlay.show {
+    display: block;
+  }
+
+  .page-body {
+    padding: 1rem;
+  }
+
+  /* 手機版表格：卡片化 */
+  .table-responsive-card thead {
+    display: none;
+  }
+
+  .table-responsive-card tbody tr {
+    display: block;
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .table-responsive-card tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.35rem 0;
+    border: none;
+    font-size: 0.9rem;
+  }
+
+  .table-responsive-card tbody td::before {
+    content: attr(data-label);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+    margin-right: 0.5rem;
+  }
+
+  /* 手機版輸入欄位 */
+  input, select, textarea {
+    font-size: 16px !important; /* 防止 iOS 自動縮放 */
+  }
+
+  .stat-card .stat-value {
+    font-size: 1.5rem;
+  }
+}

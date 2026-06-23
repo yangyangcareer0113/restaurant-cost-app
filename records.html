@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>每日進貨記錄 — 成本物料管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <style>
+    .total-bar { background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px;
+                 padding:12px 18px; display:flex; justify-content:space-between; align-items:center;
+                 margin-bottom:1rem; }
+    .total-bar .total-label { font-size:0.88rem; color:#15803d; font-weight:600; }
+    .total-bar .total-val   { font-size:1.5rem; font-weight:800; color:#15803d; }
+    .calc-box { background:#f8fafc; border-radius:8px; padding:12px 14px; font-size:0.85rem; }
+  </style>
+</head>
+<body>
+  <div class="main-content">
+    <div class="top-header">
+      <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
+      <h6 class="mb-0 fw-bold">✏️ 每日進貨記錄</h6>
+      <div class="ms-auto d-flex gap-2 align-items-center">
+        <select id="store-filter" class="form-select form-select-sm d-none" style="width:auto;" onchange="onStoreChange()">
+          <option value="">所有門店</option>
+        </select>
+        <input type="date" id="filter-date" class="form-control form-control-sm" style="width:auto;" onchange="loadRecords()">
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="row g-3">
+
+        <!-- 左欄：新增進貨記錄 -->
+        <div class="col-12 col-lg-4">
+          <div class="table-card">
+            <div class="table-header">
+              <span class="fw-semibold">📥 新增進貨</span>
+            </div>
+            <div class="p-3">
+              <div class="mb-3">
+                <label class="form-label fw-semibold">進貨日期</label>
+                <input type="date" id="rec-date" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">品項 <span class="text-danger">*</span></label>
+                <select id="rec-item" class="form-select" onchange="onItemChange()">
+                  <option value="">請選擇品項</option>
+                </select>
+              </div>
+
+              <!-- 品項資訊提示 -->
+              <div id="item-hint" class="calc-box mb-3 d-none">
+                <div class="d-flex justify-content-between">
+                  <span class="text-muted">廠商</span>
+                  <span id="hint-supplier" class="fw-semibold">—</span>
+                </div>
+                <div class="d-flex justify-content-between mt-1">
+                  <span class="text-muted">標準單位成本</span>
+                  <span id="hint-unit-cost" class="fw-semibold text-primary">—</span>
+                </div>
+                <div class="d-flex justify-content-between mt-1">
+                  <span class="text-muted">規格</span>
+                  <span id="hint-spec" class="text-muted">—</span>
+                </div>
+              </div>
+
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <label class="form-label fw-semibold">進貨數量</label>
+                  <div class="input-group">
+                    <input type="number" id="rec-qty" class="form-control" min="0" step="0.01" value="" placeholder="0" oninput="calcPreview()">
+                    <span class="input-group-text" id="qty-unit" style="font-size:0.8rem;min-width:40px;">—</span>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">本次單位成本</label>
+                  <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" id="rec-unit-cost" class="form-control" min="0" step="0.01" value="" placeholder="自動帶入" oninput="calcPreview()">
+                  </div>
+                </div>
+              </div>
+
+              <!-- 即時計算 -->
+              <div id="calc-preview" class="calc-box mb-3 d-none">
+                <div class="d-flex justify-content-between">
+                  <span class="text-muted">進貨總金額</span>
+                  <strong id="prev-total" class="text-success fs-6">—</strong>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">備註（廠商、發票號等）</label>
+                <input type="text" id="rec-notes" class="form-control" placeholder="選填">
+              </div>
+
+              <button class="btn btn-primary w-100" onclick="saveRecord()">✓ 儲存進貨記錄</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右欄：今日進貨清單 -->
+        <div class="col-12 col-lg-8">
+
+          <!-- 今日合計 -->
+          <div class="total-bar">
+            <span class="total-label">📅 <span id="display-date">今日</span> 進貨總金額</span>
+            <span class="total-val">$<span id="daily-total">0</span></span>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header d-flex justify-content-between">
+              <span class="fw-semibold">進貨明細</span>
+              <small class="text-muted" id="record-count">— 筆</small>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover mb-0 table-responsive-card">
+                <thead>
+                  <tr>
+                    <th>品項</th>
+                    <th>類別</th>
+                    <th>廠商</th>
+                    <th>數量</th>
+                    <th>單位成本</th>
+                    <th>總金額</th>
+                    <th>備註</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="records-table">
+                  <tr><td colspan="8" class="text-center text-muted py-4">載入中...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+    let currentProfile = null;
+    let itemsMap = {};
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await requireAuth();
+      injectNav();
+      const data = await renderUserInfo();
+      currentProfile = data.profile;
+      filterNavByRole(currentProfile.role);
+
+      const today = new Date().toISOString().slice(0, 10);
+      document.getElementById('rec-date').value = today;
+      document.getElementById('filter-date').value = today;
+
+      if (currentProfile.role === 'admin') {
+        await loadStoresFilter();
+        document.getElementById('store-filter').classList.remove('d-none');
+      }
+
+      await loadItemsDropdown();
+      await loadRecords();
+    });
+
+    async function loadStoresFilter() {
+      const { data } = await supabase.from('stores').select('id,name').order('name');
+      const sel = document.getElementById('store-filter');
+      (data||[]).forEach(s => sel.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.name}</option>`));
+    }
+
+    async function onStoreChange() {
+      await loadItemsDropdown();
+      await loadRecords();
+    }
+
+    async function loadItemsDropdown() {
+      const storeId = currentProfile.role === 'admin'
+        ? document.getElementById('store-filter').value || null
+        : currentProfile.store_id;
+
+      let q = supabase.from('items').select('id,name,unit,unit_cost,supplier,spec_note,category').eq('is_active', true).order('category').order('name');
+      if (storeId) q = q.eq('store_id', storeId);
+      const { data } = await q;
+
+      itemsMap = {};
+      const sel = document.getElementById('rec-item');
+      sel.innerHTML = '<option value="">請選擇品項</option>';
+
+      // 依類別分組
+      const grouped = {};
+      (data||[]).forEach(i => {
+        itemsMap[i.id] = i;
+        const cat = i.category || '其他';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(i);
+      });
+
+      Object.entries(grouped).forEach(([cat, items]) => {
+        const og = document.createElement('optgroup');
+        og.label = cat;
+        items.forEach(i => {
+          const opt = document.createElement('option');
+          opt.value = i.id;
+          opt.textContent = `${i.name}（${i.unit}）`;
+          og.appendChild(opt);
+        });
+        sel.appendChild(og);
+      });
+    }
+
+    function onItemChange() {
+      const item = itemsMap[document.getElementById('rec-item').value];
+      const hint = document.getElementById('item-hint');
+      const unitEl = document.getElementById('qty-unit');
+
+      if (!item) {
+        hint.classList.add('d-none');
+        unitEl.textContent = '—';
+        document.getElementById('rec-unit-cost').value = '';
+        document.getElementById('calc-preview').classList.add('d-none');
+        return;
+      }
+
+      hint.classList.remove('d-none');
+      document.getElementById('hint-supplier').textContent = item.supplier || '—';
+      document.getElementById('hint-unit-cost').textContent = item.unit_cost > 0 ? `$${formatNumber(item.unit_cost, 0)} / ${item.unit}` : '—（尚未設定）';
+      document.getElementById('hint-spec').textContent = item.spec_note || '—';
+      unitEl.textContent = item.unit;
+
+      // 自動帶入標準單位成本
+      if (item.unit_cost > 0) {
+        document.getElementById('rec-unit-cost').value = item.unit_cost;
+      }
+      calcPreview();
+    }
+
+    function calcPreview() {
+      const qty = parseFloat(document.getElementById('rec-qty').value) || 0;
+      const unitCost = parseFloat(document.getElementById('rec-unit-cost').value) || 0;
+      const preview = document.getElementById('calc-preview');
+      if (!qty && !unitCost) { preview.classList.add('d-none'); return; }
+      preview.classList.remove('d-none');
+      const total = qty * unitCost;
+      document.getElementById('prev-total').textContent = `$${formatNumber(total, 0)}`;
+    }
+
+    async function saveRecord() {
+      const itemId = document.getElementById('rec-item').value;
+      if (!itemId) { showToast('請選擇品項', 'danger'); return; }
+
+      const qty = parseFloat(document.getElementById('rec-qty').value) || 0;
+      const unitCost = parseFloat(document.getElementById('rec-unit-cost').value) || 0;
+      if (qty <= 0) { showToast('請填寫進貨數量', 'danger'); return; }
+
+      const storeId = currentProfile.role === 'admin'
+        ? document.getElementById('store-filter').value || itemsMap[itemId]?.store_id
+        : currentProfile.store_id;
+
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const payload = {
+        item_id: itemId,
+        store_id: storeId,
+        record_date: document.getElementById('rec-date').value,
+        purchase_qty: qty,
+        purchase_cost: qty * unitCost,
+        waste_qty: 0,
+        current_stock: 0,
+        notes: document.getElementById('rec-notes').value.trim() || null,
+        created_by: session.user.id
+      };
+
+      const { error } = await supabase.from('inventory_records').insert(payload);
+      if (error) { showToast('儲存失敗：' + error.message, 'danger'); return; }
+
+      showToast(`✓ 已記錄：${itemsMap[itemId].name} × ${qty} ${itemsMap[itemId].unit}，$${formatNumber(payload.purchase_cost, 0)}`);
+
+      document.getElementById('rec-item').value = '';
+      document.getElementById('rec-qty').value = '';
+      document.getElementById('rec-unit-cost').value = '';
+      document.getElementById('rec-notes').value = '';
+      document.getElementById('item-hint').classList.add('d-none');
+      document.getElementById('calc-preview').classList.add('d-none');
+      document.getElementById('qty-unit').textContent = '—';
+
+      await loadRecords();
+    }
+
+    async function loadRecords() {
+      const dateFilter = document.getElementById('filter-date').value;
+      const storeId = currentProfile.role === 'admin'
+        ? document.getElementById('store-filter').value || null
+        : currentProfile.store_id;
+
+      let q = supabase.from('inventory_records')
+        .select('*, items(name, unit, category, supplier)')
+        .order('created_at', { ascending: false });
+
+      if (storeId) q = q.eq('store_id', storeId);
+      if (dateFilter) q = q.eq('record_date', dateFilter);
+
+      const { data } = await q;
+      const records = data || [];
+
+      // 更新日期顯示
+      if (dateFilter) {
+        const d = new Date(dateFilter + 'T00:00:00');
+        document.getElementById('display-date').textContent = `${d.getMonth()+1}/${d.getDate()}`;
+      }
+
+      // 計算今日總金額
+      const total = records.reduce((s, r) => s + (r.purchase_cost || 0), 0);
+      document.getElementById('daily-total').textContent = formatNumber(total, 0);
+      document.getElementById('record-count').textContent = `${records.length} 筆`;
+
+      const tbody = document.getElementById('records-table');
+      if (!records.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-5">
+          此日期尚無進貨記錄<br>
+          <small>選擇品項並填入數量即可新增</small>
+        </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = records.map(r => {
+        const unitCost = r.purchase_qty > 0 ? r.purchase_cost / r.purchase_qty : 0;
+        return `
+          <tr>
+            <td data-label="品項"><strong>${r.items?.name || '—'}</strong></td>
+            <td data-label="類別"><span class="badge bg-light text-secondary border" style="font-size:0.72rem;">${r.items?.category || '—'}</span></td>
+            <td data-label="廠商" class="text-muted" style="font-size:0.85rem;">${r.items?.supplier || '—'}</td>
+            <td data-label="數量"><span class="fw-semibold">${formatNumber(r.purchase_qty, 2)}</span> ${r.items?.unit || ''}</td>
+            <td data-label="單位成本" class="text-muted">$${formatNumber(unitCost, 0)}</td>
+            <td data-label="總金額"><strong class="text-success">$${formatNumber(r.purchase_cost, 0)}</strong></td>
+            <td data-label="備註" class="text-muted" style="font-size:0.82rem;">${r.notes || '—'}</td>
+            <td><button class="btn btn-sm btn-outline-danger" onclick="deleteRecord('${r.id}')">刪除</button></td>
+          </tr>`;
+      }).join('');
+    }
+
+    async function deleteRecord(id) {
+      if (!confirm('確定刪除這筆記錄？')) return;
+      const { error } = await supabase.from('inventory_records').delete().eq('id', id);
+      if (error) { showToast('刪除失敗', 'danger'); return; }
+      showToast('已刪除', 'warning');
+      await loadRecords();
+    }
+  </script>
+</body>
+</html>

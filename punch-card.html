@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>打卡表 AI 判讀 — 成本物料管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <style>
+    .upload-zone {
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #f8fafc;
+      min-height: 140px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .upload-zone:hover, .upload-zone.drag-over { border-color: #2563eb; background: #eff6ff; }
+    .upload-zone img { max-height: 120px; border-radius: 8px; object-fit: contain; }
+    .upload-icon { font-size: 2.5rem; color: #94a3b8; }
+    .status-spinner { display: inline-block; width: 1.2rem; height: 1.2rem; border: 3px solid #e2e8f0; border-top-color: #2563eb; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .late-badge { background: #fef9c3; color: #854d0e; font-size: 0.7rem; padding: 1px 6px; border-radius: 6px; font-weight: 600; }
+    .result-table th { background: #1e293b; color: #e2e8f0; font-size: 0.78rem; position: sticky; top: 0; z-index: 1; }
+    .result-table td { font-size: 0.83rem; vertical-align: middle; }
+    .result-table input[type="text"] { width: 72px; padding: 2px 6px; border: 1px solid #e2e8f0; border-radius: 6px; text-align: center; font-size: 0.82rem; background: transparent; }
+    .result-table input[type="text"]:focus { outline: none; border-color: #2563eb; background: #eff6ff; }
+    .result-table input.is-late { background: #fef9c3 !important; }
+    .kpi-chip { background: #f1f5f9; border-radius: 10px; padding: 0.6rem 1rem; text-align: center; }
+    .kpi-chip .val { font-size: 1.6rem; font-weight: 800; }
+    .kpi-chip .lbl { font-size: 0.75rem; color: #64748b; }
+  </style>
+</head>
+<body>
+<div class="main-content">
+  <div class="top-header">
+    <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
+    <h6 class="mb-0 fw-bold">🕐 打卡表 AI 判讀</h6>
+  </div>
+
+  <div class="page-body">
+
+    <!-- Step 1：選員工 + 月份 -->
+    <div class="table-card mb-3">
+      <div class="table-header"><span class="fw-semibold">Step 1｜選擇員工與月份</span></div>
+      <div class="p-3">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold" style="font-size:0.85rem;">員工</label>
+            <select id="sel-staff" class="form-select form-select-sm">
+              <option value="">— 選擇員工 —</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold" style="font-size:0.85rem;">年份</label>
+            <select id="sel-year" class="form-select form-select-sm"></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold" style="font-size:0.85rem;">月份</label>
+            <select id="sel-month" class="form-select form-select-sm">
+              <option value="1">1 月</option><option value="2">2 月</option><option value="3">3 月</option>
+              <option value="4">4 月</option><option value="5">5 月</option><option value="6">6 月</option>
+              <option value="7">7 月</option><option value="8">8 月</option><option value="9">9 月</option>
+              <option value="10">10 月</option><option value="11">11 月</option><option value="12">12 月</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2：上傳照片 -->
+    <div class="table-card mb-3">
+      <div class="table-header"><span class="fw-semibold">Step 2｜上傳打卡表照片</span>
+        <span style="font-size:0.78rem;color:#94a3b8;">可上傳 1–2 張（上半月 + 下半月）</span>
+      </div>
+      <div class="p-3">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="fw-semibold mb-2" style="font-size:0.85rem;">第 1 張（上半月）</div>
+            <div class="upload-zone" id="zone1" onclick="document.getElementById('file1').click()"
+                 ondragover="handleDragOver(event,'zone1')" ondragleave="handleDragLeave('zone1')" ondrop="handleDrop(event,0)">
+              <div id="preview1">
+                <div class="upload-icon">📷</div>
+                <div style="font-size:0.85rem;color:#64748b;margin-top:0.5rem;">點擊或拖曳照片至此</div>
+              </div>
+            </div>
+            <input type="file" id="file1" accept="image/*" style="display:none" onchange="handleFileSelect(event,0)">
+          </div>
+          <div class="col-md-6">
+            <div class="fw-semibold mb-2" style="font-size:0.85rem;">第 2 張（下半月，選填）</div>
+            <div class="upload-zone" id="zone2" onclick="document.getElementById('file2').click()"
+                 ondragover="handleDragOver(event,'zone2')" ondragleave="handleDragLeave('zone2')" ondrop="handleDrop(event,1)">
+              <div id="preview2">
+                <div class="upload-icon">📷</div>
+                <div style="font-size:0.85rem;color:#64748b;margin-top:0.5rem;">點擊或拖曳照片至此</div>
+              </div>
+            </div>
+            <input type="file" id="file2" accept="image/*" style="display:none" onchange="handleFileSelect(event,1)">
+          </div>
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+          <button class="btn btn-primary" id="btn-ocr" onclick="runOCR()" disabled>
+            <span id="ocr-spinner" style="display:none;" class="status-spinner me-2"></span>
+            🤖 AI 判讀
+          </button>
+          <button class="btn btn-outline-secondary" onclick="clearAll()">清除重來</button>
+        </div>
+        <div id="ocr-status" class="mt-2" style="font-size:0.82rem;color:#64748b;"></div>
+      </div>
+    </div>
+
+    <!-- Step 3：判讀結果 -->
+    <div id="result-section" style="display:none;">
+      <div class="table-card mb-3">
+        <div class="table-header">
+          <span class="fw-semibold">Step 3｜判讀結果確認</span>
+          <span style="font-size:0.78rem;color:#94a3b8;">可直接編輯欄位修正</span>
+        </div>
+
+        <!-- KPI 小計 -->
+        <div class="p-3">
+          <div class="row g-2 mb-3" id="kpi-row">
+            <div class="col-6 col-md-3">
+              <div class="kpi-chip">
+                <div class="val text-primary" id="kpi-days">—</div>
+                <div class="lbl">出勤天數</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="kpi-chip">
+                <div class="val" style="color:#0891b2;" id="kpi-total-h">—</div>
+                <div class="lbl">總出勤時數</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="kpi-chip">
+                <div class="val" style="color:#d97706;" id="kpi-ot-h">—</div>
+                <div class="lbl">加班時數（超過 8h）</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="kpi-chip">
+                <div class="val text-danger" id="kpi-late">—</div>
+                <div class="lbl">遲到次數</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 明細表 -->
+          <div style="overflow-x:auto;max-height:480px;overflow-y:auto;">
+            <table class="table table-sm result-table mb-0">
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th>上午上班</th><th>上午下班</th>
+                  <th>下午上班</th><th>下午下班</th>
+                  <th>加班上班</th><th>加班下班</th>
+                  <th>小計時數</th><th>備註</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="result-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="mt-3 d-flex gap-2">
+            <button class="btn btn-success" id="btn-apply" onclick="applyToPayroll()">
+              ✅ 套入薪資系統
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="addEmptyRow()">
+              ＋ 手動補一筆
+            </button>
+          </div>
+          <div id="apply-status" class="mt-2" style="font-size:0.82rem;"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /page-body -->
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/nav.js"></script>
+<script>
+  let uploadedImages = [null, null]; // [{base64, mimeType}, ...]
+  let parsedDays = [];
+  let currentProfile = null;
+  const OCR_ENDPOINT = '/.netlify/functions/punch-card-ocr';
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    injectNav();
+    const session = await requireAuth();
+    if (!session) return;
+    const { profile } = await renderUserInfo();
+    currentProfile = profile;
+    filterNavByRole(profile.role);
+
+    // 僅會計可操作
+    if (profile.role === 'admin') {
+      document.querySelector('.page-body').innerHTML = `
+        <div class="alert alert-warning">此功能僅限會計帳號（編輯權限）使用。</div>`;
+      return;
+    }
+
+    // 填年份
+    const now = new Date();
+    const ySel = document.getElementById('sel-year');
+    for (let y = now.getFullYear(); y >= now.getFullYear()-2; y--) {
+      const o = document.createElement('option');
+      o.value = y; o.textContent = y + ' 年'; ySel.appendChild(o);
+    }
+    ySel.value = now.getFullYear();
+    document.getElementById('sel-month').value = now.getMonth() + 1;
+
+    // 讀員工
+    const { data: staff } = await supabase.from('staff').select('id,name,position')
+      .eq('status','active').eq('store_id', profile.store_id).order('name');
+    const sel = document.getElementById('sel-staff');
+    (staff||[]).forEach(s => {
+      const o = document.createElement('option');
+      o.value = s.id; o.textContent = `${s.name}（${s.position}）`;
+      sel.appendChild(o);
+    });
+  });
+
+  // ── 上傳邏輯 ─────────────────────────────────────────────
+  function handleFileSelect(event, idx) {
+    const file = event.target.files[0];
+    if (!file) return;
+    loadImage(file, idx);
+  }
+  function handleDragOver(e, zoneId) {
+    e.preventDefault();
+    document.getElementById(zoneId).classList.add('drag-over');
+  }
+  function handleDragLeave(zoneId) {
+    document.getElementById(zoneId).classList.remove('drag-over');
+  }
+  function handleDrop(e, idx) {
+    e.preventDefault();
+    document.getElementById(`zone${idx+1}`).classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) loadImage(file, idx);
+  }
+  function loadImage(file, idx) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      const base64 = dataUrl.split(',')[1];
+      uploadedImages[idx] = { base64, mimeType: file.type };
+      const preview = document.getElementById(`preview${idx+1}`);
+      preview.innerHTML = `<img src="${dataUrl}" alt="打卡表${idx+1}">
+        <div style="font-size:0.75rem;color:#64748b;margin-top:4px;">${file.name}</div>`;
+      checkOcrReady();
+    };
+    reader.readAsDataURL(file);
+  }
+  function checkOcrReady() {
+    document.getElementById('btn-ocr').disabled = !uploadedImages[0];
+  }
+
+  // ── 清除 ────────────────────────────────────────────────
+  function clearAll() {
+    uploadedImages = [null, null];
+    ['preview1','preview2'].forEach((id, i) => {
+      document.getElementById(id).innerHTML = `
+        <div class="upload-icon">📷</div>
+        <div style="font-size:0.85rem;color:#64748b;margin-top:0.5rem;">點擊或拖曳照片至此</div>`;
+    });
+    ['file1','file2'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('btn-ocr').disabled = true;
+    document.getElementById('result-section').style.display = 'none';
+    document.getElementById('ocr-status').textContent = '';
+    parsedDays = [];
+  }
+
+  // ── AI 判讀 ──────────────────────────────────────────────
+  async function runOCR() {
+    const images = uploadedImages.filter(Boolean);
+    const statusEl = document.getElementById('ocr-status');
+    const spinner  = document.getElementById('ocr-spinner');
+
+    document.getElementById('btn-ocr').disabled = true;
+    spinner.style.display = 'inline-block';
+    statusEl.textContent = '正在判讀中，請稍候（約 5-15 秒）…';
+
+    try {
+      const resp = await fetch(OCR_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images }),
+      });
+      const data = await resp.json();
+
+      if (data.error) {
+        statusEl.innerHTML = `<span class="text-danger">判讀失敗：${data.error}</span>`;
+        return;
+      }
+      if (!data.days?.length) {
+        statusEl.innerHTML = `<span class="text-warning">AI 未能辨識出有效資料，請確認照片品質或手動輸入。</span>`;
+        return;
+      }
+
+      parsedDays = data.days.map(d => ({ ...d, _id: Math.random() }));
+      statusEl.innerHTML = `<span class="text-success">✅ 判讀完成，共讀取 ${parsedDays.length} 筆出勤記錄。</span>`;
+      renderResult();
+    } catch(e) {
+      statusEl.innerHTML = `<span class="text-danger">連線失敗：${e.message}</span>`;
+    } finally {
+      spinner.style.display = 'none';
+      document.getElementById('btn-ocr').disabled = false;
+    }
+  }
+
+  // ── 渲染結果表 ────────────────────────────────────────────
+  function renderResult() {
+    document.getElementById('result-section').style.display = '';
+    const tbody = document.getElementById('result-tbody');
+    tbody.innerHTML = parsedDays.map((d, i) => rowHTML(d, i)).join('');
+    updateKPI();
+  }
+
+  function rowHTML(d, i) {
+    const lateTag = d.late ? '<span class="late-badge ms-1">遲到</span>' : '';
+    const tf = v => v ? `<input type="text" value="${v}" onchange="updateField(${i},'${arguments[2]}',this.value)">` : '';
+    return `<tr data-idx="${i}">
+      <td><strong>${d.date}</strong>日${lateTag}</td>
+      ${editCell(i,'am_in',d.am_in)}
+      ${editCell(i,'am_out',d.am_out)}
+      ${editCell(i,'pm_in',d.pm_in)}
+      ${editCell(i,'pm_out',d.pm_out)}
+      ${editCell(i,'ot_in',d.ot_in||'')}
+      ${editCell(i,'ot_out',d.ot_out||'')}
+      <td><input type="number" step="0.01" value="${d.total_hours||''}"
+           style="width:72px;padding:2px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:0.82rem;"
+           onchange="updateField(${i},'total_hours',parseFloat(this.value)||0);updateKPI();" /></td>
+      <td style="font-size:0.78rem;color:#64748b;">${d.notes||''}</td>
+      <td><button class="btn btn-sm btn-outline-danger" style="padding:1px 6px;font-size:0.72rem;" onclick="removeRow(${i})">✕</button></td>
+    </tr>`;
+  }
+
+  function editCell(i, field, val) {
+    const cls = field === 'am_in' || field === 'pm_in' ? '' : '';
+    return `<td><input type="text" class="${cls}" value="${val||''}" placeholder="--:--"
+      onchange="updateField(${i},'${field}',this.value)"></td>`;
+  }
+
+  function updateField(idx, field, val) {
+    parsedDays[idx][field] = val || null;
+    updateKPI();
+  }
+  function removeRow(idx) {
+    parsedDays.splice(idx, 1);
+    renderResult();
+  }
+  function addEmptyRow() {
+    parsedDays.push({ date: '', am_in:'', am_out:'', pm_in:'', pm_out:'', ot_in:'', ot_out:'', total_hours:0, late:false, notes:'', _id:Math.random() });
+    renderResult();
+  }
+
+  function updateKPI() {
+    const days = parsedDays.filter(d => (d.total_hours||0) > 0);
+    const totalH = days.reduce((a,d) => a + (Number(d.total_hours)||0), 0);
+    const otH    = days.reduce((a,d) => a + Math.max(0, (Number(d.total_hours)||0) - 8), 0);
+    const lateN  = parsedDays.filter(d => d.late).length;
+    document.getElementById('kpi-days').textContent    = days.length;
+    document.getElementById('kpi-total-h').textContent = totalH.toFixed(2);
+    document.getElementById('kpi-ot-h').textContent    = otH.toFixed(2);
+    document.getElementById('kpi-late').textContent    = lateN;
+  }
+
+  // ── 套入薪資系統 ──────────────────────────────────────────
+  async function applyToPayroll() {
+    const staffId = document.getElementById('sel-staff').value;
+    const year    = parseInt(document.getElementById('sel-year').value);
+    const month   = parseInt(document.getElementById('sel-month').value);
+    const statusEl = document.getElementById('apply-status');
+
+    if (!staffId) { statusEl.innerHTML = '<span class="text-danger">請先選擇員工。</span>'; return; }
+    if (!parsedDays.length) { statusEl.innerHTML = '<span class="text-danger">尚無判讀資料。</span>'; return; }
+
+    // 計算彙總
+    const workDays = parsedDays.filter(d => (d.total_hours||0) > 0).length;
+    const totalH   = parsedDays.reduce((a,d) => a + (Number(d.total_hours)||0), 0);
+    const otHours  = parsedDays.reduce((a,d) => a + Math.max(0,(Number(d.total_hours)||0)-8), 0);
+    const lateCount = parsedDays.filter(d => d.late).length;
+
+    // 存入 punch_card_records（如果表存在）或直接更新 payroll_records
+    // 先嘗試更新 payroll_records 的 overtime_hours 欄位
+    const { data: existing } = await supabase.from('payroll_records')
+      .select('id').eq('staff_id', staffId).eq('year', year).eq('month', month)
+      .maybeSingle();
+
+    const payload = {
+      overtime_hours: parseFloat(otHours.toFixed(2)),
+      notes: `打卡判讀｜出勤${workDays}天，總${totalH.toFixed(1)}h，加班${otHours.toFixed(1)}h，遲到${lateCount}次`,
+    };
+
+    let err;
+    if (existing?.id) {
+      const res = await supabase.from('payroll_records').update(payload).eq('id', existing.id);
+      err = res.error;
+    } else {
+      // 查員工底薪
+      const { data: staff } = await supabase.from('staff').select('store_id,base_salary,position_allowance').eq('id', staffId).single();
+      const res = await supabase.from('payroll_records').insert({
+        staff_id: staffId, store_id: staff?.store_id,
+        year, month,
+        base_salary: staff?.base_salary || 0,
+        position_allowance: staff?.position_allowance || 0,
+        attendance_bonus: 0, performance_bonus: 0, special_bonus: 0,
+        deductions: 0, leave_deductions: 0, payout_amount: 0,
+        labor_insurance: 0, health_insurance: 0,
+        ...payload,
+      });
+      err = res.error;
+    }
+
+    if (err) {
+      statusEl.innerHTML = `<span class="text-danger">寫入失敗：${err.message}</span>`;
+    } else {
+      statusEl.innerHTML = `<span class="text-success">✅ 已套入薪資系統！加班時數 ${otHours.toFixed(2)}h 已更新。</span>`;
+      document.getElementById('btn-apply').disabled = true;
+    }
+  }
+</script>
+</body>
+</html>

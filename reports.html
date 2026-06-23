@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>報表導出 — 成本物料管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <style>
+    .chart-type-btn { font-size: 0.8rem; padding: 0.25rem 0.6rem; }
+    .chart-type-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+  </style>
+</head>
+<body>
+  <div class="main-content">
+    <div class="top-header">
+      <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
+      <h6 class="mb-0 fw-bold">報表導出</h6>
+    </div>
+
+    <div class="page-body">
+
+      <!-- ① 安全庫存建議 -->
+      <div class="table-card mb-3">
+        <div class="table-header">
+          <span class="fw-semibold">🧮 安全庫存建議</span>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <label class="form-label mb-0 text-muted" style="font-size:0.85rem;white-space:nowrap;">補貨週期</label>
+            <input type="number" id="reorder-days" class="form-control form-control-sm" value="3" min="1" max="30" style="width:65px;" oninput="renderSafetyTable()">
+            <span class="text-muted" style="font-size:0.85rem;">天</span>
+            <select id="analysis-days" class="form-select form-select-sm" style="width:90px;" onchange="loadSafetyData()">
+              <option value="7">近 7 天</option>
+              <option value="14" selected>近 14 天</option>
+              <option value="30">近 30 天</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>品項</th>
+                <th title="期間內總消耗 ÷ 天數">日均消耗量 ℹ️</th>
+                <th title="日均消耗 × 補貨週期">建議安全庫存 ℹ️</th>
+                <th>目前設定值</th>
+                <th>建議調整</th>
+                <th>當前庫存</th>
+                <th>可用天數</th>
+              </tr>
+            </thead>
+            <tbody id="safety-table">
+              <tr><td colspan="7" class="text-center text-muted py-3">載入中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ② 篩選條件 -->
+      <div class="table-card mb-3 p-3">
+        <div class="row g-2 align-items-end">
+          <div class="col-6 col-md-2">
+            <label class="form-label fw-semibold">開始日期</label>
+            <input type="date" id="date-from" class="form-control">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label fw-semibold">結束日期</label>
+            <input type="date" id="date-to" class="form-control">
+          </div>
+          <div class="col-6 col-md-3 d-none" id="store-wrap">
+            <label class="form-label fw-semibold">門店</label>
+            <select id="store-filter" class="form-select" onchange="loadReport()">
+              <option value="">所有門店</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-semibold">品項（選填）</label>
+            <select id="item-filter" class="form-select" onchange="loadReport()">
+              <option value="">所有品項</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-2">
+            <button class="btn btn-primary w-100" onclick="loadReport()">查詢</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3">
+
+        <!-- ③ 進貨成本趨勢 -->
+        <div class="col-12 col-lg-6">
+          <div class="table-card h-100">
+            <div class="table-header">
+              <span class="fw-semibold">📈 進貨成本</span>
+              <div class="btn-group" role="group">
+                <button class="btn btn-outline-secondary chart-type-btn active" id="cost-line" onclick="setCostChart('line')">折線</button>
+                <button class="btn btn-outline-secondary chart-type-btn" id="cost-bar" onclick="setCostChart('bar')">直條</button>
+                <button class="btn btn-outline-secondary chart-type-btn" id="cost-pie" onclick="setCostChart('pie')">圓餅</button>
+              </div>
+            </div>
+            <div class="p-3" style="overflow-x:auto; min-height:260px;">
+              <canvas id="cost-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- ④ 耗損排行 -->
+        <div class="col-12 col-lg-6">
+          <div class="table-card h-100">
+            <div class="table-header">
+              <span class="fw-semibold">🗑️ 耗損分析</span>
+              <div class="btn-group" role="group">
+                <button class="btn btn-outline-secondary chart-type-btn active" id="waste-bar" onclick="setWasteChart('bar')">直條</button>
+                <button class="btn btn-outline-secondary chart-type-btn" id="waste-line" onclick="setWasteChart('line')">折線</button>
+                <button class="btn btn-outline-secondary chart-type-btn" id="waste-pie" onclick="setWasteChart('pie')">圓餅</button>
+              </div>
+            </div>
+            <div class="p-3" style="overflow-x:auto; min-height:260px;">
+              <canvas id="waste-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- ⑤ 各品項成本佔比（僅 admin 可見） -->
+        <div class="col-12 col-lg-6" id="cost-ratio-card">
+          <div class="table-card h-100">
+            <div class="table-header">
+              <span class="fw-semibold">💰 各品項成本佔比</span>
+              <div class="btn-group" role="group">
+                <button class="btn btn-outline-secondary chart-type-btn active" id="cost-ratio-pie" onclick="setCostRatioChart('pie')">圓餅</button>
+                <button class="btn btn-outline-secondary chart-type-btn" id="cost-ratio-bar" onclick="setCostRatioChart('bar')">直條</button>
+                <button class="btn btn-outline-secondary chart-type-btn" id="cost-ratio-line" onclick="setCostRatioChart('line')">折線</button>
+              </div>
+            </div>
+            <div class="p-3" style="overflow-x:auto; min-height:260px;">
+              <canvas id="cost-ratio-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- ⑥ 每日消耗量趨勢 -->
+        <div class="col-12 col-lg-6">
+          <div class="table-card h-100">
+            <div class="table-header">
+              <span class="fw-semibold">📉 每日消耗量</span>
+              <div class="d-flex gap-2 align-items-center">
+                <select id="consumption-item" class="form-select form-select-sm" style="width:auto;" onchange="renderConsumptionChart()">
+                  <option value="">選擇品項</option>
+                </select>
+                <div class="btn-group" role="group">
+                  <button class="btn btn-outline-secondary chart-type-btn active" id="cons-bar" onclick="setConsumptionChart('bar')">直條</button>
+                  <button class="btn btn-outline-secondary chart-type-btn" id="cons-line" onclick="setConsumptionChart('line')">折線</button>
+                  <button class="btn btn-outline-secondary chart-type-btn" id="cons-pie" onclick="setConsumptionChart('pie')">圓餅</button>
+                </div>
+              </div>
+            </div>
+            <div class="p-3" style="overflow-x:auto; min-height:260px;">
+              <canvas id="consumption-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- ⑦ 明細表格 + 導出 -->
+        <div class="col-12">
+          <div class="table-card">
+            <div class="table-header">
+              <span class="fw-semibold">明細資料</span>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-success" onclick="exportExcel()">⬇ 匯出 Excel</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="exportCSV()">⬇ 匯出 CSV</button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>日期</th><th>品項</th><th>進貨量</th><th>進貨成本</th>
+                    <th>單位成本</th><th>售價</th><th id="report-margin-header">毛利率</th>
+                    <th>耗損量</th><th>庫存</th><th>實際消耗量</th>
+                  </tr>
+                </thead>
+                <tbody id="report-table">
+                  <tr><td colspan="10" class="text-center text-muted py-4">請設定條件後查詢</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+    let currentProfile = null;
+    let reportData = [];
+    let safetyData = [];
+
+    // 各圖表實例 & 當前類型
+    let charts = { cost: null, waste: null, costRatio: null, consumption: null };
+    let chartTypes = { cost: 'line', waste: 'bar', costRatio: 'pie', consumption: 'bar' };
+
+    // 調色盤
+    const PALETTE = ['#2563eb','#f97316','#16a34a','#dc2626','#8b5cf6','#0891b2','#ca8a04','#db2777','#059669','#7c3aed'];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await requireAdmin();
+      injectNav();
+      const data = await renderUserInfo();
+      currentProfile = data.profile;
+      filterNavByRole(currentProfile.role);
+
+      const now = new Date();
+      const firstDay = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+      document.getElementById('date-from').value = firstDay;
+      document.getElementById('date-to').value = now.toISOString().slice(0,10);
+
+      if (currentProfile.role === 'admin') {
+        await loadStores();
+        document.getElementById('store-wrap').classList.remove('d-none');
+      } else {
+        // 非 admin：鎖定毛利率欄標題，隱藏成本佔比圖（會暴露毛利資訊）
+        const mh = document.getElementById('report-margin-header');
+        if (mh) mh.innerHTML = '🔒';
+        const costRatioCard = document.getElementById('cost-ratio-card');
+        if (costRatioCard) costRatioCard.style.display = 'none';
+      }
+      await loadItemsFilter();
+      await loadSafetyData();
+      await loadReport();
+    });
+
+    async function loadStores() {
+      const { data } = await supabase.from('stores').select('id, name').order('name');
+      document.getElementById('store-filter').insertAdjacentHTML('beforeend',
+        (data||[]).map(s=>`<option value="${s.id}">${s.name}</option>`).join(''));
+    }
+
+    async function loadItemsFilter() {
+      const storeId = currentProfile.store_id;
+      let q = supabase.from('items').select('id, name, unit').eq('is_active', true).order('name');
+      if (storeId) q = q.eq('store_id', storeId);
+      const { data } = await q;
+      const opts = (data||[]).map(i=>`<option value="${i.id}">${i.name}</option>`).join('');
+      document.getElementById('item-filter').insertAdjacentHTML('beforeend', opts);
+      document.getElementById('consumption-item').insertAdjacentHTML('beforeend', opts);
+    }
+
+    // ============================================================
+    // 安全庫存建議
+    // ============================================================
+    async function loadSafetyData() {
+      const days = parseInt(document.getElementById('analysis-days').value);
+      const storeId = currentProfile.store_id;
+      const fromDate = new Date(); fromDate.setDate(fromDate.getDate() - days);
+      const fromStr = fromDate.toISOString().slice(0, 10);
+
+      let q = supabase.from('inventory_records')
+        .select('item_id, record_date, purchase_qty, waste_qty, current_stock, items(name, unit, min_stock_qty)')
+        .gte('record_date', fromStr).order('record_date');
+      if (storeId) q = q.eq('store_id', storeId);
+      const { data: records } = await q;
+
+      let qPrev = supabase.from('inventory_records')
+        .select('item_id, current_stock, record_date')
+        .lt('record_date', fromStr).order('record_date', { ascending: false }).limit(200);
+      if (storeId) qPrev = qPrev.eq('store_id', storeId);
+      const { data: prevRecords } = await qPrev;
+
+      const prevMap = {};
+      (prevRecords||[]).forEach(r => { if (!prevMap[r.item_id]) prevMap[r.item_id] = r; });
+
+      const latestMap = {};
+      (records||[]).forEach(r => {
+        if (!latestMap[r.item_id] || r.record_date > latestMap[r.item_id].record_date) latestMap[r.item_id] = r;
+      });
+
+      const byItem = {};
+      (records||[]).forEach(r => {
+        if (!byItem[r.item_id]) byItem[r.item_id] = { meta: r.items, records: [] };
+        byItem[r.item_id].records.push(r);
+      });
+
+      safetyData = Object.entries(byItem).map(([itemId, { meta, records }]) => {
+        records.sort((a, b) => a.record_date.localeCompare(b.record_date));
+        let totalConsumption = 0, consumptionCount = 0;
+        for (let i = 0; i < records.length; i++) {
+          const prevStock = i === 0 ? prevMap[itemId]?.current_stock : records[i-1].current_stock;
+          if (prevStock != null) {
+            const c = parseFloat(prevStock) + (records[i].purchase_qty||0) - (records[i].waste_qty||0) - (records[i].current_stock||0);
+            if (c >= 0) { totalConsumption += c; consumptionCount++; }
+          }
+        }
+        const avgDaily = consumptionCount > 0 ? totalConsumption / days : null;
+        return {
+          itemId, name: meta?.name||'—', unit: meta?.unit||'',
+          currentMinStock: meta?.min_stock_qty||0,
+          currentStock: latestMap[itemId]?.current_stock ?? null,
+          avgDaily, totalConsumption, daysAnalyzed: days
+        };
+      });
+      renderSafetyTable();
+    }
+
+    function renderSafetyTable() {
+      const reorderDays = parseFloat(document.getElementById('reorder-days').value) || 3;
+      const tbody = document.getElementById('safety-table');
+      if (!safetyData.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">無資料，請先新增每日記錄</td></tr>';
+        return;
+      }
+      tbody.innerHTML = safetyData.map(d => {
+        const suggested = d.avgDaily !== null ? Math.ceil(d.avgDaily * reorderDays * 10) / 10 : null;
+        const daysLeft = (d.avgDaily && d.currentStock !== null && d.avgDaily > 0) ? Math.floor(d.currentStock / d.avgDaily) : null;
+        let badge = '<span class="badge bg-secondary">無資料</span>';
+        if (suggested !== null) {
+          const diff = suggested - d.currentMinStock;
+          badge = Math.abs(diff) < 0.5
+            ? '<span class="badge bg-success">✅ 合理</span>'
+            : diff > 0
+              ? `<span class="badge bg-danger">🔺 建議提高 +${diff.toFixed(1)}</span>`
+              : `<span class="badge bg-info text-dark">🔻 可調降 ${diff.toFixed(1)}</span>`;
+        }
+        const daysHtml = daysLeft === null ? '—'
+          : daysLeft <= reorderDays ? `<span class="text-danger fw-bold">${daysLeft} 天 ⚠️</span>`
+          : `<span class="text-success">${daysLeft} 天</span>`;
+        return `<tr>
+          <td><strong>${d.name}</strong></td>
+          <td>${d.avgDaily !== null ? d.avgDaily.toFixed(2)+' '+d.unit+'/天' : '—'}</td>
+          <td><strong class="text-primary">${suggested !== null ? suggested+' '+d.unit : '—'}</strong></td>
+          <td>${d.currentMinStock} ${d.unit}</td>
+          <td>${badge}</td>
+          <td>${d.currentStock !== null ? d.currentStock+' '+d.unit : '—'}</td>
+          <td>${daysHtml}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ============================================================
+    // 報表查詢
+    // ============================================================
+    async function loadReport() {
+      const from = document.getElementById('date-from').value;
+      const to = document.getElementById('date-to').value;
+      const storeId = currentProfile.role === 'admin'
+        ? document.getElementById('store-filter').value || null : currentProfile.store_id;
+      const itemId = document.getElementById('item-filter').value || null;
+
+      const fromPrev = from ? new Date(new Date(from).getTime()-86400000).toISOString().slice(0,10) : null;
+
+      let q = supabase.from('inventory_records')
+        .select('*, items(name, unit, selling_price)')
+        .order('record_date').order('created_at');
+      if (fromPrev) q = q.gte('record_date', fromPrev);
+      if (to) q = q.lte('record_date', to);
+      if (storeId) q = q.eq('store_id', storeId);
+      if (itemId) q = q.eq('item_id', itemId);
+
+      const { data: allData } = await q;
+
+      const byItem = {};
+      (allData||[]).forEach(r => {
+        if (!byItem[r.item_id]) byItem[r.item_id] = [];
+        byItem[r.item_id].push(r);
+      });
+
+      reportData = [];
+      Object.values(byItem).forEach(records => {
+        records.sort((a,b) => a.record_date.localeCompare(b.record_date)||a.created_at.localeCompare(b.created_at));
+        records.forEach((r, i) => {
+          if (from && r.record_date < from) return;
+          const unitCost = calcCostPerUnit(r.purchase_cost, r.purchase_qty);
+          const margin = calcGrossMargin(r.items?.selling_price, unitCost);
+          let consumption = null;
+          if (i > 0) {
+            const c = parseFloat(records[i-1].current_stock)+(r.purchase_qty||0)-(r.waste_qty||0)-(r.current_stock||0);
+            if (c >= 0) consumption = c;
+          }
+          reportData.push({ ...r, unitCost, margin, consumption });
+        });
+      });
+      reportData.sort((a,b) => a.record_date.localeCompare(b.record_date));
+
+      renderReportTable();
+      renderCostChart();
+      renderWasteChart();
+      renderCostRatioChart();
+      renderConsumptionChart();
+    }
+
+    // ============================================================
+    // 圖表切換按鈕邏輯
+    // ============================================================
+    function setActiveBtn(prefix, type) {
+      ['line','bar','pie'].forEach(t => {
+        const btn = document.getElementById(`${prefix}-${t}`);
+        if (btn) btn.classList.toggle('active', t === type);
+      });
+    }
+
+    function setCostChart(type) {
+      chartTypes.cost = type; setActiveBtn('cost', type); renderCostChart();
+    }
+    function setWasteChart(type) {
+      chartTypes.waste = type; setActiveBtn('waste', type === 'bar' ? 'bar' : type === 'line' ? 'line' : 'pie'); renderWasteChart();
+    }
+    function setCostRatioChart(type) {
+      chartTypes.costRatio = type; setActiveBtn('cost-ratio', type); renderCostRatioChart();
+    }
+    function setConsumptionChart(type) {
+      chartTypes.consumption = type;
+      ['bar','line','pie'].forEach(t => { const el = document.getElementById(`cons-${t}`); if(el) el.classList.toggle('active', t===type); });
+      renderConsumptionChart();
+    }
+
+    // ============================================================
+    // 進貨成本圖
+    // ============================================================
+    function renderCostChart() {
+      if (charts.cost) charts.cost.destroy();
+      const type = chartTypes.cost;
+
+      if (type === 'pie') {
+        // 圓餅：各品項進貨成本佔比
+        const byItem = {};
+        reportData.forEach(r => {
+          const name = r.items?.name || '未知';
+          byItem[name] = (byItem[name]||0) + (r.purchase_cost||0);
+        });
+        const labels = Object.keys(byItem);
+        const values = labels.map(l => byItem[l]);
+        charts.cost = new Chart(document.getElementById('cost-chart'), {
+          type: 'pie',
+          data: { labels, datasets: [{ data: values, backgroundColor: PALETTE.slice(0, labels.length) }] },
+          options: { responsive: true, plugins: { legend: { position: 'right' } } }
+        });
+      } else {
+        // 折線 / 直條：依日期
+        const daily = {};
+        reportData.forEach(r => { daily[r.record_date] = (daily[r.record_date]||0) + (r.purchase_cost||0); });
+        const labels = Object.keys(daily).sort();
+        charts.cost = new Chart(document.getElementById('cost-chart'), {
+          type,
+          data: {
+            labels: labels.map(d => d.slice(5)),
+            datasets: [{ label: '進貨成本（元）', data: labels.map(d => daily[d]),
+              borderColor: '#2563eb', backgroundColor: type === 'line' ? 'rgba(37,99,235,0.08)' : '#2563eb',
+              fill: type === 'line', tension: 0.3, borderRadius: 4 }]
+          },
+          options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+      }
+    }
+
+    // ============================================================
+    // 耗損分析圖
+    // ============================================================
+    function renderWasteChart() {
+      if (charts.waste) charts.waste.destroy();
+      const type = chartTypes.waste;
+
+      const byItem = {};
+      reportData.forEach(r => {
+        const name = r.items?.name || '未知';
+        byItem[name] = (byItem[name]||0) + (r.waste_qty||0);
+      });
+      const sorted = Object.entries(byItem).sort((a,b)=>b[1]-a[1]).slice(0,10);
+      const labels = sorted.map(i=>i[0]);
+      const values = sorted.map(i=>i[1]);
+
+      if (type === 'pie') {
+        charts.waste = new Chart(document.getElementById('waste-chart'), {
+          type: 'pie',
+          data: { labels, datasets: [{ data: values, backgroundColor: PALETTE.slice(0, labels.length) }] },
+          options: { responsive: true, plugins: { legend: { position: 'right' } } }
+        });
+      } else {
+        charts.waste = new Chart(document.getElementById('waste-chart'), {
+          type: type === 'line' ? 'line' : 'bar',
+          data: {
+            labels,
+            datasets: [{ label: '耗損量', data: values,
+              borderColor: '#f97316', backgroundColor: type === 'line' ? 'rgba(249,115,22,0.1)' : '#f97316',
+              fill: type === 'line', tension: 0.3, borderRadius: 4 }]
+          },
+          options: {
+            indexAxis: type === 'bar' ? 'y' : 'x',
+            responsive: true, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } }
+          }
+        });
+      }
+    }
+
+    // ============================================================
+    // 各品項成本佔比圖
+    // ============================================================
+    function renderCostRatioChart() {
+      if (charts.costRatio) charts.costRatio.destroy();
+      const type = chartTypes.costRatio;
+
+      const byItem = {};
+      reportData.forEach(r => {
+        const name = r.items?.name || '未知';
+        byItem[name] = (byItem[name]||0) + (r.purchase_cost||0);
+      });
+      const labels = Object.keys(byItem);
+      const values = labels.map(l => byItem[l]);
+
+      if (type === 'pie') {
+        charts.costRatio = new Chart(document.getElementById('cost-ratio-chart'), {
+          type: 'pie',
+          data: { labels, datasets: [{ data: values, backgroundColor: PALETTE.slice(0, labels.length) }] },
+          options: { responsive: true, plugins: { legend: { position: 'right' } } }
+        });
+      } else {
+        charts.costRatio = new Chart(document.getElementById('cost-ratio-chart'), {
+          type: type === 'line' ? 'line' : 'bar',
+          data: {
+            labels,
+            datasets: [{ label: '進貨成本', data: values,
+              borderColor: PALETTE[0], backgroundColor: type === 'line' ? 'rgba(37,99,235,0.08)' : PALETTE.slice(0, labels.length),
+              fill: type === 'line', tension: 0.3, borderRadius: 4 }]
+          },
+          options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+      }
+    }
+
+    // ============================================================
+    // 每日消耗量趨勢
+    // ============================================================
+    function renderConsumptionChart() {
+      if (charts.consumption) charts.consumption.destroy();
+      const itemId = document.getElementById('consumption-item').value;
+      if (!itemId) return;
+
+      const type = chartTypes.consumption;
+      const filtered = reportData.filter(r => r.item_id === itemId && r.consumption !== null);
+
+      if (type === 'pie') {
+        // 圓餅：把日期當 label，消耗量當 value
+        const labels = filtered.map(r => r.record_date.slice(5));
+        const values = filtered.map(r => r.consumption);
+        charts.consumption = new Chart(document.getElementById('consumption-chart'), {
+          type: 'pie',
+          data: { labels, datasets: [{ data: values, backgroundColor: PALETTE.slice(0, labels.length) }] },
+          options: { responsive: true, plugins: { legend: { position: 'right' } } }
+        });
+      } else {
+        const labels = filtered.map(r => r.record_date.slice(5));
+        const values = filtered.map(r => r.consumption);
+        charts.consumption = new Chart(document.getElementById('consumption-chart'), {
+          type: type === 'line' ? 'line' : 'bar',
+          data: {
+            labels,
+            datasets: [{ label: '實際消耗量', data: values,
+              borderColor: '#ca8a04', backgroundColor: type === 'line' ? 'rgba(202,138,4,0.1)' : 'rgba(234,179,8,0.7)',
+              fill: type === 'line', tension: 0.3, borderRadius: 4 }]
+          },
+          options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+      }
+    }
+
+    // ============================================================
+    // 明細表格
+    // ============================================================
+    function renderReportTable() {
+      const tbody = document.getElementById('report-table');
+      if (!reportData.length) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">此區間無資料</td></tr>';
+        return;
+      }
+      const isAdmin = currentProfile?.role === 'admin';
+      tbody.innerHTML = reportData.map(r => {
+        const mCls = r.margin===null?'':parseFloat(r.margin)>=50?'margin-high':parseFloat(r.margin)>=30?'margin-mid':'margin-low';
+        const marginCell = isAdmin
+          ? `<span class="${mCls}">${r.margin!==null?r.margin+'%':'—'}</span>`
+          : '<span title="僅管理員可查看" style="font-size:1rem;">🔒</span>';
+        return `<tr>
+          <td>${r.record_date}</td>
+          <td>${r.items?.name||'—'}</td>
+          <td>${r.purchase_qty} ${r.items?.unit||''}</td>
+          <td>$${formatNumber(r.purchase_cost)}</td>
+          <td>$${formatNumber(r.unitCost,2)}</td>
+          <td>$${formatNumber(r.items?.selling_price,0)}</td>
+          <td>${marginCell}</td>
+          <td>${r.waste_qty} ${r.items?.unit||''}</td>
+          <td>${r.current_stock} ${r.items?.unit||''}</td>
+          <td>${r.consumption!==null?r.consumption.toFixed(2)+' '+(r.items?.unit||''):'<span class="text-muted">—</span>'}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ============================================================
+    // 導出
+    // ============================================================
+    function exportExcel() {
+      if (!reportData.length) { showToast('沒有資料可導出','warning'); return; }
+      const rows = reportData.map(r => ({
+        '日期':r.record_date,'品項':r.items?.name||'','進貨數量':r.purchase_qty,
+        '進貨成本':r.purchase_cost,'單位成本':r.unitCost,'售價':r.items?.selling_price||'',
+        '毛利率(%)':r.margin||'','耗損量':r.waste_qty,'當前庫存':r.current_stock,
+        '實際消耗量':r.consumption??'','備註':r.notes||''
+      }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '成本記錄');
+
+      const reorderDays = parseFloat(document.getElementById('reorder-days').value)||3;
+      const safetyRows = safetyData.map(d => ({
+        '品項':d.name,'單位':d.unit,'日均消耗量':d.avgDaily?.toFixed(2)||'',
+        '建議安全庫存':d.avgDaily?Math.ceil(d.avgDaily*reorderDays*10)/10:'',
+        '目前設定值':d.currentMinStock,'當前庫存':d.currentStock??''
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(safetyRows), '安全庫存建議');
+      XLSX.writeFile(wb, `成本記錄_${document.getElementById('date-from').value}_${document.getElementById('date-to').value}.xlsx`);
+    }
+
+    function exportCSV() {
+      if (!reportData.length) { showToast('沒有資料可導出','warning'); return; }
+      const headers = ['日期','品項','進貨數量','進貨成本','單位成本','售價','毛利率(%)','耗損量','當前庫存','實際消耗量','備註'];
+      const rows = reportData.map(r => [
+        r.record_date,r.items?.name||'',r.purchase_qty,r.purchase_cost,r.unitCost,
+        r.items?.selling_price||'',r.margin||'',r.waste_qty,r.current_stock,r.consumption??'',r.notes||''
+      ]);
+      const csv = [headers,...rows].map(r=>r.join(',')).join('\n');
+      const a = Object.assign(document.createElement('a'),{
+        href: URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'})),
+        download:`成本記錄_${document.getElementById('date-from').value}_${document.getElementById('date-to').value}.csv`
+      });
+      a.click();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>朝日鮮蔬 進貨明細分析 ─ 烽味火鍋富民店</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Noto Sans TC", sans-serif; background: #f5f5f0; color: #222; font-size: 14px; padding: 20px; }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; color: #1a1a1a; }
+  .subtitle { color: #666; font-size: 13px; margin-bottom: 20px; }
+  h2 { font-size: 15px; font-weight: 700; margin: 28px 0 10px; border-left: 4px solid #d97706; padding-left: 10px; color: #78350f; }
+  table { border-collapse: collapse; width: 100%; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.12); margin-bottom: 8px; }
+  th { background: #78350f; color: #fff; padding: 8px 10px; text-align: center; font-size: 13px; white-space: nowrap; }
+  td { padding: 7px 10px; border-bottom: 1px solid #eee; text-align: center; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fef9f0; }
+  .item-name { text-align: left; font-weight: 500; }
+  .num { font-variant-numeric: tabular-nums; }
+  .total-row td { background: #fef3c7; font-weight: 700; }
+  .uncertain { color: #999; font-style: italic; }
+  .tag-stable { background: #d1fae5; color: #065f46; padding: 1px 6px; border-radius: 10px; font-size: 11px; }
+  .tag-up { background: #fee2e2; color: #991b1b; padding: 1px 6px; border-radius: 10px; font-size: 11px; }
+  .tag-down { background: #dbeafe; color: #1e3a8a; padding: 1px 6px; border-radius: 10px; font-size: 11px; }
+  .badge { display: inline-block; min-width: 50px; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+  .price-cell { font-weight: 600; }
+  .note { font-size: 11px; color: #999; margin-top: 4px; }
+  .sep { background: #f3f4f6; }
+  .highlight-change { background: #fef3c7; }
+  .summary-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .summary-card { background: #fff; border-radius: 8px; padding: 12px 18px; box-shadow: 0 1px 3px rgba(0,0,0,.1); flex: 1; min-width: 150px; }
+  .summary-card .label { font-size: 12px; color: #666; margin-bottom: 4px; }
+  .summary-card .value { font-size: 22px; font-weight: 700; color: #78350f; }
+  .summary-card .sub { font-size: 11px; color: #999; }
+  .section-note { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 4px; padding: 8px 12px; font-size: 12px; color: #92400e; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<h1>朝日鮮蔬 進貨明細分析</h1>
+<div class="subtitle">烽味火鍋富民店（Z063）｜統計期間：2026/06/02 – 2026/06/18｜資料來源：銷貨明細表 PDF（15 張單據 / 20 頁）</div>
+
+<!-- ── 總覽卡片 ── -->
+<div class="summary-bar">
+  <div class="summary-card">
+    <div class="label">月合計進貨金額</div>
+    <div class="value">$41,780</div>
+    <div class="sub">06/02 ~ 06/18（15 次進貨）</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">進貨次數</div>
+    <div class="value">15</div>
+    <div class="sub">平均 $2,785 / 次</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">最高單次金額</div>
+    <div class="value">$5,433</div>
+    <div class="sub">06/14</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">最低單次金額</div>
+    <div class="value">$527</div>
+    <div class="sub">06/04</div>
+  </div>
+</div>
+
+<!-- ── Section 1：每次進貨總覽 ── -->
+<h2>① 每次進貨總覽（依日期）</h2>
+<table>
+  <thead>
+    <tr>
+      <th>日期</th>
+      <th>單號</th>
+      <th>頁數</th>
+      <th>項目數</th>
+      <th>進貨金額（元）</th>
+      <th>備註</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>06/02</td><td>GS0012606020026</td><td>1/1</td><td>14</td><td class="num">2,220</td><td></td></tr>
+    <tr><td>06/03</td><td>GS0012606030028</td><td>1/1</td><td>11</td><td class="num">1,477</td><td></td></tr>
+    <tr><td>06/04</td><td>GS0012606040011</td><td>1/1</td><td>3</td><td class="num">527</td><td>少量補貨</td></tr>
+    <tr><td>06/05</td><td>GS0012606050030</td><td>1/1</td><td>10</td><td class="num">2,031</td><td></td></tr>
+    <tr><td>06/06</td><td>GS0012606060023</td><td>2/2</td><td>19</td><td class="num">4,272</td><td>週末大量進貨</td></tr>
+    <tr><td>06/07</td><td>GS0012606070020</td><td>2/2</td><td>22</td><td class="num">4,523</td><td>週末大量進貨</td></tr>
+    <tr><td>06/09</td><td>GS0012606090033</td><td>2/2</td><td>18</td><td class="num">3,862</td><td></td></tr>
+    <tr><td>06/10</td><td>GS0012606100034</td><td>1/1</td><td>6</td><td class="num">960</td><td>少量補貨</td></tr>
+    <tr><td>06/11</td><td>GS0012606110021</td><td>1/1</td><td>11</td><td class="num">1,982</td><td></td></tr>
+    <tr><td>06/12</td><td>GS0012606120033</td><td>1/1</td><td>12</td><td class="num">2,209</td><td></td></tr>
+    <tr><td>06/13</td><td>GS0012606130013</td><td>1/1</td><td>14</td><td class="num">3,058</td><td></td></tr>
+    <tr><td>06/14</td><td>GS0012606140021</td><td>2/2</td><td>27</td><td class="num">5,433</td><td>⚠️ 本月最高</td></tr>
+    <tr><td>06/16</td><td>GS0012606160031</td><td>2/2</td><td>19</td><td class="num">3,717</td><td></td></tr>
+    <tr><td>06/17</td><td>GS0012606170044</td><td>1/1</td><td>12</td><td class="num">3,055</td><td></td></tr>
+    <tr><td>06/18</td><td>GS0012606180037</td><td>1/1</td><td>10</td><td class="num">2,454</td><td></td></tr>
+    <tr class="total-row">
+      <td colspan="4">合計</td>
+      <td class="num">41,780</td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+<div class="note">＊ 06/08、06/15 無進貨（休假或無需補貨）</div>
+
+<!-- ── Section 2：各品項進貨明細（含量與單價）── -->
+<h2>② 各品項進貨明細（依品名 × 日期）</h2>
+<div class="section-note">格式：進貨量 / 單價（元/斤）。灰底為當次無進貨。⚑ 表示單價有變動，需注意。</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>品名</th>
+      <th>單位</th>
+      <th>06/02</th><th>06/03</th><th>06/04</th><th>06/05</th><th>06/06</th>
+      <th>06/07</th><th>06/09</th><th>06/10</th><th>06/11</th><th>06/12</th>
+      <th>06/13</th><th>06/14</th><th>06/16</th><th>06/17</th><th>06/18</th>
+      <th>單價趨勢</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <!-- 蔬菜類 -->
+    <tr class="sep"><td colspan="17" style="text-align:left;font-weight:700;padding:6px 10px;color:#555">🥬 蔬菜類</td></tr>
+
+    <tr>
+      <td class="item-name">高山高麗菜*修</td><td>斤</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">2斤11兩<br>@28</td>
+      <td class="price-cell">~3斤<br>@28</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell highlight-change">~2斤<br>@25⚑</td>
+      <td class="price-cell">2斤1兩<br>@28</td>
+      <td class="price-cell">7斤6兩<br>@28</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td>
+      <td><span class="tag-stable">28 穩定</span><br><span class="tag-down">06/13 降至 25</span></td>
+    </tr>
+
+    <tr>
+      <td class="item-name">洋蔥(大)</td><td>斤</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">20斤9兩<br>@25</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell highlight-change">1斤5兩<br>@20⚑</td>
+      <td class="price-cell">~1.5斤<br>@20</td>
+      <td class="uncertain">—</td>
+      <td><span class="tag-down">25→20 降價</span></td>
+    </tr>
+
+    <tr>
+      <td class="item-name">空心菜</td><td>斤</td>
+      <td class="uncertain">—</td>
+      <td class="price-cell">2斤<br>@90</td>
+      <td class="uncertain">—</td>
+      <td class="price-cell">2斤<br>@90</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">5斤<br>@27</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td><span class="tag-up">06/09 降至 27<br>（可能品種不同）</span></td>
+    </tr>
+
+    <tr>
+      <td class="item-name">美生菜</td><td>斤</td>
+      <td class="price-cell">10斤<br>@30</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td><span class="tag-stable">僅見 06/02</span></td>
+    </tr>
+
+    <tr>
+      <td class="item-name">木瓜</td><td>斤</td>
+      <td class="uncertain">—</td>
+      <td class="price-cell">~2斤<br>@48</td>
+      <td class="uncertain">—</td>
+      <td class="price-cell">2斤7兩<br>@48</td>
+      <td class="price-cell">1斤15兩<br>@48</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">1斤9兩<br>@48</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">4斤12兩<br>@48</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td>
+      <td><span class="tag-stable">48 穩定</span></td>
+    </tr>
+
+    <tr>
+      <td class="item-name">大白菜</td><td>斤</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">0斤12兩<br>@25</td>
+      <td class="uncertain">—</td>
+      <td class="price-cell">~2斤<br>@25</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td><span class="tag-stable">25 穩定</span></td>
+    </tr>
+
+    <!-- 菌菇類 -->
+    <tr class="sep"><td colspan="17" style="text-align:left;font-weight:700;padding:6px 10px;color:#555">🍄 菌菇類</td></tr>
+
+    <tr>
+      <td class="item-name">日本草菇</td><td>斤</td>
+      <td class="price-cell highlight-change">14斤<br>@16</td>
+      <td class="price-cell highlight-change">~5斤<br>@45⚑</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">10斤2兩<br>@45</td>
+      <td class="price-cell">~10斤<br>@45</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">~10斤<br>@30</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td><span class="tag-up">16→45 大漲⚠️</span></td>
+    </tr>
+
+    <tr>
+      <td class="item-name">日本草菇*修（已修剪）</td><td>斤</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">10斤7兩<br>@27</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td><span class="note">帶修剪加工，<br>單價 @27</span></td>
+    </tr>
+
+    <tr>
+      <td class="item-name">黑木耳（濕）</td><td>斤</td>
+      <td class="price-cell">8斤3兩<br>@27</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td><span class="tag-stable">僅見 06/02</span></td>
+    </tr>
+
+    <!-- 豆腐類 -->
+    <tr class="sep"><td colspan="17" style="text-align:left;font-weight:700;padding:6px 10px;color:#555">🥛 豆腐類</td></tr>
+
+    <tr>
+      <td class="item-name">日本豆腐</td><td>斤</td>
+      <td class="price-cell">10斤<br>@26</td>
+      <td class="price-cell">~1斤<br>@23</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell highlight-change">~5斤<br>@25⚑</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell highlight-change">~5斤<br>@23⚑</td>
+      <td class="uncertain">—</td>
+      <td class="price-cell">~2斤<br>@25</td>
+      <td class="uncertain">—</td>
+      <td class="price-cell">~10斤<br>@27</td>
+      <td class="uncertain">—</td>
+      <td><span class="tag-down">26→23 小幅波動</span></td>
+    </tr>
+
+    <tr>
+      <td class="item-name">土生豆腐</td><td>斤</td>
+      <td class="price-cell">1斤<br>@125</td>
+      <td class="price-cell highlight-change">~2斤<br>@150⚑</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">~2斤<br>@150</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">~2斤<br>@150</td>
+      <td class="price-cell">~2斤<br>@150</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td><span class="tag-up">125→150 漲價⚠️</span></td>
+    </tr>
+
+    <tr>
+      <td class="item-name">豆腐 A</td><td>斤</td>
+      <td class="price-cell highlight-change">~3斤<br>@40</td>
+      <td class="price-cell">5斤<br>@28</td>
+      <td class="uncertain">—</td>
+      <td class="price-cell">1斤<br>@90</td>
+      <td class="price-cell highlight-change">5斤<br>@28⚑</td>
+      <td class="uncertain">—</td>
+      <td class="price-cell">~0.5斤<br>@90</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">5斤<br>@28</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td><span class="tag-up">單價不穩：<br>28 / 40 / 90</span></td>
+    </tr>
+
+    <tr>
+      <td class="item-name">玉米豆腐</td><td>斤</td>
+      <td class="uncertain">—</td>
+      <td class="price-cell">10斤<br>@25</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">20斤<br>@25</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td><span class="tag-stable">25 穩定</span></td>
+    </tr>
+
+    <tr>
+      <td class="item-name">日本豆腐（匣）</td><td>匣</td>
+      <td class="price-cell">3匣<br>@28</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">~2匣<br>@25</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td><span class="note">小計單位匣</span></td>
+    </tr>
+
+    <!-- 海鮮類 -->
+    <tr class="sep"><td colspan="17" style="text-align:left;font-weight:700;padding:6px 10px;color:#555">🦐 海鮮類</td></tr>
+
+    <tr>
+      <td class="item-name">活蝦</td><td>斤</td>
+      <td class="price-cell">1斤<br>@400</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">~1斤<br>@400</td>
+      <td class="price-cell">~1斤<br>@400</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">~2斤<br>@400</td>
+      <td class="price-cell">1斤<br>@400</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td>
+      <td><span class="tag-stable">400 穩定</span></td>
+    </tr>
+
+    <!-- 火鍋料 -->
+    <tr class="sep"><td colspan="17" style="text-align:left;font-weight:700;padding:6px 10px;color:#555">🍢 火鍋料</td></tr>
+
+    <tr>
+      <td class="item-name">福州丸</td><td>斤</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">3斤<br>@105</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">~3斤<br>@105</td>
+      <td class="price-cell">2斤<br>@105</td>
+      <td class="price-cell">3斤<br>@105</td>
+      <td class="uncertain">—</td>
+      <td><span class="tag-stable">105 穩定</span></td>
+    </tr>
+
+    <tr>
+      <td class="item-name">竹輪（or 花枝類）</td><td>斤</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">3斤4兩<br>@55</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td class="price-cell">~3斤<br>@55</td>
+      <td class="uncertain">—</td><td class="uncertain">—</td><td class="uncertain">—</td>
+      <td><span class="tag-stable">55 穩定</span></td>
+    </tr>
+
+  </tbody>
+</table>
+<div class="note">＊ 標示「—」表示該日未購買此品項。「~」數量為估算值（部分掃描模糊）。⚑ 單價與前次不同，建議核查。</div>
+<div class="note" style="margin-top:4px">＊ 「豆腐A」單價差異大（28/40/90），懷疑可能是三種不同品項，建議向供應商確認明細。</div>
+
+<!-- ── Section 3：各品項單價快速比對 ── -->
+<h2>③ 重點品項單價波動一覽</h2>
+<table>
+  <thead>
+    <tr>
+      <th>品名</th>
+      <th>出現日期</th>
+      <th>單價區間（元/斤）</th>
+      <th>波動幅度</th>
+      <th>注意事項</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="item-name">土生豆腐</td>
+      <td>06/02, 06/03, 06/09, 06/13, 06/14</td>
+      <td class="num price-cell">125 → 150</td>
+      <td><span class="tag-up">+25（+20%）⚠️</span></td>
+      <td>06/02 單次 125，此後統一 150</td>
+    </tr>
+    <tr>
+      <td class="item-name">日本草菇</td>
+      <td>06/02, 06/03, 06/06, 06/07, 06/11</td>
+      <td class="num price-cell">16 → 45</td>
+      <td><span class="tag-up">+29（+181%）🚨</span></td>
+      <td>06/02 特低（16），懷疑為特殊品或殘貨，後續穩定在 45</td>
+    </tr>
+    <tr>
+      <td class="item-name">高山高麗菜*修</td>
+      <td>06/06, 06/07, 06/13, 06/14, 06/16</td>
+      <td class="num price-cell">25 ~ 28</td>
+      <td><span class="tag-down">06/13 降至 25</span></td>
+      <td>多數 28，06/13 曾降到 25，可詢問原因</td>
+    </tr>
+    <tr>
+      <td class="item-name">日本豆腐</td>
+      <td>06/02, 06/03, 06/07, 06/12, 06/14, 06/17</td>
+      <td class="num price-cell">23 ~ 27</td>
+      <td><span class="tag-down">微幅下降</span></td>
+      <td>整體趨勢小幅波動，尚在合理範圍</td>
+    </tr>
+    <tr>
+      <td class="item-name">活蝦</td>
+      <td>06/02, 06/05, 06/06, 06/14, 06/16</td>
+      <td class="num price-cell">400</td>
+      <td><span class="tag-stable">完全穩定</span></td>
+      <td>5 次進貨均為 400/斤</td>
+    </tr>
+    <tr>
+      <td class="item-name">木瓜</td>
+      <td>06/03, 06/05, 06/06, 06/12, 06/16</td>
+      <td class="num price-cell">48</td>
+      <td><span class="tag-stable">完全穩定</span></td>
+      <td>5 次進貨均為 48/斤</td>
+    </tr>
+    <tr>
+      <td class="item-name">福州丸</td>
+      <td>06/06, 06/14, 06/16, 06/17</td>
+      <td class="num price-cell">105</td>
+      <td><span class="tag-stable">完全穩定</span></td>
+      <td>4 次進貨均為 105/斤</td>
+    </tr>
+    <tr>
+      <td class="item-name">洋蔥(大)</td>
+      <td>06/06, 06/16, 06/17</td>
+      <td class="num price-cell">20 ~ 25</td>
+      <td><span class="tag-down">25→20 降價</span></td>
+      <td>06/06 為 25，後兩次為 20</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ── Section 4：進貨金額趨勢 ── -->
+<h2>④ 進貨金額趨勢（每日）</h2>
+<table>
+  <thead>
+    <tr>
+      <th>日期</th>
+      <th>06/02</th><th>06/03</th><th>06/04</th><th>06/05</th><th>06/06</th><th>06/07</th><th>06/08</th>
+      <th>06/09</th><th>06/10</th><th>06/11</th><th>06/12</th><th>06/13</th><th>06/14</th><th>06/15</th>
+      <th>06/16</th><th>06/17</th><th>06/18</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>金額</td>
+      <td>2,220</td><td>1,477</td><td>527</td><td>2,031</td>
+      <td style="font-weight:700">4,272</td><td style="font-weight:700">4,523</td>
+      <td class="uncertain">無</td>
+      <td>3,862</td><td>960</td><td>1,982</td><td>2,209</td><td>3,058</td>
+      <td style="font-weight:700;background:#fef9c3">5,433</td>
+      <td class="uncertain">無</td>
+      <td>3,717</td><td>3,055</td><td>2,454</td>
+    </tr>
+    <tr>
+      <td>週幾</td>
+      <td>週一</td><td>週二</td><td>週三</td><td>週四</td>
+      <td style="color:#d97706">週五</td><td style="color:#d97706">週六</td>
+      <td class="uncertain">週日</td>
+      <td>週一</td><td>週二</td><td>週三</td><td>週四</td><td>週五</td>
+      <td style="color:#d97706">週六</td>
+      <td class="uncertain">週日</td>
+      <td>週一</td><td>週二</td><td>週三</td>
+    </tr>
+  </tbody>
+</table>
+<div class="note">＊ 週五/六 進貨量明顯較高（為週末備料），週日無進貨，與市場週期吻合。</div>
+
+<br>
+<div style="font-size:11px;color:#aaa;text-align:center;margin-top:16px">
+  由 AI 自動識別 20 頁掃描單據產出 · 部分模糊欄位以「~」標示，建議核對原始單據 · 2026/06/19
+</div>
+
+</body>
+</html>

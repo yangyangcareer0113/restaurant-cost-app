@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>員工管理 — 成本物料管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <style>
+    .badge-active   { background:#dcfce7;color:#166534;font-size:0.75rem;padding:0.25rem 0.6rem;border-radius:20px; }
+    .badge-inactive { background:#f1f5f9;color:#64748b;font-size:0.75rem;padding:0.25rem 0.6rem;border-radius:20px; }
+    .salary-cell { font-weight:600;font-variant-numeric:tabular-nums; }
+    .tab-btn { border:none;background:none;padding:0.6rem 1.2rem;font-size:0.88rem;color:#64748b;border-bottom:2px solid transparent;cursor:pointer;font-weight:500; }
+    .tab-btn.active { color:#2563eb;border-bottom-color:#2563eb; }
+    .tab-wrap { border-bottom:1px solid #e2e8f0;margin-bottom:1rem; }
+    .talent-badge { background:#fef3c7;color:#92400e;font-size:0.72rem;padding:0.18rem 0.5rem;border-radius:10px; }
+    .section-title { font-size:0.72rem;font-weight:700;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0 0.25rem; }
+  </style>
+</head>
+<body>
+<div class="main-content">
+  <div class="top-header">
+    <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
+    <h6 class="mb-0 fw-bold">員工管理</h6>
+    <div class="ms-auto d-flex gap-2 align-items-center">
+      <span id="view-only-badge" style="display:none;" class="badge bg-secondary">查看模式</span>
+      <button id="btn-add-staff" class="btn btn-sm btn-primary" onclick="openModal()">＋ 新增員工</button>
+    </div>
+  </div>
+
+  <div class="page-body">
+
+    <!-- KPI 卡片 -->
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-value text-primary" id="stat-count">—</div>
+          <div class="stat-label">在職人數</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-value text-success" id="stat-base-total">—</div>
+          <div class="stat-label">底薪總額（元）</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-value text-info" id="stat-allowance-total">—</div>
+          <div class="stat-label">職位加給總額（元）</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-value text-warning" id="stat-fixed-total">—</div>
+          <div class="stat-label">固定薪資總額（元）</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分頁 Tab -->
+    <div class="table-card">
+      <div class="tab-wrap d-flex align-items-center px-3 pt-2">
+        <button class="tab-btn active" id="tab-btn-active" onclick="switchTab('active')">
+          👥 在職員工 <span class="badge bg-primary ms-1" id="badge-active">—</span>
+        </button>
+        <button class="tab-btn" id="tab-btn-talent" onclick="switchTab('talent')">
+          📋 人才庫（離職）<span class="badge bg-secondary ms-1" id="badge-talent">—</span>
+        </button>
+        <span class="text-muted ms-auto" style="font-size:0.78rem;" id="last-update"></span>
+      </div>
+
+      <!-- Tab 1: 在職員工 -->
+      <div id="tab-active">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>姓名</th>
+                <th>職位</th>
+                <th class="text-end">底薪</th>
+                <th class="text-end">職位加給</th>
+                <th class="text-end">全勤基礎額</th>
+                <th>到職日</th>
+                <th>年資</th>
+                <th>備註</th>
+                <th id="th-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="active-tbody">
+              <tr><td colspan="9" class="text-center text-muted py-4">載入中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 2: 人才庫 -->
+      <div id="tab-talent" style="display:none;">
+        <div class="p-3 pb-1" style="font-size:0.8rem;color:#64748b;">
+          以下為已辦理離職的夥伴，可作為未來人才媒合參考。
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>姓名</th>
+                <th>職位</th>
+                <th>到職日</th>
+                <th>年資</th>
+                <th>離職日</th>
+                <th>離職原因</th>
+                <th>備註</th>
+                <th id="th-talent-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="talent-tbody">
+              <tr><td colspan="8" class="text-center text-muted py-4">載入中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 新增 / 編輯 Modal -->
+<div class="modal fade" id="staff-modal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modal-title">新增員工</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-id">
+        <!-- 基本資料 -->
+        <div class="section-title">基本資料</div>
+        <div class="row g-3 mb-3">
+          <div class="col-6">
+            <label class="form-label fw-semibold">姓名 <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="f-name" placeholder="例：王小明">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">職位 <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="f-position" list="position-list" placeholder="例：服務員">
+            <datalist id="position-list">
+              <option value="店長"><option value="副店長"><option value="領班">
+              <option value="服務員"><option value="廚師"><option value="學徒">
+              <option value="吧台"><option value="外場"><option value="內場">
+              <option value="行政"><option value="PT">
+            </datalist>
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">底薪（元）</label>
+            <input type="number" class="form-control" id="f-base" min="0" step="100" placeholder="0">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">職位加給（元）</label>
+            <input type="number" class="form-control" id="f-allowance" min="0" step="100" placeholder="0">
+            <div class="form-text">固定職位補貼，每月必發</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">全勤獎金基礎額（元）</label>
+            <input type="number" class="form-control" id="f-attendance" min="0" step="100" placeholder="0">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">到職日 <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" id="f-hire-date">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">備註</label>
+            <textarea class="form-control" id="f-notes" rows="2" placeholder="試用期、特殊約定等…"></textarea>
+          </div>
+        </div>
+        <!-- 離職資訊（編輯模式才顯示） -->
+        <div id="termination-section" style="display:none;">
+          <div class="section-title" style="border-top:1px solid #e2e8f0;padding-top:1rem;margin-top:0.5rem;">
+            離職資訊 <span class="text-muted" style="font-size:0.72rem;font-weight:400;">（填寫後員工將移至人才庫）</span>
+          </div>
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label fw-semibold">離職日期</label>
+              <input type="date" class="form-control" id="f-term-date">
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold">離職原因</label>
+              <select class="form-select" id="f-term-reason">
+                <option value="">— 請選擇 —</option>
+                <option value="自願離職">自願離職</option>
+                <option value="合約到期">合約到期</option>
+                <option value="試用期不合格">試用期不合格</option>
+                <option value="雙方協議">雙方協議</option>
+                <option value="違規解雇">違規解雇</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">離職備註</label>
+              <textarea class="form-control" id="f-term-notes" rows="2" placeholder="工作表現評語、再雇用意願等…"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" onclick="saveStaff()">儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 辦理離職 Modal -->
+<div class="modal fade" id="termination-modal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#fef2f2;">
+        <h5 class="modal-title">📤 辦理離職</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3 p-2 rounded" style="background:#f8fafc;font-size:0.9rem;">
+          員工：<strong id="term-staff-name">—</strong>
+        </div>
+        <input type="hidden" id="term-staff-id">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">離職日期 <span class="text-danger">*</span></label>
+          <input type="date" class="form-control" id="term-date">
+          <div class="form-text">填入後此員工將自動移至人才庫（離職）分頁。</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">離職原因</label>
+          <select class="form-select" id="term-reason">
+            <option value="">— 請選擇（選填）—</option>
+            <option value="自願離職">自願離職</option>
+            <option value="合約到期">合約到期</option>
+            <option value="試用期不合格">試用期不合格</option>
+            <option value="雙方協議">雙方協議</option>
+            <option value="違規解雇">違規解雇</option>
+            <option value="其他">其他</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold">離職備註</label>
+          <textarea class="form-control" id="term-notes" rows="2" placeholder="工作表現評語、再雇用意願、交接情況等…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-danger" onclick="confirmTermination()">確認離職 → 移至人才庫</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 恢復在職 Modal -->
+<div class="modal fade" id="restore-modal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#f0fdf4;">
+        <h5 class="modal-title">🔄 恢復在職</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.9rem;">確定將 <strong id="restore-staff-name">—</strong> 恢復為在職狀態？</p>
+        <div class="p-2 rounded mb-3" style="background:#f0fdf4;font-size:0.82rem;color:#15803d;">
+          恢復後，離職日期及離職原因記錄將被清除，員工回到「在職員工」分頁。
+        </div>
+        <input type="hidden" id="restore-staff-id">
+        <div class="mb-2">
+          <label class="form-label fw-semibold" style="font-size:0.85rem;">重新到職日（選填，如有轉調可更新）</label>
+          <input type="date" class="form-control form-control-sm" id="restore-hire-date">
+          <div class="form-text">不填則沿用原到職日。</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-success" onclick="confirmRestore()">確認恢復在職</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 確認刪除 Modal -->
+<div class="modal fade" id="delete-modal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">確認刪除</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0">確定要刪除 <strong id="delete-name"></strong> 的資料嗎？此操作無法復原。</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete()">刪除</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/nav.js"></script>
+<script>
+  let staffData = [];
+  let currentProfile = null;
+  let userRole = null;
+  let deleteTargetId = null;
+  let currentTab = 'active';
+  let staffModal, deleteModal, terminationModal, restoreModal;
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    injectNav();
+    const session = await requireAuth();
+    if (!session) return;
+    const { profile } = await renderUserInfo();
+    currentProfile = profile;
+    userRole = profile.role;
+    filterNavByRole(profile.role);
+
+    if (userRole === 'admin') {
+      document.getElementById('btn-add-staff').style.display = 'none';
+      document.getElementById('view-only-badge').style.display = '';
+    }
+
+    staffModal       = new bootstrap.Modal(document.getElementById('staff-modal'));
+    deleteModal      = new bootstrap.Modal(document.getElementById('delete-modal'));
+    terminationModal = new bootstrap.Modal(document.getElementById('termination-modal'));
+    restoreModal     = new bootstrap.Modal(document.getElementById('restore-modal'));
+    await loadStaff();
+  });
+
+  async function loadStaff() {
+    let q = supabase.from('staff').select('*').order('name');
+    if (userRole !== 'admin') q = q.eq('store_id', currentProfile.store_id);
+    const { data, error } = await q;
+    if (error) { showToast('讀取員工資料失敗', 'danger'); return; }
+    staffData = data || [];
+    renderBoth();
+    renderKPI();
+    document.getElementById('last-update').textContent = '更新：' + new Date().toLocaleTimeString('zh-TW');
+  }
+
+  function renderBoth() {
+    renderActive();
+    renderTalent();
+    const active = staffData.filter(s => s.status === 'active');
+    const inactive = staffData.filter(s => s.status === 'inactive');
+    document.getElementById('badge-active').textContent = active.length;
+    document.getElementById('badge-talent').textContent = inactive.length;
+  }
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tab-active').style.display  = tab === 'active'  ? '' : 'none';
+    document.getElementById('tab-talent').style.display  = tab === 'talent' ? '' : 'none';
+    document.getElementById('tab-btn-active').classList.toggle('active', tab === 'active');
+    document.getElementById('tab-btn-talent').classList.toggle('active', tab === 'talent');
+  }
+
+  // ── 在職員工表格 ──────────────────────────────────────────
+  function renderActive() {
+    const rows = staffData.filter(s => s.status === 'active');
+    const tbody = document.getElementById('active-tbody');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">目前沒有在職員工</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(s => `
+      <tr>
+        <td><strong>${esc(s.name)}</strong></td>
+        <td>${esc(s.position)}</td>
+        <td class="text-end salary-cell">${formatNumber(s.base_salary)}</td>
+        <td class="text-end salary-cell">${formatNumber(s.position_allowance)}</td>
+        <td class="text-end">${formatNumber(s.attendance_bonus_amount)}</td>
+        <td>${s.hire_date ? s.hire_date : '<span class="text-warning" title="尚未填寫到職日">⚠ 未填</span>'}</td>
+        <td style="font-size:0.85rem;color:#475569;">${calcSeniority(s.hire_date)}</td>
+        <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(s.notes||'')}">
+          ${s.notes ? esc(s.notes) : '<span class="text-muted">—</span>'}
+        </td>
+        <td class="text-end" style="white-space:nowrap;">
+          ${userRole === 'store_manager' ? `
+            <button class="btn btn-sm btn-outline-primary me-1" onclick="openModal('${s.id}')">編輯</button>
+            <button class="btn btn-sm btn-danger" onclick="openTermModal('${s.id}','${esc(s.name)}')" title="辦理離職">辦理離職</button>
+          ` : '<span class="text-muted">—</span>'}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // ── 人才庫表格 ────────────────────────────────────────────
+  function renderTalent() {
+    const rows = staffData.filter(s => s.status === 'inactive');
+    const tbody = document.getElementById('talent-tbody');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">目前沒有離職員工記錄</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(s => `
+      <tr>
+        <td><strong>${esc(s.name)}</strong></td>
+        <td>${esc(s.position)}</td>
+        <td style="font-size:0.85rem;">${s.hire_date || '—'}</td>
+        <td style="font-size:0.85rem;color:#475569;">${calcSeniority(s.hire_date, s.termination_date)}</td>
+        <td style="font-size:0.85rem;">${s.termination_date || '<span class="text-muted">—</span>'}</td>
+        <td>
+          ${s.termination_reason
+            ? `<span class="talent-badge">${esc(s.termination_reason)}</span>`
+            : '<span class="text-muted">—</span>'}
+        </td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(s.termination_notes||'')}">
+          ${s.termination_notes ? esc(s.termination_notes) : '<span class="text-muted">—</span>'}
+        </td>
+        <td class="text-end" style="white-space:nowrap;">
+          ${userRole === 'store_manager' ? `
+            <button class="btn btn-sm btn-success me-1" onclick="openRestoreModal('${s.id}','${esc(s.name)}')">恢復在職</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="openModal('${s.id}')">編輯</button>
+          ` : ''}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function renderKPI() {
+    const active = staffData.filter(s => s.status === 'active');
+    const total = (arr, field) => arr.reduce((s, r) => s + Number(r[field] || 0), 0);
+    document.getElementById('stat-count').textContent = active.length;
+    document.getElementById('stat-base-total').textContent = formatNumber(total(active, 'base_salary'));
+    document.getElementById('stat-allowance-total').textContent = formatNumber(total(active, 'position_allowance'));
+    document.getElementById('stat-fixed-total').textContent = formatNumber(
+      total(active, 'base_salary') + total(active, 'position_allowance')
+    );
+  }
+
+  // ── Modal 開啟 ───────────────────────────────────────────
+  function openModal(id, showTermination = false) {
+    const s = id ? staffData.find(x => x.id === id) : null;
+    document.getElementById('modal-title').textContent = s ? '編輯員工' : '新增員工';
+    document.getElementById('edit-id').value = s?.id || '';
+    document.getElementById('f-name').value = s?.name || '';
+    document.getElementById('f-position').value = s?.position || '';
+    document.getElementById('f-base').value = s?.base_salary || '';
+    document.getElementById('f-allowance').value = s?.position_allowance || '';
+    document.getElementById('f-attendance').value = s?.attendance_bonus_amount || '';
+    document.getElementById('f-hire-date').value = s?.hire_date || '';
+    document.getElementById('f-notes').value = s?.notes || '';
+    document.getElementById('f-term-date').value = s?.termination_date || '';
+    document.getElementById('f-term-reason').value = s?.termination_reason || '';
+    document.getElementById('f-term-notes').value = s?.termination_notes || '';
+
+    // 離職區塊：編輯時才顯示，或明確要辦理離職
+    const showTerm = !!s && (showTermination || s.status === 'inactive');
+    document.getElementById('termination-section').style.display = showTerm ? '' : 'none';
+
+    staffModal.show();
+  }
+
+  async function saveStaff() {
+    const id = document.getElementById('edit-id').value;
+    const name = document.getElementById('f-name').value.trim();
+    const position = document.getElementById('f-position').value.trim();
+    if (!name || !position) { showToast('姓名與職位為必填', 'warning'); return; }
+
+    const termDate = document.getElementById('f-term-date').value || null;
+    const isTerminating = !!termDate;
+
+    const payload = {
+      name,
+      position,
+      base_salary:             Number(document.getElementById('f-base').value) || 0,
+      position_allowance:      Number(document.getElementById('f-allowance').value) || 0,
+      attendance_bonus_amount: Number(document.getElementById('f-attendance').value) || 0,
+      hire_date:               document.getElementById('f-hire-date').value || null,
+      notes:                   document.getElementById('f-notes').value.trim() || null,
+      status:                  isTerminating ? 'inactive' : 'active',
+      termination_date:        termDate,
+      termination_reason:      document.getElementById('f-term-reason').value || null,
+      termination_notes:       document.getElementById('f-term-notes').value.trim() || null,
+    };
+
+    let error;
+    if (id) {
+      ({ error } = await supabase.from('staff').update(payload).eq('id', id));
+    } else {
+      payload.store_id = currentProfile.store_id;
+      ({ error } = await supabase.from('staff').insert(payload));
+    }
+
+    if (error) { showToast('儲存失敗：' + error.message, 'danger'); return; }
+    showToast(id ? '已更新員工資料' : '已新增員工');
+    staffModal.hide();
+
+    // 如果辦理離職，自動切換到人才庫 tab
+    if (isTerminating) {
+      await loadStaff();
+      switchTab('talent');
+    } else {
+      await loadStaff();
+    }
+  }
+
+  // ── 辦理離職 Modal ────────────────────────────────────────
+  function openTermModal(id, name) {
+    document.getElementById('term-staff-id').value = id;
+    document.getElementById('term-staff-name').textContent = name;
+    document.getElementById('term-date').value = '';
+    document.getElementById('term-reason').value = '';
+    document.getElementById('term-notes').value = '';
+    terminationModal.show();
+  }
+
+  async function confirmTermination() {
+    const id = document.getElementById('term-staff-id').value;
+    const termDate = document.getElementById('term-date').value;
+    if (!termDate) { showToast('請填寫離職日期', 'warning'); return; }
+
+    const { error } = await supabase.from('staff').update({
+      status: 'inactive',
+      termination_date:   termDate,
+      termination_reason: document.getElementById('term-reason').value || null,
+      termination_notes:  document.getElementById('term-notes').value.trim() || null,
+    }).eq('id', id);
+
+    if (error) { showToast('操作失敗：' + error.message, 'danger'); return; }
+
+    showToast(`已辦理離職，已移至人才庫`);
+    terminationModal.hide();
+    await loadStaff();
+    switchTab('talent');
+  }
+
+  // ── 恢復在職 Modal ────────────────────────────────────────
+  function openRestoreModal(id, name) {
+    document.getElementById('restore-staff-id').value = id;
+    document.getElementById('restore-staff-name').textContent = name;
+    const s = staffData.find(x => x.id === id);
+    document.getElementById('restore-hire-date').value = s?.hire_date || '';
+    restoreModal.show();
+  }
+
+  async function confirmRestore() {
+    const id = document.getElementById('restore-staff-id').value;
+    const newHireDate = document.getElementById('restore-hire-date').value || null;
+    const s = staffData.find(x => x.id === id);
+
+    const payload = {
+      status: 'active',
+      termination_date:   null,
+      termination_reason: null,
+      termination_notes:  null,
+    };
+    if (newHireDate) payload.hire_date = newHireDate;
+
+    const { error } = await supabase.from('staff').update(payload).eq('id', id);
+    if (error) { showToast('操作失敗：' + error.message, 'danger'); return; }
+
+    showToast(`${s?.name || ''} 已恢復在職`);
+    restoreModal.hide();
+    await loadStaff();
+    switchTab('active');
+  }
+
+  function openDelete(id, name) {
+    deleteTargetId = id;
+    document.getElementById('delete-name').textContent = name;
+    deleteModal.show();
+  }
+
+  async function confirmDelete() {
+    const { error } = await supabase.from('staff').delete().eq('id', deleteTargetId);
+    if (error) { showToast('刪除失敗：' + error.message, 'danger'); return; }
+    showToast('已刪除員工資料');
+    deleteModal.hide();
+    await loadStaff();
+  }
+
+  function calcSeniority(hireDate, endDate) {
+    if (!hireDate) return '—';
+    const hire = new Date(hireDate);
+    const end  = endDate ? new Date(endDate) : new Date();
+    const totalMonths = (end.getFullYear() - hire.getFullYear()) * 12 + (end.getMonth() - hire.getMonth());
+    if (totalMonths < 0) return '—';
+    const years = Math.floor(totalMonths / 12);
+    const months = totalMonths % 12;
+    if (years === 0) return months + ' 個月';
+    if (months === 0) return years + ' 年';
+    return years + ' 年 ' + months + ' 個月';
+  }
+
+  function esc(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>半成品管理 — 成本物料管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <style>
+    .semi-item { padding:10px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.12s; }
+    .semi-item:hover { background:#f8fafc; }
+    .semi-item.active { background:#f0fdf4; border-left:3px solid #16a34a; }
+    .semi-name { font-weight:600; font-size:0.9rem; }
+    .semi-meta { font-size:0.75rem; color:#64748b; margin-top:2px; }
+    .right-empty { display:flex; align-items:center; justify-content:center; min-height:300px; color:#94a3b8; text-align:center; }
+    .cost-summary { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:14px 16px; }
+    .cs-row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; font-size:0.9rem; }
+    .cs-total { border-top:1px solid #86efac; margin-top:6px; padding-top:8px; font-weight:700; font-size:1rem; }
+    .tag-item { font-size:0.65rem; background:#e0f2fe; color:#0369a1; border-radius:10px; padding:1px 6px; }
+  </style>
+</head>
+<body>
+<div class="main-content">
+  <div class="top-header">
+    <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
+    <h6 class="mb-0 fw-bold">🥣 半成品管理</h6>
+    <div class="ms-auto">
+      <button class="btn btn-sm btn-primary" onclick="openNewSemi()">+ 新增半成品</button>
+    </div>
+  </div>
+
+  <div class="page-body">
+
+    <!-- 說明提示 -->
+    <div class="alert alert-info d-flex gap-2 align-items-start py-2 mb-3" style="font-size:0.83rem;">
+      <span>💡</span>
+      <div>半成品是菜品的中間層原料，例如「麻辣湯底」每次熬製 1000ml，成本由多項原物料加總計算。在「成品菜單」新增配方時，可直接引用半成品。</div>
+    </div>
+
+    <div class="row g-3">
+
+      <!-- 左欄：半成品列表 -->
+      <div class="col-12 col-lg-4">
+        <div class="table-card">
+          <div id="semi-list" style="max-height:calc(100vh - 240px);overflow-y:auto;min-height:120px;">
+            <div class="text-center text-muted py-4" style="font-size:0.85rem;">載入中...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右欄：半成品詳情 + BOM 編輯器 -->
+      <div class="col-12 col-lg-8" id="right-panel">
+        <div class="table-card">
+          <div class="right-empty">
+            <div>
+              <div style="font-size:2.2rem;margin-bottom:10px;">🥣</div>
+              <div style="font-size:0.95rem;">← 選擇半成品，或新增一個</div>
+              <small class="d-block mt-2 text-muted">設定原料配方後，自動計算每批次 / 每單位成本</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- 新增/編輯半成品 Modal -->
+<div class="modal fade" id="semiModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="semi-modal-title">新增半成品</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-semi-id">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">半成品名稱 <span class="text-danger">*</span></label>
+          <input type="text" id="semi-name" class="form-control" placeholder="例：麻辣湯底、秘製醬料、蒜泥醬">
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label fw-semibold">類別</label>
+            <input type="text" id="semi-category" class="form-control" placeholder="例：湯底、醬料、配料">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">每批產出量 <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <input type="number" id="semi-output-qty" class="form-control" min="0.001" step="0.001" value="1000" placeholder="1000">
+              <select id="semi-output-unit" class="form-select" style="max-width:90px;">
+                <option value="ml">ml</option>
+                <option value="g">g</option>
+                <option value="份">份</option>
+                <option value="包">包</option>
+                <option value="盒">盒</option>
+                <option value="條">條</option>
+              </select>
+            </div>
+            <div class="form-text">例：每次熬製 1000 ml 湯底</div>
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold">備註</label>
+          <input type="text" id="semi-notes" class="form-control" placeholder="選填，例：冷藏保存 3 天">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button class="btn btn-primary" onclick="saveSemi()">儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/nav.js"></script>
+<script>
+let currentProfile = null;
+let itemsData = {};
+let allSemis = [];
+let currentSemi = null;
+let currentBomLines = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await requireAdmin();
+  injectNav();
+  const data = await renderUserInfo();
+  currentProfile = data.profile;
+  filterNavByRole(currentProfile.role);
+  await loadItems();
+  await loadSemis();
+});
+
+async function loadItems() {
+  const { data } = await supabase.from('items')
+    .select('id,name,unit,unit_cost,bom_unit,bom_conversion,category')
+    .eq('store_id', currentProfile.store_id).eq('is_active',true).order('category').order('name');
+  (data||[]).forEach(i => { itemsData[i.id] = i; });
+}
+
+async function loadSemis() {
+  const { data } = await supabase.from('semi_products').select('*')
+    .eq('store_id', currentProfile.store_id).eq('is_active',true).order('category').order('name');
+  allSemis = data || [];
+  renderSemiList();
+}
+
+function renderSemiList() {
+  const list = document.getElementById('semi-list');
+  if (!allSemis.length) {
+    list.innerHTML = '<div class="text-center text-muted py-5" style="font-size:0.85rem;">尚無半成品<br><small>點「+ 新增半成品」開始建立</small></div>';
+    return;
+  }
+  list.innerHTML = allSemis.map(s => {
+    const isActive = currentSemi?.id === s.id ? 'active' : '';
+    return `<div class="semi-item ${isActive}" onclick="selectSemi('${s.id}')">
+      <div class="semi-name">${s.name}</div>
+      <div class="semi-meta">${s.category?`<span class="badge bg-light text-secondary border me-1" style="font-size:0.65rem;">${s.category}</span>`:''}每批 ${s.output_qty} ${s.output_unit}</div>
+    </div>`;
+  }).join('');
+}
+
+async function selectSemi(id) {
+  currentSemi = allSemis.find(s => s.id === id);
+  if (!currentSemi) return;
+  renderSemiList();
+  const { data } = await supabase.from('bom_lines').select('*').eq('parent_type','semi').eq('parent_id', id).order('sort_order').order('created_at');
+  currentBomLines = data || [];
+  renderRightPanel();
+}
+
+function calcLineCost(line) {
+  const item = itemsData[line.child_id];
+  if (!item || !item.unit_cost || !(item.bom_conversion > 0)) return 0;
+  return (item.unit_cost / item.bom_conversion) * line.std_qty * (1 + (line.waste_rate||0)/100);
+}
+
+function renderRightPanel() {
+  const s = currentSemi;
+  const totalCost = currentBomLines.reduce((acc, l) => acc + calcLineCost(l), 0);
+  const costPerUnit = s.output_qty > 0 ? totalCost / s.output_qty : 0;
+
+  const itemOpts = Object.values(itemsData).map(i =>
+    `<option value="${i.id}" data-unit="${i.bom_unit||'g'}" data-cpu="${(i.unit_cost/(i.bom_conversion||1)).toFixed(4)}">${i.name}（${i.unit}）</option>`
+  ).join('');
+
+  document.getElementById('right-panel').innerHTML = `
+    <div class="d-flex flex-column gap-3">
+
+      <!-- 半成品資訊卡 -->
+      <div class="table-card">
+        <div class="table-header d-flex justify-content-between align-items-center">
+          <span class="fw-semibold">🥣 ${s.name}</span>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" onclick="openEditSemi()">編輯資訊</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteSemi('${s.id}')">移除</button>
+          </div>
+        </div>
+        <div class="p-3">
+          <div class="row g-2 text-center">
+            <div class="col-4">
+              <div class="text-muted" style="font-size:0.73rem;">類別</div>
+              <div class="fw-semibold" style="font-size:0.88rem;">${s.category||'—'}</div>
+            </div>
+            <div class="col-4">
+              <div class="text-muted" style="font-size:0.73rem;">每批產出</div>
+              <div class="fw-semibold" style="font-size:0.88rem;">${s.output_qty} ${s.output_unit}</div>
+            </div>
+            <div class="col-4">
+              <div class="text-muted" style="font-size:0.73rem;">每 ${s.output_unit} 成本</div>
+              <div class="fw-semibold text-success" style="font-size:0.88rem;">${currentBomLines.length ? '$'+formatNumber(costPerUnit,3) : '—'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOM 配方 -->
+      <div class="table-card">
+        <div class="table-header d-flex justify-content-between">
+          <span class="fw-semibold">🧪 原料配方</span>
+          <small class="text-muted">${currentBomLines.length} 項原料</small>
+        </div>
+        <div class="p-3">
+          ${currentBomLines.length === 0 ? `
+            <div class="text-center text-muted py-3" style="font-size:0.85rem;">尚未加入原料</div>
+          ` : `
+            <div class="table-responsive">
+              <table class="table table-sm mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="font-size:0.8rem;">原料</th>
+                    <th style="font-size:0.8rem;">用量</th>
+                    <th style="font-size:0.8rem;">損耗</th>
+                    <th style="font-size:0.8rem;" class="text-end">成本</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${currentBomLines.map(line => {
+                    const item = itemsData[line.child_id];
+                    const lineCost = calcLineCost(line);
+                    const cpu = item?.unit_cost && item?.bom_conversion
+                      ? item.unit_cost / item.bom_conversion : 0;
+                    return `<tr>
+                      <td class="fw-semibold" style="font-size:0.88rem;">${item?.name||'—'}</td>
+                      <td style="font-size:0.82rem;">${formatNumber(line.std_qty,2)} ${line.bom_unit}</td>
+                      <td style="font-size:0.82rem;">${line.waste_rate?line.waste_rate+'%':'—'}</td>
+                      <td class="text-end text-success fw-semibold" style="font-size:0.88rem;">$${formatNumber(lineCost,1)}</td>
+                      <td><button class="btn btn-outline-danger" style="padding:1px 7px;font-size:0.72rem;border-radius:4px;" onclick="deleteBomLine('${line.id}')">×</button></td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          `}
+
+          <!-- 成本摘要 -->
+          <div class="cost-summary mt-3">
+            <div class="cs-row"><span class="text-muted">每批原料總成本</span><strong class="text-success">$${formatNumber(totalCost,1)}</strong></div>
+            <div class="cs-row"><span class="text-muted">每批產出量</span><span>${s.output_qty} ${s.output_unit}</span></div>
+            <div class="cs-row cs-total"><span>每 ${s.output_unit} 成本</span><strong class="text-success">$${formatNumber(costPerUnit,3)}</strong></div>
+          </div>
+
+          <!-- 新增原料 -->
+          <hr class="my-3">
+          <div class="fw-semibold mb-2" style="font-size:0.88rem;">＋ 新增原料</div>
+          <div class="row g-2 align-items-end">
+            <div class="col-12 col-sm-5">
+              <label class="form-label mb-1" style="font-size:0.78rem;">原物料</label>
+              <select id="add-item-id" class="form-select form-select-sm" onchange="onItemSelect()">
+                <option value="">請選擇原物料</option>
+                ${itemOpts}
+              </select>
+            </div>
+            <div class="col-4 col-sm-2">
+              <label class="form-label mb-1" style="font-size:0.78rem;">用量</label>
+              <input type="number" id="add-qty" class="form-control form-control-sm" min="0" step="0.01" placeholder="0" oninput="updatePreview()">
+            </div>
+            <div class="col-4 col-sm-2">
+              <label class="form-label mb-1" style="font-size:0.78rem;">BOM 單位</label>
+              <input type="text" id="add-bom-unit" class="form-control form-control-sm" placeholder="g">
+            </div>
+            <div class="col-4 col-sm-1">
+              <label class="form-label mb-1" style="font-size:0.78rem;">損耗 %</label>
+              <input type="number" id="add-waste" class="form-control form-control-sm" min="0" max="99" step="1" value="0" oninput="updatePreview()">
+            </div>
+            <div class="col-6 col-sm-2">
+              <button class="btn btn-success btn-sm w-100" onclick="addBomLine()">加入</button>
+            </div>
+          </div>
+          <div id="semi-cost-preview" class="mt-2 text-muted" style="font-size:0.8rem;"></div>
+        </div>
+      </div>
+
+    </div>`;
+}
+
+function onItemSelect() {
+  const opt = document.getElementById('add-item-id').selectedOptions[0];
+  if (opt?.dataset.unit) document.getElementById('add-bom-unit').value = opt.dataset.unit;
+  updatePreview();
+}
+
+function updatePreview() {
+  const opt   = document.getElementById('add-item-id')?.selectedOptions[0];
+  const qty   = parseFloat(document.getElementById('add-qty')?.value) || 0;
+  const waste = parseFloat(document.getElementById('add-waste')?.value) || 0;
+  const prev  = document.getElementById('semi-cost-preview');
+  if (!prev) return;
+  if (!opt?.value || qty <= 0) { prev.textContent = ''; return; }
+  const cpu  = parseFloat(opt.dataset.cpu) || 0;
+  const unit = document.getElementById('add-bom-unit').value || '—';
+  prev.textContent = `此原料成本：$${formatNumber(cpu * qty * (1 + waste/100), 1)} （$${formatNumber(cpu,3)} / ${unit}）`;
+}
+
+async function addBomLine() {
+  const itemId = document.getElementById('add-item-id').value;
+  const qty    = parseFloat(document.getElementById('add-qty').value) || 0;
+  const unit   = document.getElementById('add-bom-unit').value.trim() || 'g';
+  const waste  = parseFloat(document.getElementById('add-waste').value) || 0;
+
+  if (!itemId) { showToast('請選擇原物料', 'danger'); return; }
+  if (qty <= 0) { showToast('請填寫用量', 'danger'); return; }
+
+  const { error } = await supabase.from('bom_lines').insert({
+    store_id: currentProfile.store_id,
+    parent_type: 'semi', parent_id: currentSemi.id,
+    child_type: 'item', child_id: itemId,
+    std_qty: qty, bom_unit: unit, waste_rate: waste,
+    sort_order: currentBomLines.length
+  });
+  if (error) { showToast('新增失敗：' + error.message, 'danger'); return; }
+  showToast('✓ 原料已加入');
+
+  const { data } = await supabase.from('bom_lines').select('*').eq('parent_type','semi').eq('parent_id', currentSemi.id).order('sort_order').order('created_at');
+  currentBomLines = data || [];
+  renderRightPanel();
+}
+
+async function deleteBomLine(id) {
+  if (!confirm('確定移除這項原料？')) return;
+  await supabase.from('bom_lines').delete().eq('id', id);
+  currentBomLines = currentBomLines.filter(l => l.id !== id);
+  renderRightPanel();
+  showToast('已移除', 'warning');
+}
+
+function openNewSemi() {
+  document.getElementById('semi-modal-title').textContent = '新增半成品';
+  document.getElementById('edit-semi-id').value = '';
+  ['semi-name','semi-category','semi-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('semi-output-qty').value = '1000';
+  document.getElementById('semi-output-unit').value = 'ml';
+  new bootstrap.Modal(document.getElementById('semiModal')).show();
+}
+
+function openEditSemi() {
+  if (!currentSemi) return;
+  document.getElementById('semi-modal-title').textContent = '編輯半成品';
+  document.getElementById('edit-semi-id').value = currentSemi.id;
+  document.getElementById('semi-name').value = currentSemi.name;
+  document.getElementById('semi-category').value = currentSemi.category || '';
+  document.getElementById('semi-output-qty').value = currentSemi.output_qty;
+  document.getElementById('semi-output-unit').value = currentSemi.output_unit;
+  document.getElementById('semi-notes').value = currentSemi.notes || '';
+  new bootstrap.Modal(document.getElementById('semiModal')).show();
+}
+
+async function saveSemi() {
+  const id = document.getElementById('edit-semi-id').value;
+  const payload = {
+    store_id: currentProfile.store_id,
+    name: document.getElementById('semi-name').value.trim(),
+    category: document.getElementById('semi-category').value.trim() || null,
+    output_qty: parseFloat(document.getElementById('semi-output-qty').value) || 1000,
+    output_unit: document.getElementById('semi-output-unit').value,
+    notes: document.getElementById('semi-notes').value.trim() || null
+  };
+  if (!payload.name) { showToast('請填寫半成品名稱', 'danger'); return; }
+
+  let error, data;
+  if (id) {
+    ({ error } = await supabase.from('semi_products').update(payload).eq('id', id));
+  } else {
+    ({ data, error } = await supabase.from('semi_products').insert(payload).select().single());
+  }
+  if (error) { showToast('儲存失敗：' + error.message, 'danger'); return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('semiModal')).hide();
+  showToast(id ? '✓ 半成品已更新' : '✓ 半成品已新增，可開始建立原料配方');
+
+  await loadSemis();
+  if (!id && data) await selectSemi(data.id);
+  else if (id) { currentSemi = allSemis.find(s => s.id === id); renderRightPanel(); }
+}
+
+async function deleteSemi(id) {
+  if (!confirm(`確定移除「${currentSemi.name}」及其所有配方？`)) return;
+  await supabase.from('bom_lines').delete().eq('parent_type','semi').eq('parent_id', id);
+  await supabase.from('semi_products').update({ is_active: false }).eq('id', id);
+  currentSemi = null; currentBomLines = [];
+  document.getElementById('right-panel').innerHTML = `<div class="table-card"><div class="right-empty"><div style="color:#94a3b8;">已移除，← 選擇其他半成品</div></div></div>`;
+  showToast('已移除', 'warning');
+  await loadSemis();
+}
+</script>
+</body>
+</html>

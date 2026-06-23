@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>薪資結構分析 — 成本物料管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    .kpi-big { font-size:2rem; font-weight:800; font-variant-numeric:tabular-nums; }
+    .chart-wrap { position:relative; max-width:480px; margin:0 auto; }
+    .bench-bar { height:14px; border-radius:8px; }
+    .bench-label { font-size:0.82rem; }
+    .warning-badge { background:#fef2f2; border:1px solid #fca5a5; border-radius:10px; padding:0.6rem 1rem; }
+    .safe-badge { background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:0.6rem 1rem; }
+    .alert-line { border-left:4px solid #ef4444; padding-left:1rem; }
+    .section-title { font-size:0.72rem; font-weight:700; color:#94a3b8; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.75rem; }
+    .legend-dot { width:12px; height:12px; border-radius:50%; display:inline-block; }
+    .trend-card { border:1px solid #e2e8f0; border-radius:12px; padding:1rem; }
+  </style>
+</head>
+<body>
+<div class="main-content">
+  <div class="top-header">
+    <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
+    <h6 class="mb-0 fw-bold">📊 薪資結構分析</h6>
+    <div class="ms-auto d-flex gap-2 align-items-center">
+      <select id="sel-year" class="form-select form-select-sm" style="width:90px" onchange="loadData()"></select>
+      <select id="sel-month" class="form-select form-select-sm" style="width:75px" onchange="loadData()">
+        <option value="1">1 月</option><option value="2">2 月</option><option value="3">3 月</option>
+        <option value="4">4 月</option><option value="5">5 月</option><option value="6">6 月</option>
+        <option value="7">7 月</option><option value="8">8 月</option><option value="9">9 月</option>
+        <option value="10">10 月</option><option value="11">11 月</option><option value="12">12 月</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="page-body">
+
+    <!-- 警示橫幅 -->
+    <div id="alert-banner" style="display:none;" class="alert mb-3 d-flex align-items-center gap-2" role="alert">
+      <span style="font-size:1.4rem;">⚠️</span>
+      <div id="alert-text"></div>
+    </div>
+
+    <!-- KPI 卡片 -->
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="kpi-big text-primary" id="kpi-ft">—</div>
+          <div class="stat-label">正職薪資合計（元）</div>
+          <div style="font-size:0.78rem;color:#94a3b8;margin-top:0.2rem;" id="kpi-ft-count"></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="kpi-big" style="color:#f59e0b;" id="kpi-pt">—</div>
+          <div class="stat-label">兼職薪資合計（元）</div>
+          <div style="font-size:0.78rem;color:#94a3b8;margin-top:0.2rem;" id="kpi-pt-count"></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="kpi-big" style="color:#6d28d9;" id="kpi-total">—</div>
+          <div class="stat-label">本月薪資總計（元）</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card" id="ratio-card">
+          <div class="kpi-big" id="kpi-pt-ratio">—</div>
+          <div class="stat-label">兼職佔比</div>
+          <div style="font-size:0.78rem;margin-top:0.2rem;" id="kpi-ratio-hint"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <!-- 左側：圓餅圖 -->
+      <div class="col-12 col-lg-5">
+        <div class="table-card h-100">
+          <div class="table-header">
+            <span class="fw-semibold">正職 vs 兼職薪資佔比</span>
+          </div>
+          <div class="p-3">
+            <div class="chart-wrap">
+              <canvas id="pie-chart" height="300"></canvas>
+            </div>
+            <div class="d-flex justify-content-center gap-4 mt-3">
+              <div class="d-flex align-items-center gap-2">
+                <span class="legend-dot" style="background:#2563eb;"></span>
+                <span style="font-size:0.85rem;">正職</span>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <span class="legend-dot" style="background:#f59e0b;"></span>
+                <span style="font-size:0.85rem;">兼職</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側：安全比例說明 + 詳細 -->
+      <div class="col-12 col-lg-7">
+        <div class="table-card mb-3">
+          <div class="p-3">
+            <div class="section-title">🏭 餐飲業兼職薪資佔比安全區間（市場大數據）</div>
+            <div style="font-size:0.85rem;color:#475569;line-height:2;margin-bottom:1rem;">
+              根據台灣餐飲業薪資結構研究，健康的人力配置如下：
+            </div>
+
+            <!-- 比例尺 -->
+            <div class="mb-3">
+              <div class="d-flex justify-content-between bench-label text-muted mb-1">
+                <span>兼職佔 0%</span><span>25%（建議下限）</span><span>45%（警戒線）</span><span>100%</span>
+              </div>
+              <div style="background:#e2e8f0;height:14px;border-radius:8px;position:relative;overflow:hidden;">
+                <div style="position:absolute;left:25%;width:20%;height:100%;background:#22c55e;opacity:0.7;" title="建議區間 25-45%"></div>
+                <div style="position:absolute;left:45%;width:2px;height:100%;background:#ef4444;" title="警戒線 45%"></div>
+                <div id="ratio-marker" style="position:absolute;width:3px;height:100%;background:#1d4ed8;transition:left 0.5s;left:0;"></div>
+              </div>
+              <div class="d-flex justify-content-between bench-label mt-1" style="font-size:0.75rem;">
+                <span style="color:#64748b;">過度依賴正職（彈性不足）</span>
+                <span style="color:#22c55e;font-weight:700;">✓ 健康區間</span>
+                <span style="color:#ef4444;font-weight:700;">⚠ 超過警戒</span>
+              </div>
+            </div>
+
+            <div class="row g-2">
+              <div class="col-6">
+                <div class="safe-badge">
+                  <div style="font-size:0.8rem;font-weight:700;color:#16a34a;">✅ 安全區間</div>
+                  <div style="font-size:0.78rem;color:#15803d;margin-top:0.2rem;">兼職薪資佔比 <strong>25%–45%</strong><br>正職核心穩定，兼職補充彈性</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="warning-badge">
+                  <div style="font-size:0.8rem;font-weight:700;color:#dc2626;">⚠️ 警戒範圍</div>
+                  <div style="font-size:0.78rem;color:#b91c1c;margin-top:0.2rem;">兼職 <strong>&gt;45%</strong>：服務品質風險<br>兼職 <strong>&lt;25%</strong>：人力成本偏高</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-3 p-2 rounded" style="background:#f8fafc;font-size:0.8rem;color:#64748b;line-height:1.7;">
+              📌 <strong>補充說明</strong>：本店屬於火鍋店型，旺季（週末、節日）客流量較大，
+              建議兼職佔比維持在 <strong>30-40%</strong>，確保服務品質與排班彈性的最佳平衡。
+            </div>
+          </div>
+        </div>
+
+        <!-- 逐員工詳細 -->
+        <div class="table-card">
+          <div class="table-header">
+            <span class="fw-semibold">本月薪資明細（正職 / 兼職）</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="table table-sm mb-0" id="detail-table">
+              <thead>
+                <tr style="font-size:0.8rem;color:#64748b;">
+                  <th>員工</th>
+                  <th>職位</th>
+                  <th>類型</th>
+                  <th class="text-end">實發薪資</th>
+                  <th class="text-end">佔總薪資</th>
+                </tr>
+              </thead>
+              <tbody id="detail-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 月趨勢折線圖 -->
+    <div class="table-card mt-3">
+      <div class="table-header">
+        <span class="fw-semibold">近 5 個月薪資趨勢</span>
+        <span style="font-size:0.8rem;color:#94a3b8;">正職 vs 兼職月度變化</span>
+      </div>
+      <div class="p-3">
+        <canvas id="trend-chart" height="100"></canvas>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/nav.js"></script>
+<script>
+  let pieChart = null;
+  let trendChart = null;
+  let currentProfile = null;
+  const PT_POSITIONS = ['早班PT','晚班PT','洗碗PT','兼職','PT'];
+
+  function isPT(position) {
+    return PT_POSITIONS.some(p => (position||'').includes(p));
+  }
+
+  function fmt(n) { return Number(n||0).toLocaleString('zh-TW'); }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    injectNav();
+    const session = await requireAuth();
+    if (!session) return;
+    const { profile } = await renderUserInfo();
+    currentProfile = profile;
+    filterNavByRole(profile.role);
+
+    const now = new Date();
+    const ySel = document.getElementById('sel-year');
+    for (let y = now.getFullYear(); y >= now.getFullYear()-2; y--) {
+      const o = document.createElement('option');
+      o.value = y; o.textContent = y + ' 年'; ySel.appendChild(o);
+    }
+    ySel.value = now.getFullYear();
+    document.getElementById('sel-month').value = now.getMonth()+1;
+
+    await loadData();
+  });
+
+  async function loadData() {
+    const year  = parseInt(document.getElementById('sel-year').value);
+    const month = parseInt(document.getElementById('sel-month').value);
+
+    // 讀員工
+    const { data: staff } = await supabase.from('staff').select('id,name,position,hourly_rate,store_id');
+    const staffMap = {};
+    (staff||[]).forEach(s => staffMap[s.id] = s);
+
+    // 讀本月薪資記錄
+    const { data: records } = await supabase.from('payroll_records')
+      .select('*').eq('year', year).eq('month', month);
+
+    if (!records?.length) {
+      showToast('本月尚無薪資記錄', 'warning');
+      renderEmpty();
+      return;
+    }
+
+    // 分類
+    let ftTotal = 0, ptTotal = 0, ftCount = 0, ptCount = 0;
+    const rows = [];
+    for (const r of records) {
+      const s = staffMap[r.staff_id];
+      if (!s) continue;
+      const payout = Number(r.payout_amount||0) || calcAmt(r);
+      const type   = isPT(s.position) ? 'PT' : 'FT';
+      if (type === 'PT') { ptTotal += payout; ptCount++; }
+      else                { ftTotal += payout; ftCount++; }
+      rows.push({ name: s.name, position: s.position, type, payout });
+    }
+    const total = ftTotal + ptTotal;
+    const ptRatio = total > 0 ? (ptTotal / total * 100).toFixed(1) : 0;
+
+    renderKPI(ftTotal, ptTotal, total, ptRatio, ftCount, ptCount);
+    renderPieChart(ftTotal, ptTotal);
+    renderAlert(Number(ptRatio));
+    renderBenchmarkMarker(Number(ptRatio));
+    renderDetailTable(rows, total);
+    await renderTrendChart(year, month, staffMap);
+  }
+
+  function calcAmt(r) {
+    return (Number(r.base_salary)+Number(r.position_allowance)+Number(r.attendance_bonus)+
+            Number(r.performance_bonus)+Number(r.special_bonus)-Number(r.deductions)-Number(r.leave_deductions));
+  }
+
+  function renderEmpty() {
+    ['kpi-ft','kpi-pt','kpi-total','kpi-pt-ratio'].forEach(id => {
+      document.getElementById(id).textContent = '—';
+    });
+    document.getElementById('detail-tbody').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">本月尚無資料</td></tr>';
+    document.getElementById('alert-banner').style.display = 'none';
+  }
+
+  function renderKPI(ft, pt, total, ptRatio, ftCount, ptCount) {
+    document.getElementById('kpi-ft').textContent    = fmt(ft);
+    document.getElementById('kpi-pt').textContent    = fmt(pt);
+    document.getElementById('kpi-total').textContent  = fmt(total);
+    document.getElementById('kpi-ft-count').textContent = ftCount + ' 人';
+    document.getElementById('kpi-pt-count').textContent = ptCount + ' 人';
+
+    const r = Number(ptRatio);
+    const ratioEl = document.getElementById('kpi-pt-ratio');
+    ratioEl.textContent = ptRatio + '%';
+    const hint = document.getElementById('kpi-ratio-hint');
+    const card = document.getElementById('ratio-card');
+
+    if (r > 45) {
+      ratioEl.style.color = '#ef4444';
+      hint.innerHTML = '<span style="color:#ef4444;font-weight:700;">⚠ 超過警戒線 45%</span>';
+      card.style.background = '#fef2f2';
+    } else if (r < 25) {
+      ratioEl.style.color = '#f59e0b';
+      hint.innerHTML = '<span style="color:#f59e0b;font-weight:700;">⚡ 低於建議下限 25%</span>';
+      card.style.background = '#fffbeb';
+    } else {
+      ratioEl.style.color = '#16a34a';
+      hint.innerHTML = '<span style="color:#16a34a;font-weight:700;">✅ 健康區間</span>';
+      card.style.background = '#f0fdf4';
+    }
+  }
+
+  function renderPieChart(ft, pt) {
+    const ctx = document.getElementById('pie-chart').getContext('2d');
+    if (pieChart) pieChart.destroy();
+    pieChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['正職薪資', '兼職薪資'],
+        datasets: [{
+          data: [ft, pt],
+          backgroundColor: ['#2563eb', '#f59e0b'],
+          borderColor: ['#fff','#fff'],
+          borderWidth: 3,
+          hoverOffset: 12,
+        }],
+      },
+      options: {
+        cutout: '60%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                const pct = (ctx.raw / total * 100).toFixed(1);
+                return ` ${ctx.label}: ${ctx.raw.toLocaleString('zh-TW')} 元（${pct}%）`;
+              }
+            }
+          }
+        },
+        animation: { animateScale: true, duration: 600 },
+      },
+      plugins: [{
+        id: 'center-text',
+        afterDraw(chart) {
+          const { ctx, chartArea: {width,height,left,top} } = chart;
+          const cx = left + width/2, cy = top + height/2;
+          const total = chart.data.datasets[0].data.reduce((a,b)=>a+b,0);
+          ctx.save();
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#1e293b';
+          ctx.font = 'bold 20px system-ui';
+          ctx.fillText(total.toLocaleString('zh-TW'), cx, cy - 10);
+          ctx.font = '13px system-ui';
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText('薪資合計 (元)', cx, cy + 14);
+          ctx.restore();
+        }
+      }]
+    });
+  }
+
+  function renderAlert(ptRatio) {
+    const banner = document.getElementById('alert-banner');
+    const text   = document.getElementById('alert-text');
+    if (ptRatio > 45) {
+      banner.className = 'alert alert-danger mb-3 d-flex align-items-center gap-2';
+      banner.style.display = '';
+      text.innerHTML = `<strong>兼職薪資佔比 ${ptRatio}%，已超過安全警戒線（45%）！</strong><br>
+        建議評估是否增加正職人員比例，以降低服務品質與員工流動風險。`;
+    } else if (ptRatio < 25) {
+      banner.className = 'alert alert-warning mb-3 d-flex align-items-center gap-2';
+      banner.style.display = '';
+      text.innerHTML = `<strong>兼職薪資佔比僅 ${ptRatio}%，低於建議下限（25%）。</strong><br>
+        正職人力成本過高，建議評估是否可適度彈性化排班以降低固定成本。`;
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  function renderBenchmarkMarker(ptRatio) {
+    const marker = document.getElementById('ratio-marker');
+    const pct = Math.min(Math.max(ptRatio, 0), 100);
+    marker.style.left = pct + '%';
+  }
+
+  function renderDetailTable(rows, total) {
+    rows.sort((a,b) => b.payout - a.payout);
+    document.getElementById('detail-tbody').innerHTML = rows.map(r => {
+      const pct  = total > 0 ? (r.payout / total * 100).toFixed(1) : 0;
+      const tag  = r.type === 'PT'
+        ? '<span class="badge" style="background:#fef3c7;color:#92400e;font-size:0.7rem;">兼職</span>'
+        : '<span class="badge" style="background:#dbeafe;color:#1e40af;font-size:0.7rem;">正職</span>';
+      return `<tr style="font-size:0.85rem;">
+        <td><strong>${r.name}</strong></td>
+        <td style="color:#64748b;">${r.position}</td>
+        <td>${tag}</td>
+        <td class="text-end">${r.payout.toLocaleString('zh-TW')}</td>
+        <td class="text-end">
+          <div class="d-flex align-items-center justify-content-end gap-2">
+            <div style="width:60px;background:#e2e8f0;height:6px;border-radius:4px;overflow:hidden;">
+              <div style="width:${pct}%;background:${r.type==='PT'?'#f59e0b':'#2563eb'};height:100%;"></div>
+            </div>
+            <span style="min-width:36px;">${pct}%</span>
+          </div>
+        </td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="5" class="text-center text-muted py-3">無資料</td></tr>';
+  }
+
+  async function renderTrendChart(currentYear, currentMonth, staffMap) {
+    // 取最近 5 個月
+    const months = [];
+    for (let i = 4; i >= 0; i--) {
+      let m = currentMonth - i;
+      let y = currentYear;
+      while (m <= 0) { m += 12; y--; }
+      months.push({ year: y, month: m, label: `${y}/${m}月` });
+    }
+
+    const ftData = [], ptData = [];
+    for (const { year, month } of months) {
+      const { data: recs } = await supabase.from('payroll_records')
+        .select('staff_id,payout_amount,base_salary,position_allowance,attendance_bonus,performance_bonus,special_bonus,deductions,leave_deductions')
+        .eq('year', year).eq('month', month);
+      let ft = 0, pt = 0;
+      (recs||[]).forEach(r => {
+        const s = staffMap[r.staff_id];
+        if (!s) return;
+        const payout = Number(r.payout_amount||0) || calcAmt(r);
+        isPT(s.position) ? (pt += payout) : (ft += payout);
+      });
+      ftData.push(ft); ptData.push(pt);
+    }
+
+    const ctx = document.getElementById('trend-chart').getContext('2d');
+    if (trendChart) trendChart.destroy();
+    trendChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: months.map(m => m.label),
+        datasets: [
+          { label: '正職薪資', data: ftData, backgroundColor: '#2563eb', borderRadius: 6 },
+          { label: '兼職薪資', data: ptData, backgroundColor: '#f59e0b', borderRadius: 6 },
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'top' },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toLocaleString('zh-TW')} 元`
+            }
+          }
+        },
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, ticks: { callback: v => (v/10000).toFixed(0)+'萬' } }
+        }
+      }
+    });
+  }
+
+  function showToast(msg, type='success') {
+    const c = document.getElementById('toast-container');
+    if (!c) return;
+    const t = document.createElement('div');
+    t.className = `toast show align-items-center text-white bg-${type} border-0`;
+    t.innerHTML = `<div class="d-flex"><div class="toast-body">${msg}</div></div>`;
+    c.appendChild(t); setTimeout(()=>t.remove(), 3000);
+  }
+</script>
+</body>
+</html>

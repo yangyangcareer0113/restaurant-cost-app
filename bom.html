@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>成本 BOM — 成本物料管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <style>
+    /* ── Tab 1: 菜品成本 ── */
+    .dish-cost-card { border:1px solid #e2e8f0; border-radius:10px; margin-bottom:10px; overflow:hidden; }
+    .dish-cost-header { padding:12px 16px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; background:#fff; transition:background 0.12s; }
+    .dish-cost-header:hover { background:#f8fafc; }
+    .dish-cost-header.open { background:#eff6ff; border-bottom:1px solid #bfdbfe; }
+    .dish-cost-body { display:none; padding:14px 16px; background:#fafbfd; }
+    .dish-cost-body.show { display:block; }
+    .dish-title { font-weight:700; font-size:0.95rem; }
+    .dish-price-tag { font-size:0.8rem; color:#64748b; }
+    .cost-badge { font-size:0.72rem; padding:2px 8px; border-radius:12px; font-weight:700; white-space:nowrap; }
+    .cb-star   { background:#dcfce7; color:#14532d; }
+    .cb-good   { background:#d1fae5; color:#065f46; }
+    .cb-warn   { background:#fef3c7; color:#92400e; }
+    .cb-danger { background:#fee2e2; color:#991b1b; }
+    .cb-crit   { background:#dc2626; color:#fff; }
+    .cb-unk    { background:#f3f4f6; color:#6b7280; }
+    .bom-tree-row { display:flex; align-items:center; padding:5px 0; border-bottom:1px solid #f1f5f9; font-size:0.85rem; gap:8px; }
+    .bom-tree-row:last-child { border-bottom:none; }
+    .bom-indent { padding-left:20px; }
+    .bom-indent-2 { padding-left:40px; }
+    .bom-name { flex:3; }
+    .bom-qty  { flex:2; color:#64748b; font-size:0.8rem; }
+    .bom-unit-cost { flex:2; color:#64748b; font-size:0.8rem; }
+    .bom-line-cost { flex:1; text-align:right; font-weight:600; color:#16a34a; }
+    .semi-header-row { background:#f0fdf4; border-radius:6px; padding:5px 8px; margin:4px 0; font-weight:600; font-size:0.83rem; }
+    .cost-total-row { background:#f8fafc; border-radius:6px; padding:10px 12px; margin-top:10px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+    .ct-item { text-align:center; }
+    .ct-val { font-size:1rem; font-weight:800; }
+    .ct-label { font-size:0.72rem; color:#64748b; }
+
+    /* ── Tab 2: 進貨成本參考 ── */
+    .badge-filled { background:#dcfce7; color:#14532d; font-size:0.72rem; padding:0.18rem 0.55rem; border-radius:20px; font-weight:600; white-space:nowrap; }
+    .badge-todo   { background:#f3f4f6; color:#6b7280; font-size:0.72rem; padding:0.18rem 0.55rem; border-radius:20px; font-weight:600; white-space:nowrap; }
+    .cat-header   { background:#f1f5f9; font-weight:700; color:#334155; font-size:0.82rem; padding:0.4rem 1rem; border-top:2px solid #cbd5e1; border-bottom:1px solid #e2e8f0; }
+    .cost-val     { font-weight:700; color:#1e40af; }
+    .row-todo td  { color:#9ca3af; }
+    .supplier-tag { font-size:0.75rem; background:#eff6ff; color:#1d4ed8; border-radius:12px; padding:2px 8px; white-space:nowrap; }
+    .bom-unit-tag { font-size:0.72rem; background:#f0fdf4; color:#15803d; border-radius:12px; padding:2px 7px; white-space:nowrap; }
+  </style>
+</head>
+<body>
+<div class="main-content">
+  <div class="top-header">
+    <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
+    <h6 class="mb-0 fw-bold">🧾 成本 BOM</h6>
+  </div>
+
+  <div class="page-body">
+
+    <!-- Tab 切換 -->
+    <ul class="nav nav-tabs mb-3" id="bom-tabs">
+      <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-dishes" type="button">🍽️ 菜品成本分析</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-procurement" type="button">📦 進貨成本參考</button>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+
+      <!-- ══════════════════════════ Tab 1: 菜品成本分析 ══════════════════════════ -->
+      <div class="tab-pane fade show active" id="tab-dishes">
+
+        <!-- KPI -->
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-value text-primary" id="kpi-dish-count">—</div>
+              <div class="stat-label">菜品總數</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-value text-success" id="kpi-good">—</div>
+              <div class="stat-label">✅ 成本率 ≤30%</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-value text-warning" id="kpi-warn">—</div>
+              <div class="stat-label">⚠️ 30–45%</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-value text-danger" id="kpi-high">—</div>
+              <div class="stat-label">🚨 &gt;45%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 篩選 -->
+        <div class="d-flex gap-2 mb-3 flex-wrap">
+          <input type="text" id="dish-search" class="form-control form-control-sm" style="max-width:200px;" placeholder="搜尋菜品..." oninput="renderDishBOM()">
+          <select id="dish-cat-filter" class="form-select form-select-sm" style="width:auto;" onchange="renderDishBOM()">
+            <option value="">所有類別</option>
+          </select>
+          <select id="dish-rate-filter" class="form-select form-select-sm" style="width:auto;" onchange="renderDishBOM()">
+            <option value="">所有成本率</option>
+            <option value="good">✅ ≤30%</option>
+            <option value="warn">⚠️ 30-45%</option>
+            <option value="high">🚨 &gt;45%</option>
+            <option value="none">⚑ 尚無配方</option>
+          </select>
+        </div>
+
+        <!-- 菜品列表（可展開） -->
+        <div id="dish-bom-list">
+          <div class="text-center text-muted py-5">載入中...</div>
+        </div>
+
+      </div>
+
+      <!-- ══════════════════════════ Tab 2: 進貨成本參考 ══════════════════════════ -->
+      <div class="tab-pane fade" id="tab-procurement">
+
+        <!-- KPI -->
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-value text-primary" id="stat-total">—</div>
+              <div class="stat-label">進貨品項總數</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-value text-success" id="stat-filled">—</div>
+              <div class="stat-label">✅ 已填單位成本</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-value text-success" id="stat-bom-set">—</div>
+              <div class="stat-label">⚖️ 已設 BOM 換算</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-value text-warning" id="stat-todo">—</div>
+              <div class="stat-label">⚑ 待補成本</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 篩選 -->
+        <div class="d-flex gap-2 mb-3 flex-wrap">
+          <select id="p-cat-filter" class="form-select form-select-sm" style="width:auto;" onchange="renderProcurementTable()">
+            <option value="">所有類別</option>
+          </select>
+          <select id="p-sup-filter" class="form-select form-select-sm" style="width:auto;" onchange="renderProcurementTable()">
+            <option value="">所有廠商</option>
+          </select>
+          <select id="p-status-filter" class="form-select form-select-sm" style="width:auto;" onchange="renderProcurementTable()">
+            <option value="">全部狀態</option>
+            <option value="filled">已填成本</option>
+            <option value="todo">待補成本</option>
+          </select>
+          <small class="text-muted align-self-center ms-auto">在「品項管理」可編輯成本與BOM換算</small>
+        </div>
+
+        <div class="table-card">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>品項名稱</th>
+                  <th>類別</th>
+                  <th>廠商</th>
+                  <th>進貨單位</th>
+                  <th>標準單位成本</th>
+                  <th>BOM 換算</th>
+                  <th>規格說明</th>
+                  <th>狀態</th>
+                </tr>
+              </thead>
+              <tbody id="procurement-table">
+                <tr><td colspan="8" class="text-center text-muted py-4">載入中...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/nav.js"></script>
+<script>
+let currentProfile = null;
+let itemsData = {};
+let semisData = {};    // id → semi with costPerUnit
+let semiLinesData = {};// semiId → [{line, item}]
+let allDishes = [];
+let dishLinesData = {};// dishId → lines[]
+let allItems = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await requireAuth();
+  injectNav();
+  const data = await renderUserInfo();
+  currentProfile = data.profile;
+  filterNavByRole(currentProfile.role);
+  await loadAllData();
+  renderDishBOM();
+  renderProcurementTable();
+
+  // Re-render when switching to procurement tab
+  document.querySelector('[data-bs-target="#tab-procurement"]').addEventListener('shown.bs.tab', renderProcurementTable);
+});
+
+async function loadAllData() {
+  const sid = currentProfile.store_id;
+
+  const [{ data: items }, { data: semis }, { data: dishes }] = await Promise.all([
+    supabase.from('items').select('id,name,unit,unit_cost,bom_unit,bom_conversion,category,supplier,spec_note,min_stock_qty').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
+    supabase.from('semi_products').select('id,name,category,output_qty,output_unit').eq('store_id',sid).eq('is_active',true).order('name'),
+    supabase.from('dishes').select('*').eq('store_id',sid).eq('is_active',true).order('category').order('name')
+  ]);
+
+  allItems = items || [];
+  allItems.forEach(i => { itemsData[i.id] = i; });
+
+  // Semi-products cost calculation
+  const semiIds = (semis||[]).map(s => s.id);
+  let semiLines = [];
+  if (semiIds.length) {
+    const { data } = await supabase.from('bom_lines').select('*').eq('parent_type','semi').in('parent_id', semiIds);
+    semiLines = data || [];
+  }
+  (semis||[]).forEach(semi => {
+    const lines = semiLines.filter(l => l.parent_id === semi.id);
+    let total = 0;
+    lines.forEach(l => {
+      if (l.child_type === 'item') {
+        const item = itemsData[l.child_id];
+        if (item?.unit_cost > 0 && item.bom_conversion > 0) {
+          total += (item.unit_cost / item.bom_conversion) * l.std_qty * (1 + (l.waste_rate||0)/100);
+        }
+      }
+    });
+    semi.totalCost = total;
+    semi.costPerUnit = semi.output_qty > 0 ? total / semi.output_qty : 0;
+    semisData[semi.id] = semi;
+    semiLinesData[semi.id] = lines;
+  });
+
+  // Dishes + bom_lines
+  allDishes = dishes || [];
+  const dishIds = allDishes.map(d => d.id);
+  let dishLines = [];
+  if (dishIds.length) {
+    const { data } = await supabase.from('bom_lines').select('*').eq('parent_type','dish').in('parent_id', dishIds).order('sort_order').order('created_at');
+    dishLines = data || [];
+  }
+  allDishes.forEach(d => {
+    dishLinesData[d.id] = dishLines.filter(l => l.parent_id === d.id);
+  });
+
+  // Category filter for dishes
+  const cats = [...new Set(allDishes.map(d => d.category).filter(Boolean))].sort();
+  const cf = document.getElementById('dish-cat-filter');
+  cats.forEach(c => cf.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+
+  // Category / supplier filter for procurement
+  const pCats = [...new Set(allItems.map(i => i.category).filter(Boolean))].sort();
+  const pcf = document.getElementById('p-cat-filter');
+  pCats.forEach(c => pcf.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  const sups = [...new Set(allItems.map(i => i.supplier).filter(s => s && s !== '待確認'))].sort();
+  const psf = document.getElementById('p-sup-filter');
+  sups.forEach(s => psf.insertAdjacentHTML('beforeend', `<option value="${s}">${s}</option>`));
+}
+
+function calcDishLineCost(line) {
+  if (line.child_type === 'item') {
+    const item = itemsData[line.child_id];
+    if (!item || !item.unit_cost || !(item.bom_conversion > 0)) return 0;
+    return (item.unit_cost / item.bom_conversion) * line.std_qty * (1 + (line.waste_rate||0)/100);
+  }
+  const semi = semisData[line.child_id];
+  if (!semi) return 0;
+  return semi.costPerUnit * line.std_qty * (1 + (line.waste_rate||0)/100);
+}
+
+function costBadge(rate) {
+  if (rate === null || isNaN(rate)) return `<span class="cost-badge cb-unk">⚑ 待計算</span>`;
+  if (rate < 20)  return `<span class="cost-badge cb-star">⭐ ${rate.toFixed(1)}%</span>`;
+  if (rate < 30)  return `<span class="cost-badge cb-good">✅ ${rate.toFixed(1)}%</span>`;
+  if (rate <= 45) return `<span class="cost-badge cb-warn">⚠️ ${rate.toFixed(1)}%</span>`;
+  if (rate <= 65) return `<span class="cost-badge cb-danger">🚨 ${rate.toFixed(1)}%</span>`;
+  return `<span class="cost-badge cb-crit">🔴 ${rate.toFixed(1)}%</span>`;
+}
+
+function rateFilter(rate, filter) {
+  if (!filter) return true;
+  if (filter === 'none') return rate === null;
+  if (rate === null) return false;
+  if (filter === 'good') return rate <= 30;
+  if (filter === 'warn') return rate > 30 && rate <= 45;
+  if (filter === 'high') return rate > 45;
+  return true;
+}
+
+function renderDishBOM() {
+  if (!allDishes) return;
+  const q       = document.getElementById('dish-search')?.value.toLowerCase() || '';
+  const cat     = document.getElementById('dish-cat-filter')?.value || '';
+  const rateFlt = document.getElementById('dish-rate-filter')?.value || '';
+
+  let good = 0, warn = 0, high = 0;
+  const dishesWithCost = allDishes.map(d => {
+    const lines = dishLinesData[d.id] || [];
+    const totalCost = lines.length ? lines.reduce((s, l) => s + calcDishLineCost(l), 0) : null;
+    const costRate = (totalCost !== null && d.selling_price > 0) ? totalCost / d.selling_price * 100 : null;
+    if (costRate !== null) {
+      if (costRate <= 30) good++;
+      else if (costRate <= 45) warn++;
+      else high++;
+    }
+    return { ...d, lines, totalCost, costRate };
+  });
+
+  document.getElementById('kpi-dish-count').textContent = allDishes.length;
+  document.getElementById('kpi-good').textContent = good;
+  document.getElementById('kpi-warn').textContent = warn;
+  document.getElementById('kpi-high').textContent = high;
+
+  const filtered = dishesWithCost.filter(d =>
+    (!q || d.name.toLowerCase().includes(q)) &&
+    (!cat || d.category === cat) &&
+    rateFilter(d.costRate, rateFlt)
+  );
+
+  const box = document.getElementById('dish-bom-list');
+  if (!filtered.length && !allDishes.length) {
+    box.innerHTML = `<div class="text-center text-muted py-5">
+      <div style="font-size:2rem;margin-bottom:8px;">🍽️</div>
+      尚未建立菜品，前往「<a href="dishes.html">成品菜單</a>」新增並設定配方
+    </div>`;
+    return;
+  }
+  if (!filtered.length) {
+    box.innerHTML = '<div class="text-center text-muted py-4" style="font-size:0.88rem;">沒有符合篩選條件的菜品</div>';
+    return;
+  }
+
+  box.innerHTML = filtered.map((d, idx) => {
+    const hasLines = d.lines.length > 0;
+    const typeTag  = d.dish_type === 'set_meal'
+      ? '<span style="font-size:0.65rem;background:#fef3c7;color:#92400e;border-radius:10px;padding:1px 6px;" class="ms-1">套餐</span>'
+      : '';
+
+    // Build BOM tree rows
+    let treeRows = '';
+    if (hasLines) {
+      d.lines.forEach(line => {
+        const lineCost = calcDishLineCost(line);
+        if (line.child_type === 'item') {
+          const item = itemsData[line.child_id];
+          const cpu = item?.unit_cost && item?.bom_conversion > 0 ? item.unit_cost / item.bom_conversion : 0;
+          treeRows += `<div class="bom-tree-row">
+            <div class="bom-name"><span style="color:#94a3b8;margin-right:6px;">▸</span>${item?.name||'—'}</div>
+            <div class="bom-qty">${formatNumber(line.std_qty,2)} ${line.bom_unit}${line.waste_rate?` (+${line.waste_rate}%)`:''}</div>
+            <div class="bom-unit-cost">$${formatNumber(cpu,3)}/${line.bom_unit}</div>
+            <div class="bom-line-cost">$${formatNumber(lineCost,1)}</div>
+          </div>`;
+        } else {
+          const semi = semisData[line.child_id];
+          treeRows += `<div class="bom-tree-row semi-header-row">
+            <div class="bom-name" style="flex:3;"><span style="color:#16a34a;margin-right:6px;">◈</span>${semi?.name||'半成品'} <span style="font-size:0.7rem;color:#6b7280;">× ${formatNumber(line.std_qty,2)}${line.bom_unit}</span></div>
+            <div class="bom-unit-cost" style="flex:2;color:#16a34a;font-size:0.78rem;">$${formatNumber(semi?.costPerUnit||0,3)}/${semi?.output_unit||'—'}</div>
+            <div class="bom-line-cost">$${formatNumber(lineCost,1)}</div>
+          </div>`;
+          // Show sub-ingredients of the semi
+          if (semi && semiLinesData[semi.id]?.length) {
+            semiLinesData[semi.id].forEach(sl => {
+              const subItem = itemsData[sl.child_id];
+              const subCpu  = subItem?.unit_cost && subItem?.bom_conversion > 0 ? subItem.unit_cost / subItem.bom_conversion : 0;
+              const subCost = calcDishLineCost(sl);
+              treeRows += `<div class="bom-tree-row bom-indent" style="background:#f0fdf4;">
+                <div class="bom-name" style="color:#4b5563;font-size:0.82rem;"><span style="color:#86efac;margin-right:6px;">└</span>${subItem?.name||'—'}</div>
+                <div class="bom-qty">${formatNumber(sl.std_qty,2)} ${sl.bom_unit}${sl.waste_rate?` (+${sl.waste_rate}%)`:''}</div>
+                <div class="bom-unit-cost">$${formatNumber(subCpu,3)}/${sl.bom_unit}</div>
+                <div class="bom-line-cost" style="color:#16a34a;">$${formatNumber(subCost,1)}</div>
+              </div>`;
+            });
+          }
+        }
+      });
+    }
+
+    return `<div class="dish-cost-card">
+      <div class="dish-cost-header" onclick="toggleDishBOM('dc${idx}')">
+        <div>
+          <div class="dish-title">${d.name}${typeTag}</div>
+          <div class="dish-price-tag">${d.category?`${d.category}・`:''}售價 $${formatNumber(d.selling_price||0,0)}${hasLines?`・食材成本 $${formatNumber(d.totalCost,1)}`:''}</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          ${costBadge(d.costRate)}
+          <span class="text-muted" style="font-size:0.75rem;" id="dc${idx}-arrow">▼</span>
+        </div>
+      </div>
+      <div class="dish-cost-body" id="dc${idx}">
+        ${hasLines ? `
+          <div style="font-size:0.78rem;color:#94a3b8;display:flex;gap:16px;margin-bottom:6px;">
+            <span style="flex:3;">食材名稱</span>
+            <span style="flex:2;">用量</span>
+            <span style="flex:2;">單位成本</span>
+            <span style="flex:1;text-align:right;">項目成本</span>
+          </div>
+          ${treeRows}
+          <div class="cost-total-row">
+            <div class="ct-item">
+              <div class="ct-val text-success">$${formatNumber(d.totalCost,1)}</div>
+              <div class="ct-label">食材總成本</div>
+            </div>
+            <div class="ct-item">
+              <div class="ct-val">$${formatNumber(d.selling_price||0,0)}</div>
+              <div class="ct-label">售價</div>
+            </div>
+            ${d.selling_price ? `
+            <div class="ct-item">
+              <div class="ct-val ${(d.selling_price-d.totalCost)>=0?'text-success':'text-danger'}">$${formatNumber(d.selling_price-d.totalCost,1)}</div>
+              <div class="ct-label">毛利</div>
+            </div>` : ''}
+            <div class="ct-item">
+              <div>${costBadge(d.costRate)}</div>
+              <div class="ct-label mt-1">食材成本率</div>
+            </div>
+          </div>
+        ` : `<div class="text-center text-muted py-3" style="font-size:0.85rem;">尚未建立配方，前往 <a href="dishes.html">成品菜單</a> 新增食材</div>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleDishBOM(id) {
+  const body   = document.getElementById(id);
+  const arrow  = document.getElementById(id + '-arrow');
+  const header = body?.previousElementSibling;
+  if (!body) return;
+  const isOpen = body.classList.contains('show');
+  body.classList.toggle('show', !isOpen);
+  if (arrow)  arrow.textContent = isOpen ? '▼' : '▲';
+  if (header) header.classList.toggle('open', !isOpen);
+}
+
+/* ═══════════════ Tab 2: Procurement Table ═══════════════ */
+function renderProcurementTable() {
+  if (!allItems.length) return;
+  const cat    = document.getElementById('p-cat-filter').value;
+  const sup    = document.getElementById('p-sup-filter').value;
+  const status = document.getElementById('p-status-filter').value;
+
+  const items = allItems.filter(i =>
+    (!cat    || i.category === cat) &&
+    (!sup    || i.supplier === sup) &&
+    (!status || (status === 'filled' ? i.unit_cost > 0 : !i.unit_cost || i.unit_cost === 0))
+  );
+
+  const filled   = allItems.filter(i => i.unit_cost > 0).length;
+  const bomSet   = allItems.filter(i => i.bom_conversion && i.bom_conversion !== 1).length;
+  const todo     = allItems.filter(i => !i.unit_cost || i.unit_cost === 0).length;
+  document.getElementById('stat-total').textContent  = allItems.length;
+  document.getElementById('stat-filled').textContent = filled;
+  document.getElementById('stat-bom-set').textContent= bomSet;
+  document.getElementById('stat-todo').textContent   = todo;
+
+  const tbody = document.getElementById('procurement-table');
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-5">沒有符合條件的品項</td></tr>';
+    return;
+  }
+
+  const grouped = {};
+  items.forEach(i => {
+    const c = i.category || '其他';
+    if (!grouped[c]) grouped[c] = [];
+    grouped[c].push(i);
+  });
+
+  let html = '';
+  Object.entries(grouped).forEach(([c, list]) => {
+    const filledCnt = list.filter(i => i.unit_cost > 0).length;
+    html += `<tr class="cat-header"><td colspan="8">${c}（${list.length} 品，已填 ${filledCnt} / 待補 ${list.length - filledCnt}）</td></tr>`;
+    list.forEach(item => {
+      const hasCost = item.unit_cost > 0;
+      const hasBom  = item.bom_conversion && item.bom_conversion !== 1;
+      const costPer = hasCost && item.bom_conversion > 0
+        ? `<span class="text-muted" style="font-size:0.75rem;"> → $${(item.unit_cost/item.bom_conversion).toFixed(3)}/${item.bom_unit||'g'}</span>`
+        : '';
+      const bomTag  = hasBom
+        ? `<span class="bom-unit-tag">1${item.unit}=${item.bom_conversion}${item.bom_unit}</span>`
+        : '<span class="text-muted" style="font-size:0.78rem;">—</span>';
+      const supStr  = item.supplier && item.supplier !== '待確認'
+        ? `<span class="supplier-tag">${item.supplier}</span>` : '<span class="text-muted">—</span>';
+      html += `<tr class="${hasCost?'':'row-todo'}">
+        <td><strong>${item.name}</strong></td>
+        <td><span class="badge bg-light text-secondary border" style="font-size:0.72rem;">${item.category||'—'}</span></td>
+        <td>${supStr}</td>
+        <td>${item.unit}</td>
+        <td>${hasCost ? `<span class="cost-val">$${formatNumber(item.unit_cost,0)} / ${item.unit}</span>${costPer}` : '<span class="text-muted">—</span>'}</td>
+        <td>${bomTag}</td>
+        <td class="text-muted" style="font-size:0.82rem;max-width:240px;">${item.spec_note||'—'}</td>
+        <td>${hasCost ? '<span class="badge-filled">✅ 已填</span>' : '<span class="badge-todo">⚑ 待補</span>'}</td>
+      </tr>`;
+    });
+  });
+
+  tbody.innerHTML = html;
+}
+</script>
+</body>
+</html>

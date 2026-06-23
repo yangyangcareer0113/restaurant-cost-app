@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>烽味廣味雞煲富民店｜完整菜單成本 BOM</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Noto Sans TC", "PingFang TC", sans-serif; background: #f4f2ef; color: #1a1a1a; font-size: 12.5px; padding: 16px; }
+h1 { font-size: 19px; font-weight: 800; margin-bottom: 3px; }
+.subtitle { color: #666; font-size: 11px; margin-bottom: 12px; }
+.alert-box { background: #fff1f2; border: 2px solid #fca5a5; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; }
+.alert-box h3 { color: #dc2626; font-size: 12px; margin-bottom: 6px; }
+.alert-box ul { list-style: none; padding: 0; }
+.alert-box li { font-size: 11.5px; padding: 2px 0; }
+.legend { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.leg { background: #fff; padding: 4px 10px; border-radius: 20px; font-size: 11px; border: 1px solid #e5e7eb; }
+h2 { font-size: 13px; font-weight: 700; margin: 20px 0 6px; padding: 5px 12px; border-radius: 5px; color: #fff; }
+table { border-collapse: collapse; width: 100%; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.07); margin-bottom: 4px; }
+th { padding: 7px 6px; text-align: center; font-size: 10.5px; white-space: nowrap; color: #fff; }
+td { padding: 5px 7px; border-bottom: 1px solid #f3f3f1; vertical-align: middle; font-size: 12px; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafaf8; }
+.item-name { font-weight: 700; white-space: nowrap; }
+.price { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.num { font-variant-numeric: tabular-nums; text-align: right; }
+.center { text-align: center; }
+.note-cell { font-size: 10.5px; color: #777; }
+.r-star { background: #dcfce7; color: #14532d; font-weight: 700; padding: 2px 7px; border-radius: 12px; font-size: 11px; white-space: nowrap; }
+.r-good { background: #d1fae5; color: #065f46; font-weight: 700; padding: 2px 7px; border-radius: 12px; font-size: 11px; white-space: nowrap; }
+.r-warn { background: #fef3c7; color: #92400e; font-weight: 700; padding: 2px 7px; border-radius: 12px; font-size: 11px; white-space: nowrap; }
+.r-danger { background: #fee2e2; color: #991b1b; font-weight: 700; padding: 2px 7px; border-radius: 12px; font-size: 11px; white-space: nowrap; }
+.r-crit { background: #dc2626; color: #fff; font-weight: 800; padding: 2px 7px; border-radius: 12px; font-size: 11px; white-space: nowrap; }
+.r-unk { background: #f3f4f6; color: #6b7280; padding: 2px 7px; border-radius: 12px; font-size: 11px; white-space: nowrap; }
+.c-star { color: #15803d; font-weight: 700; }
+.c-good { color: #059669; font-weight: 700; }
+.c-warn { color: #d97706; font-weight: 700; }
+.c-danger { color: #dc2626; font-weight: 700; }
+.c-crit { color: #7f1d1d; font-weight: 900; }
+.suggest-up { color: #dc2626; font-weight: 700; }
+.suggest-ok { color: #059669; }
+.h-soup    { background: #7c3aed; }
+.h-chicken { background: #92400e; }
+.h-beef    { background: #1e3a8a; }
+.h-pork    { background: #166534; }
+.h-seafood { background: #0c4a6e; }
+.h-veg     { background: #365314; }
+.h-staple  { background: #374151; }
+.h-drink   { background: #831843; }
+.h-alert   { background: #7f1d1d; }
+.h-combo   { background: #b45309; }
+.section-note { font-size: 10.5px; color: #888; margin: 2px 0 12px; padding-left: 4px; }
+.unk { color: #9ca3af; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1>烽味廣味雞煲 富民店｜完整菜單成本 BOM 表</h1>
+<div class="subtitle">資料來源：進貨訂購單 2026/06（7 家供應商）＋菜單現售價｜更新：2026/06/19</div>
+
+<div class="alert-box">
+  <h3>🚨 立即行動警示（3 項定價危機）</h3>
+  <ul>
+    <li>🔴 <b>天然椰子水 $75</b> — 進貨成本 120元/瓶，<b>每賣一瓶虧損 45元</b>。建議立即調漲至 $200，或重新跟旗山農民談供應價。</li>
+    <li>🔴 <b>手工燕餃 $80（5顆）</b> — 1包2kg=1,023元，每顆成本約 12.8元，5顆 = 64元。成本率 80%。建議調漲至 $150 或縮減至 3顆。</li>
+    <li>🟠 <b>溫體切塊雞盤 $500（全雞 1,500g）</b> — 食材成本 225元，成本率 45%。建議調漲至 $680。</li>
+  </ul>
+</div>
+
+<div class="legend">
+  <span class="leg r-star">⭐ 優秀 &lt;20%</span>
+  <span class="leg r-good">✅ 良好 20–30%</span>
+  <span class="leg r-warn">⚠️ 警示 30–45%</span>
+  <span class="leg r-danger">🚨 危險 45–60%</span>
+  <span class="leg r-crit">🔴 虧損 &gt;60%</span>
+  <span class="leg r-unk">⚑ 待確認</span>
+</div>
+
+<!-- 鍋底 -->
+<h2 class="h-soup">🍲 鍋底區｜JIBAO GUODI</h2>
+<table>
+  <thead><tr>
+    <th class="h-soup" style="width:140px;text-align:left">菜單品名</th>
+    <th class="h-soup">現售價</th>
+    <th class="h-soup" style="min-width:200px">主要食材 / 用量</th>
+    <th class="h-soup">主食材成本</th>
+    <th class="h-soup">其他估算</th>
+    <th class="h-soup">食材總成本</th>
+    <th class="h-soup">成本率</th>
+    <th class="h-soup">評級</th>
+    <th class="h-soup">建議定價</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td class="item-name">雞骨慢熬清湯</td><td class="price">$120</td>
+      <td>雞骨架 500g（20元/kg）</td>
+      <td class="num c-star">10</td><td class="num c-star">薑蔥香料 20</td><td class="num c-good">30</td>
+      <td class="num c-good">25.0%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">無花果乾潤鍋</td><td class="price">$280</td>
+      <td>骨架 500g + 無花果乾藥材</td>
+      <td class="num c-star">10</td><td class="num c-star">藥材 50</td><td class="num c-star">60</td>
+      <td class="num c-star">21.4%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">鮮參養生鍋</td><td class="price">$280</td>
+      <td>骨架 500g + 整根鮮人蔘</td>
+      <td class="num c-star">10</td><td class="num c-warn">鮮參 80</td><td class="num c-warn">90</td>
+      <td class="num c-warn">32.1%</td><td class="center"><span class="r-warn">⚠️ 警示</span></td><td class="center suggest-ok">現行合理，鮮參成本需追蹤</td>
+    </tr>
+    <tr>
+      <td class="item-name">五指毛桃養氣鍋</td><td class="price">$280</td>
+      <td>骨架 500g + 五指毛桃根部</td>
+      <td class="num c-star">10</td><td class="num c-star">藥材 50</td><td class="num c-star">60</td>
+      <td class="num c-star">21.4%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">酸甜百香鍋</td><td class="price">$300</td>
+      <td>骨架 500g + 百香果</td>
+      <td class="num c-star">10</td><td class="num c-star">百香果 30</td><td class="num c-star">40</td>
+      <td class="num c-star">13.3%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">滋補養生雞煲<br><small>含半祇雞</small></td><td class="price">$800</td>
+      <td>全雞 750g（150/kg）+ 中藥材</td>
+      <td class="num c-good">112.5</td><td class="num c-good">藥材 80 + 蔬菜 40</td><td class="num c-good">232.5</td>
+      <td class="num c-good">29.1%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">潮汕乾鍋雞煲<br><small>小份</small></td><td class="price">$700</td>
+      <td>脆皮雞 200g（140/斤=0.233/g）</td>
+      <td class="num c-star">46.7</td><td class="num c-star">醬料辣椒 60 + 蔬菜 40</td><td class="num c-star">146.7</td>
+      <td class="num c-star">20.9%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">潮汕乾鍋雞煲<br><small>大份</small></td><td class="price">$1,080</td>
+      <td>脆皮雞 500g（140/斤）</td>
+      <td class="num c-star">116.7</td><td class="num c-star">醬料 80 + 蔬菜 60</td><td class="num c-star">256.7</td>
+      <td class="num c-star">23.8%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">清甜椰子雞煲<br><small>小份</small></td><td class="price">$980</td>
+      <td>脆皮雞 200g + 椰子水 1瓶(120) + 椰肉 50g(19.2)</td>
+      <td class="num c-good">46.7+139.2</td><td class="num c-good">蔬菜配料 80</td><td class="num c-good">265.9</td>
+      <td class="num c-good">27.1%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">合理（椰子水成本含入）</td>
+    </tr>
+    <tr>
+      <td class="item-name">清甜椰子雞煲<br><small>大份</small></td><td class="price">$1,280</td>
+      <td>脆皮雞 500g + 椰子水 2瓶(240) + 椰肉 100g(38.3)</td>
+      <td class="num c-warn">116.7+278.3</td><td class="num c-warn">蔬菜配料 120</td><td class="num c-warn">515</td>
+      <td class="num c-warn">40.2%</td><td class="center"><span class="r-warn">⚠️ 警示</span></td><td class="center"><span class="suggest-up">建議 $1,580<br><small>（2瓶椰水=240元成本）</small></span></td>
+    </tr>
+    <tr>
+      <td class="item-name">豪華雙人饕宴</td><td class="price">$1,388</td>
+      <td colspan="5" class="unk">⚑ 套餐內容物待確認（含湯底+蛋白質×2+蔬菜）→ 需逐項列出才能計算成本率</td>
+      <td class="center"><span class="r-unk">⚑ 待確認</span></td><td></td>
+    </tr>
+    <tr>
+      <td class="item-name">超值四人巨無敵</td><td class="price">$3,188</td>
+      <td colspan="5" class="unk">⚑ 套餐內容物待確認（≈797元/人）</td>
+      <td class="center"><span class="r-unk">⚑ 待確認</span></td><td></td>
+    </tr>
+  </tbody>
+</table>
+<div class="section-note">＊椰子水嵌入大份鍋品雖勉強合理，但單點 $75 嚴重虧損。兩件事需同步處理：①調漲單點椰子水至$200；②重談旗山農民進貨價。</div>
+
+<!-- 雞肉 -->
+<h2 class="h-chicken">🐔 特選雞肉區｜TEXUAN JIROU</h2>
+<table>
+  <thead><tr>
+    <th class="h-chicken" style="width:150px;text-align:left">菜單品名</th>
+    <th class="h-chicken">現售價</th>
+    <th class="h-chicken">每份用量</th>
+    <th class="h-chicken">主食材成本<br><small>雞腿 140/斤=0.233/g</small></th>
+    <th class="h-chicken">其他</th>
+    <th class="h-chicken">食材總成本</th>
+    <th class="h-chicken">成本率</th>
+    <th class="h-chicken">評級</th>
+    <th class="h-chicken">建議定價</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td class="item-name">招牌去骨脆皮雞肉 大份</td><td class="price">$588</td>
+      <td>500g去骨後（原料≈575g）</td>
+      <td class="num c-star">134</td><td class="num c-star">醬料 10</td><td class="num c-star">144</td>
+      <td class="num c-good">24.5%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">招牌小份去骨脆皮雞肉</td><td class="price">$300</td>
+      <td>200g去骨後（原料≈230g）</td>
+      <td class="num c-star">53.7</td><td class="num c-star">醬料 5</td><td class="num c-star">58.7</td>
+      <td class="num c-star">19.6%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">順德桑拿嫩雞</td><td class="price">$368</td>
+      <td>250g 雞腿肉</td>
+      <td class="num c-star">58.3</td><td class="num c-star">薑蔥醬料 10</td><td class="num c-star">68.3</td>
+      <td class="num c-star">18.6%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name" style="color:#dc2626">溫體切塊雞盤 ⚠</td><td class="price">$500</td>
+      <td>全雞 1 隻 1,500g（150/kg）</td>
+      <td class="num c-warn">225</td><td class="num c-warn">醬料 10</td><td class="num c-warn">235</td>
+      <td class="num c-danger">47.0%</td><td class="center"><span class="r-danger">🚨 危險</span></td>
+      <td class="center"><span class="suggest-up">建議 $680<br><small>或縮至 1,200g</small></span></td>
+    </tr>
+    <tr>
+      <td class="item-name">特選雞佛</td><td class="price">$380</td>
+      <td>120g（500/斤=0.833/g）</td>
+      <td class="num c-good">100</td><td class="num c-good">醬料 5</td><td class="num c-good">105</td>
+      <td class="num c-good">27.6%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">潮汕雞雜拼盤</td><td class="price">$220</td>
+      <td>雞心100g + 雞胗150g + 三節翅200g</td>
+      <td class="num c-star">20+3+25=48</td><td class="num c-star">醬料 5</td><td class="num c-star">53</td>
+      <td class="num c-star">24.1%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- 牛肉 -->
+<h2 class="h-beef">🥩 特選牛肉區｜TEXUAN NIUROU</h2>
+<table>
+  <thead><tr>
+    <th class="h-beef" style="width:150px;text-align:left">菜單品名</th>
+    <th class="h-beef">現售價</th>
+    <th class="h-beef">每份用量</th>
+    <th class="h-beef">進貨單價</th>
+    <th class="h-beef">食材成本</th>
+    <th class="h-beef">成本率</th>
+    <th class="h-beef">評級</th>
+    <th class="h-beef">建議定價</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td class="item-name">Prime 牛小排</td><td class="price">$680</td><td>140g</td>
+      <td>1,250元/kg</td><td class="num c-good">175</td>
+      <td class="num c-good">25.7%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">Prime 雪花胸腹</td><td class="price">$580</td><td>140g</td>
+      <td>580元/kg</td><td class="num c-star">81.2</td>
+      <td class="num c-star">14.0%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理，利潤極佳</td>
+    </tr>
+    <tr>
+      <td class="item-name">Prime 嫩肩板腱</td><td class="price">$380</td><td>140g</td>
+      <td>500元/kg</td><td class="num c-star">70</td>
+      <td class="num c-star">18.4%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">極品胸口油</td><td class="price">$250</td><td>65–70g</td>
+      <td>580元/kg</td><td class="num c-star">38–40</td>
+      <td class="num c-star">16.0%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">潮汕手工牛肉丸</td><td class="price">$200</td><td>5–6顆</td>
+      <td class="unk">—</td><td class="unk">⚑ 待確認供應商</td>
+      <td class="unk">—</td><td class="center"><span class="r-unk">⚑ 待確認</span></td><td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- 豬肉 -->
+<h2 class="h-pork">🐷 特選豬肉區｜TEXUAN ZHUROU</h2>
+<table>
+  <thead><tr>
+    <th class="h-pork" style="width:150px;text-align:left">菜單品名</th>
+    <th class="h-pork">現售價</th>
+    <th class="h-pork">每份用量</th>
+    <th class="h-pork">進貨單價</th>
+    <th class="h-pork">食材成本</th>
+    <th class="h-pork">成本率</th>
+    <th class="h-pork">評級</th>
+    <th class="h-pork">建議定價</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td class="item-name" style="color:#dc2626">手工燕餃 🔴</td><td class="price">$80</td>
+      <td>5顆<br><small>1包2kg≈80顆</small></td>
+      <td>1,023元/包(2kg)<br><small>=12.8元/顆</small></td>
+      <td class="num c-crit">64</td>
+      <td class="num c-crit">80.0%</td>
+      <td class="center"><span class="r-crit">🔴 虧損</span></td>
+      <td class="center"><span class="suggest-up">建議 $150<br><small>或縮至 3顆售 $80</small></span></td>
+    </tr>
+    <tr>
+      <td class="item-name">西班牙伊比利豚</td><td class="price">$320</td><td>120g</td>
+      <td>650元/kg</td><td class="num c-good">78</td>
+      <td class="num c-good">24.4%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">梅花豚</td><td class="price">$180</td>
+      <td>8片（約 150g）</td>
+      <td>200元/kg</td><td class="num c-star">30</td>
+      <td class="num c-star">16.7%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理，利潤佳</td>
+    </tr>
+    <tr>
+      <td class="item-name">手作塔香/香菇豚肉丸</td><td class="price">$130</td>
+      <td>6顆（約 150g 豬肉）</td>
+      <td>200元/kg</td><td class="num c-good">30+雜 10</td>
+      <td class="num c-good">30.8%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">手工福州丸</td><td class="price">$180</td><td>6顆</td>
+      <td class="unk">—</td><td class="unk">⚑ 待確認供應商</td>
+      <td class="unk">—</td><td class="center"><span class="r-unk">⚑ 待確認</span></td><td>—</td>
+    </tr>
+  </tbody>
+</table>
+<div class="section-note">🔴 燕餃計算：1包2kg=1,023元，每顆25g=80顆，單顆成本12.8元，5顆=64元。售$80=成本率80%，每份虧損-16元（未含人工水電）。</div>
+
+<!-- 海鮮 -->
+<h2 class="h-seafood">🦐 海鮮區｜HAIXIAN</h2>
+<table>
+  <thead><tr>
+    <th class="h-seafood" style="width:150px;text-align:left">菜單品名</th>
+    <th class="h-seafood">現售價</th>
+    <th class="h-seafood">每份用量</th>
+    <th class="h-seafood">進貨換算</th>
+    <th class="h-seafood">食材成本</th>
+    <th class="h-seafood">成本率</th>
+    <th class="h-seafood">評級</th>
+    <th class="h-seafood">建議定價</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td class="item-name">鮮嫩巴沙魚片</td><td class="price">$250</td>
+      <td>100g（95元/kg）</td>
+      <td>9.5元/100g</td><td class="num c-star">9.5</td>
+      <td class="num c-star">3.8%</td><td class="center"><span class="r-star">⭐⭐ 極優</span></td><td class="center suggest-ok">現行利潤極佳</td>
+    </tr>
+    <tr>
+      <td class="item-name">鮮切鯛魚片</td><td class="price">$320</td>
+      <td>100g（285元/kg）</td>
+      <td>28.5元/100g</td><td class="num c-star">28.5</td>
+      <td class="num c-star">8.9%</td><td class="center"><span class="r-star">⭐⭐ 極優</span></td><td class="center suggest-ok">現行利潤極佳</td>
+    </tr>
+    <tr>
+      <td class="item-name">白玉鮮蝦</td><td class="price">$280</td>
+      <td>7隻（850g/盒≈65隻）</td>
+      <td>3.1元/隻</td><td class="num c-star">21.5</td>
+      <td class="num c-star">7.7%</td><td class="center"><span class="r-star">⭐⭐ 極優</span></td><td class="center suggest-ok">現行利潤極佳</td>
+    </tr>
+    <tr>
+      <td class="item-name">活凍鮑魚</td><td class="price">$300</td>
+      <td>8顆（30P/kg=8元/顆）</td>
+      <td>8元/顆</td><td class="num c-star">64</td>
+      <td class="num c-star">21.3%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">鮮味蟹肉條</td><td class="price">$60</td>
+      <td>約 5–6條（250g包=30條，65元）</td>
+      <td>2.17元/條</td><td class="num c-star">11–13</td>
+      <td class="num c-star">20%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td>
+    </tr>
+    <tr>
+      <td class="item-name">嚴選蛤蠣</td><td class="price">$200</td><td>10顆</td>
+      <td class="unk">—</td><td class="unk">⚑ 待確認進貨來源</td>
+      <td class="unk">—</td><td class="center"><span class="r-unk">⚑ 待確認</span></td><td>—</td>
+    </tr>
+    <tr>
+      <td class="item-name">手打鮮蝦滑</td><td class="price">$320</td><td>—</td>
+      <td class="unk">—</td><td class="unk">⚑ 待確認（自製或外購）</td>
+      <td class="unk">—</td><td class="center"><span class="r-unk">⚑ 待確認</span></td><td>—</td>
+    </tr>
+    <tr>
+      <td class="item-name">爆漿龍蝦沙拉丸</td><td class="price">$200</td><td>8顆</td>
+      <td class="unk">—</td><td class="unk">⚑ 待確認進貨來源</td>
+      <td class="unk">—</td><td class="center"><span class="r-unk">⚑ 待確認</span></td><td>—</td>
+    </tr>
+  </tbody>
+</table>
+<div class="section-note">⭐ 海鮮類是門店獲利主力，蝦/魚/鮑魚成本率均低於 22%，建議服務員主動推薦。</div>
+
+<!-- 蔬菜 -->
+<h2 class="h-veg">🥬 火鍋蔬菜區｜HUOGUOSHUCAI</h2>
+<table>
+  <thead><tr>
+    <th class="h-veg" style="width:150px;text-align:left">菜單品名</th>
+    <th class="h-veg">現售價</th>
+    <th class="h-veg">每份用量</th>
+    <th class="h-veg">食材成本估算</th>
+    <th class="h-veg">成本率</th>
+    <th class="h-veg">評級</th>
+    <th class="h-veg">建議定價</th>
+  </tr></thead>
+  <tbody>
+    <tr><td class="item-name">高山高麗菜</td><td class="price">$80</td><td>約 300g</td><td class="num c-star">約 8–14元</td><td class="num c-star">10–18%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td></tr>
+    <tr><td class="item-name">高山娃娃菜</td><td class="price">$90</td><td>1顆</td><td class="num c-star">約 15–25元</td><td class="num c-star">17–28%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td></tr>
+    <tr><td class="item-name">清脆福山萵苣</td><td class="price">$80</td><td>約 200g</td><td class="num c-star">約 10–15元</td><td class="num c-star">12–19%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td></tr>
+    <tr><td class="item-name">鮮甜玉米</td><td class="price">$80</td><td>5節（約半條）</td><td class="num c-star">約 10–15元</td><td class="num c-star">12–19%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td></tr>
+    <tr><td class="item-name">鮮嫩玉米筍</td><td class="price">$70</td><td>7–8條</td><td class="num c-star">約 10–14元</td><td class="num c-star">14–20%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td></tr>
+    <tr><td class="item-name">黃金馬鈴薯</td><td class="price">$70</td><td>5–6片</td><td class="num c-star">約 8–12元</td><td class="num c-star">11–17%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td></tr>
+    <tr><td class="item-name">日本山藥切盤</td><td class="price">$100</td><td>8片</td><td class="num c-good">約 25–35元</td><td class="num c-good">25–35%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td></tr>
+    <tr><td class="item-name">白玉蘿蔔 / 紅蘿蔔</td><td class="price">$70</td><td>5–6塊</td><td class="num c-star">約 5–10元</td><td class="num c-star">7–14%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td></tr>
+    <tr><td class="item-name">雪白金針菇</td><td class="price">$70</td><td>100g</td><td class="num c-star">約 10–15元</td><td class="num c-star">14–21%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td></tr>
+    <tr><td class="item-name">雪白美白菇</td><td class="price">$70</td><td>秀珍菇 100g</td><td class="num c-good">約 15–25元</td><td class="num c-good">21–36%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td></tr>
+    <tr>
+      <td class="item-name" style="color:#b45309">臺灣鴻禧菇 ⚠</td><td class="price">$70</td><td>1包</td>
+      <td class="num c-warn">⚠ 06月漲至 45元/包</td>
+      <td class="num c-danger">64%（高價批次）</td>
+      <td class="center"><span class="r-danger">🚨 監控中</span></td>
+      <td class="center"><span class="suggest-up">菇類漲價期間建議 $90–100</span></td>
+    </tr>
+    <tr>
+      <td class="item-name" style="color:#dc2626">手作嫩豆腐 ⚠</td><td class="price">$70</td><td>2大塊→8小塊</td>
+      <td class="num c-crit">⚠ 朝日豆腐 125–150元/盒</td>
+      <td class="num c-crit">⚠ 179–214%（若1盒=1份）</td>
+      <td class="center"><span class="r-crit">⚠ 待確認</span></td>
+      <td class="center"><span class="suggest-up">確認每盒出幾份！<br>若1份：建議 $200</span></td>
+    </tr>
+    <tr>
+      <td class="item-name">吸汁凍豆腐</td><td class="price">$70</td><td>5塊</td>
+      <td class="unk">⚑ 同豆腐，待確認每盒份數</td>
+      <td class="unk">—</td><td class="center"><span class="r-unk">⚑ 待確認</span></td><td>—</td>
+    </tr>
+    <tr><td class="item-name">甘栗鮮栗</td><td class="price">$90</td><td>10顆</td><td class="unk">⚑ 待確認</td><td class="unk">—</td><td class="center"><span class="r-unk">⚑ 待確認</span></td><td>—</td></tr>
+    <tr><td class="item-name">黃金響鈴卷</td><td class="price">$70</td><td>—</td><td class="unk">⚑ 待確認</td><td class="unk">—</td><td class="center"><span class="r-unk">⚑ 待確認</span></td><td>—</td></tr>
+    <tr><td class="item-name">爆漿龍蝦沙拉丸</td><td class="price">$200</td><td>8顆</td><td class="unk">⚑ 待確認進貨來源</td><td class="unk">—</td><td class="center"><span class="r-unk">⚑ 待確認</span></td><td>—</td></tr>
+    <tr><td class="item-name">山珍竹笙</td><td class="price">$220</td><td>—</td><td class="unk">⚑ 待確認（乾貨類）</td><td class="unk">—</td><td class="center"><span class="r-unk">⚑ 待確認</span></td><td>—</td></tr>
+    <tr><td class="item-name">栗香南瓜 / 季節時蔬盛合</td><td class="price">$80–90</td><td>—</td><td class="num c-star">約 15–25元</td><td class="num c-star">17–31%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td></tr>
+  </tbody>
+</table>
+<div class="section-note">⚠ 豆腐類緊急確認：若朝日鮮蔬 1 盒（125–150元）只出 1 份，$70 售價將嚴重虧損。請立即確認每盒豆腐出幾份。菇類自 06/12 後漲幅大，每週需對照朝日鮮蔬報價調整。</div>
+
+<!-- 主食 -->
+<h2 class="h-staple">🍜 好吃主食｜HAOCHIZHUSHI</h2>
+<table>
+  <thead><tr>
+    <th class="h-staple" style="width:150px;text-align:left">菜單品名</th>
+    <th class="h-staple">現售價</th>
+    <th class="h-staple">每份用量</th>
+    <th class="h-staple">食材成本</th>
+    <th class="h-staple">成本率</th>
+    <th class="h-staple">評級</th>
+    <th class="h-staple">備註</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td class="item-name">讚岐烏龍麵</td><td class="price">$25</td>
+      <td>1包 80g（660元/件÷56包）</td>
+      <td class="num c-warn">11.8</td><td class="num c-warn">47.1%</td>
+      <td class="center"><span class="r-warn">⚠️ 偏高</span></td><td>主食低價帶客，可接受，或漲至 $35</td>
+    </tr>
+    <tr><td class="item-name">臺灣香米飯</td><td class="price">$15</td><td>約 150g 熟飯</td><td class="num c-star">約 3–5元</td><td class="num c-star">20–33%</td><td class="center"><span class="r-good">✅ 良好</span></td><td>正常</td></tr>
+    <tr><td class="item-name">經典王子麵</td><td class="price">$20</td><td>1包</td><td class="num c-star">約 3–5元</td><td class="num c-star">15–25%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td></td></tr>
+    <tr><td class="item-name">古早味冬粉</td><td class="price">$30</td><td>1份</td><td class="num c-star">約 3–5元</td><td class="num c-star">10–17%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td></td></tr>
+  </tbody>
+</table>
+
+<!-- 飲品 -->
+<h2 class="h-drink">🥥 清涼解飲｜QINGLIANGJIEYIN</h2>
+<table>
+  <thead><tr>
+    <th class="h-drink" style="width:150px;text-align:left">菜單品名</th>
+    <th class="h-drink">現售價</th>
+    <th class="h-drink">進貨成本</th>
+    <th class="h-drink">成本率</th>
+    <th class="h-drink">評級</th>
+    <th class="h-drink">建議定價</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td class="item-name" style="color:#dc2626">天然椰子水 🔴🔴</td><td class="price">$75</td>
+      <td class="num c-crit">進貨 120元/瓶</td>
+      <td class="num c-crit">160% ❌ 每賣虧 -45元</td>
+      <td class="center"><span class="r-crit">🔴 嚴重虧損</span></td>
+      <td class="center"><span class="suggest-up">立即調漲至 $200<br><small>（成本率60%，仍偏高，<br>需重談供應商）</small></span></td>
+    </tr>
+    <tr><td class="item-name">Budweiser / 台灣金牌</td><td class="price">$70</td><td>約 20–28元</td><td class="num c-good">29–40%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td></tr>
+    <tr><td class="item-name">可樂 / 雪碧</td><td class="price">$50</td><td>約 12–18元</td><td class="num c-star">24–36%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td></tr>
+    <tr><td class="item-name">加多寶/王老吉</td><td class="price">$60</td><td>約 15–22元</td><td class="num c-good">25–37%</td><td class="center"><span class="r-good">✅ 良好</span></td><td class="center suggest-ok">現行合理</td></tr>
+    <tr><td class="item-name">港式/潮汕茶飲</td><td class="price">$50–60</td><td>約 10–15元</td><td class="num c-star">17–30%</td><td class="center"><span class="r-star">⭐ 優秀</span></td><td class="center suggest-ok">現行合理</td></tr>
+  </tbody>
+</table>
+
+<!-- 套餐 -->
+<h2 class="h-combo">🎉 套餐區｜SET MEAL COST ANALYSIS</h2>
+<p class="section-note">套餐成本以品項 BOM 加總估算；炸物、蝦滑、牛肉丸、蛤蜊為估算值，確認進貨成本後請更新。</p>
+
+<!-- 套餐整體評分 -->
+<table>
+  <thead><tr>
+    <th class="h-combo" style="width:200px;text-align:left">套餐名稱</th>
+    <th class="h-combo">套餐定價</th>
+    <th class="h-combo">估算成本（低）</th>
+    <th class="h-combo">估算成本（高）</th>
+    <th class="h-combo">成本率</th>
+    <th class="h-combo">評級</th>
+    <th class="h-combo">建議</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td class="item-name">豪華雙人饗宴套餐</td>
+      <td class="price">$1,388</td>
+      <td class="num c-star">262</td>
+      <td class="num c-good">393</td>
+      <td class="num c-good">19–28%</td>
+      <td class="center"><span class="r-good">✅ 良好</span></td>
+      <td class="suggest-ok">現行合理；主推升級雪花牛（毛利+$127）</td>
+    </tr>
+    <tr>
+      <td class="item-name">烽味超值四人巨無敵套餐</td>
+      <td class="price">$3,188</td>
+      <td class="num c-good">795</td>
+      <td class="num c-warn">882</td>
+      <td class="num c-good">25–28%</td>
+      <td class="center"><span class="r-good">✅ 良好</span></td>
+      <td><span class="suggest-up">燕餃虧損需處理；確認豆腐份數</span></td>
+    </tr>
+  </tbody>
+</table>
+<p class="section-note" style="margin-top:4px">單點合計 $3,438 vs. 套餐 $3,188，客人只省 $250（7.3%）— 建議菜單標示「市價 $3,438，套餐只要 $3,188」強化感知</p>
+
+<br>
+
+<!-- 雙人套餐明細 -->
+<div style="font-size:12px;font-weight:700;color:#b45309;margin:8px 0 4px">▶ 豪華雙人饗宴套餐 $1,388 — 品項成本明細</div>
+<table>
+  <thead><tr>
+    <th class="h-combo" style="text-align:left;width:160px">品項</th>
+    <th class="h-combo">規格說明</th>
+    <th class="h-combo">成本（低）</th>
+    <th class="h-combo">成本（高）</th>
+    <th class="h-combo">備注</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td class="item-name">鍋底（4選1）</td>
+      <td>清湯 ↔ 鮮參養生鍋</td>
+      <td class="num c-star">30</td><td class="num c-warn">90</td>
+      <td class="note-cell">清湯 $30 最低；鮮參養生 $90 最高</td>
+    </tr>
+    <tr>
+      <td class="item-name">主食 × 2</td>
+      <td>白飯 or 烏龍麵 選2</td>
+      <td class="num c-star">8</td><td class="num c-good">24</td>
+      <td class="note-cell">白飯 $4×2 ↔ 烏龍 $12×2</td>
+    </tr>
+    <tr>
+      <td class="item-name">大份脆皮雞</td>
+      <td>500g（單點 $588）</td>
+      <td class="num c-good">144</td><td class="num c-good">144</td>
+      <td class="note-cell">套餐錨點品項，成本率 24.5%</td>
+    </tr>
+    <tr>
+      <td class="item-name">季節蔬菜拼盤 × 1</td>
+      <td>—</td>
+      <td class="num c-star">15</td><td class="num c-star">20</td>
+      <td class="note-cell">葉菜類低成本</td>
+    </tr>
+    <tr>
+      <td class="item-name">炸物（2選1）</td>
+      <td>潮汕蝦餅 or 潮汕雞翅</td>
+      <td class="num c-good">35</td><td class="num c-good">45</td>
+      <td class="note-cell c-warn">⚑ 成本待確認（估算值）</td>
+    </tr>
+    <tr>
+      <td class="item-name">梅花豚 or 板腱牛</td>
+      <td>2選1（或升級）</td>
+      <td class="num c-star">30</td><td class="num c-good">70</td>
+      <td class="note-cell">梅花豚 $30 ↔ 板腱牛 $70</td>
+    </tr>
+    <tr style="background:#fffbeb;font-weight:700">
+      <td colspan="2"><b>套餐合計（定價 $1,388）</b></td>
+      <td class="num c-star"><b>262</b></td>
+      <td class="num c-good"><b>393</b></td>
+      <td class="note-cell"><b>成本率 19–28%，平均約 24% ✅</b></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- 升級選項 -->
+<div style="font-size:11.5px;font-weight:700;color:#b45309;margin:8px 0 4px">▶ 升級選項分析（服務員首推話術）</div>
+<table>
+  <thead><tr>
+    <th class="h-combo" style="text-align:left">升級項目</th>
+    <th class="h-combo">加收</th>
+    <th class="h-combo">成本差額</th>
+    <th class="h-combo">額外毛利</th>
+    <th class="h-combo">服務員建議</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td class="item-name">板腱牛 → 伊比利豬（+$138）</td>
+      <td class="price">+$138</td>
+      <td class="num c-warn">+$48</td>
+      <td class="num c-good"><b>+$90</b></td>
+      <td class="center suggest-ok">✅ 推薦</td>
+    </tr>
+    <tr style="background:#f0fdf4">
+      <td class="item-name" style="color:#166534"><b>梅花豚/板腱牛 → 美國雪花牛（+$138）⭐</b></td>
+      <td class="price">+$138</td>
+      <td class="num c-star">+$11</td>
+      <td class="num c-star"><b>+$127</b></td>
+      <td class="center" style="color:#15803d;font-weight:700">⭐ 首推！成本差額僅 $11</td>
+    </tr>
+  </tbody>
+</table>
+
+<br>
+
+<!-- 四人套餐明細 -->
+<div style="font-size:12px;font-weight:700;color:#b45309;margin:8px 0 4px">▶ 烽味超值四人巨無敵套餐 $3,188（不含10%服務費）— 品項成本明細</div>
+<table>
+  <thead><tr>
+    <th class="h-combo" style="text-align:left;width:160px">品項</th>
+    <th class="h-combo">套餐標示售價</th>
+    <th class="h-combo">食材成本估算</th>
+    <th class="h-combo">成本率</th>
+    <th class="h-combo">評級</th>
+    <th class="h-combo">備注</th>
+  </tr></thead>
+  <tbody>
+    <tr>
+      <td class="item-name">鍋底（4選1）</td>
+      <td class="price">$220</td>
+      <td class="num c-star">60</td><td class="num c-good">27.3%</td>
+      <td class="center"><span class="r-good">✅ 良好</span></td>
+      <td class="note-cell">維C百香果/養生款再+$88</td>
+    </tr>
+    <tr>
+      <td class="item-name">木耳冷盤</td>
+      <td class="price">$100</td>
+      <td class="num c-star">20</td><td class="num c-star">20%</td>
+      <td class="center"><span class="r-star">⭐ 優秀</span></td>
+      <td class="note-cell">—</td>
+    </tr>
+    <tr>
+      <td class="item-name">鳳爪冷盤</td>
+      <td class="price">$150</td>
+      <td class="num c-good">45</td><td class="num c-good">30%</td>
+      <td class="center"><span class="r-good">✅ 良好</span></td>
+      <td class="note-cell">—</td>
+    </tr>
+    <tr>
+      <td class="item-name">主食 × 4</td>
+      <td class="price">$15–25/份</td>
+      <td class="num c-star">30</td><td class="num c-star">—</td>
+      <td class="center"><span class="r-star">⭐ 優秀</span></td>
+      <td class="note-cell">白飯/烏龍 mix 估算</td>
+    </tr>
+    <tr>
+      <td class="item-name">炸物（2選1）</td>
+      <td class="price">$150</td>
+      <td class="num c-good">40</td><td class="num c-good">26.7%</td>
+      <td class="center"><span class="r-good">✅ 良好</span></td>
+      <td class="note-cell c-warn">⚑ 蝦餅/雞翅成本為估算值</td>
+    </tr>
+    <tr>
+      <td class="item-name">大份手切溫體脆皮雞</td>
+      <td class="price">$588</td>
+      <td class="num c-good">144</td><td class="num c-good">24.5%</td>
+      <td class="center"><span class="r-good">✅ 良好</span></td>
+      <td class="note-cell">套餐核心錨點</td>
+    </tr>
+    <tr>
+      <td class="item-name">嚴選美國 Prime 雪花牛 🇺🇸</td>
+      <td class="price">$360</td>
+      <td class="num c-star">50</td><td class="num c-star">13.9%</td>
+      <td class="center"><span class="r-star">⭐ 優秀</span></td>
+      <td class="note-cell">套餐份量小於單點 140g</td>
+    </tr>
+    <tr>
+      <td class="item-name">頂級特選伊比利豬</td>
+      <td class="price">$320</td>
+      <td class="num c-good">78</td><td class="num c-good">24.4%</td>
+      <td class="center"><span class="r-good">✅ 良好</span></td>
+      <td class="note-cell">—</td>
+    </tr>
+    <tr>
+      <td class="item-name">手工蝦滑</td>
+      <td class="price">$320</td>
+      <td class="num c-star">50</td><td class="num c-star">15.6%</td>
+      <td class="center"><span class="r-star">⭐ 優秀</span></td>
+      <td class="note-cell c-warn">⚑ 自製 or 外購？待確認成本</td>
+    </tr>
+    <tr>
+      <td class="item-name">季節蔬菜拼盤 × 2</td>
+      <td class="price">$180</td>
+      <td class="num c-star">34</td><td class="num c-star">18.9%</td>
+      <td class="center"><span class="r-star">⭐ 優秀</span></td>
+      <td class="note-cell">—</td>
+    </tr>
+    <tr style="background:#fff1f2">
+      <td class="item-name" style="color:#dc2626">手工燕餃 🔴</td>
+      <td class="price">$80</td>
+      <td class="num c-crit">64</td><td class="num c-crit">80% ❌</td>
+      <td class="center"><span class="r-crit">🔴 虧損</span></td>
+      <td class="note-cell" style="color:#dc2626"><b>5顆×$12.8=64元成本，$80只賺$16！建議縮至3顆或套餐不標價</b></td>
+    </tr>
+    <tr>
+      <td class="item-name">阿楓手打牛肉丸</td>
+      <td class="price">$200</td>
+      <td class="num c-star">35</td><td class="num c-star">17.5%</td>
+      <td class="center"><span class="r-star">⭐ 優秀</span></td>
+      <td class="note-cell c-warn">⚑ 成本待確認（估算值）</td>
+    </tr>
+    <tr>
+      <td class="item-name">嚴選蛤蜊</td>
+      <td class="price">$200</td>
+      <td class="num c-star">25</td><td class="num c-star">12.5%</td>
+      <td class="center"><span class="r-star">⭐ 優秀</span></td>
+      <td class="note-cell c-warn">⚑ 進貨來源待確認</td>
+    </tr>
+    <tr style="background:#fef3c7">
+      <td class="item-name" style="color:#92400e">手工豆腐 ⚠️</td>
+      <td class="price">$70</td>
+      <td class="num" style="color:#92400e">50–137</td>
+      <td class="num c-crit">71–196%</td>
+      <td class="center"><span class="r-warn">⚠️ 待確認</span></td>
+      <td class="note-cell" style="color:#92400e"><b>朝日豆腐 $125–150/盒，1盒出幾份決定是否虧損！必須確認</b></td>
+    </tr>
+    <tr>
+      <td class="item-name">鮮嫩巴沙魚</td>
+      <td class="price">$200</td>
+      <td class="num c-star">9.5</td><td class="num c-star">4.8%</td>
+      <td class="center"><span class="r-star">⭐⭐ 極優</span></td>
+      <td class="note-cell">套餐利潤最高品項</td>
+    </tr>
+    <tr>
+      <td class="item-name">飲料 × 4（6選4）</td>
+      <td class="price">$50/杯</td>
+      <td class="num c-good">60</td><td class="num c-good">24%</td>
+      <td class="center"><span class="r-good">✅ 良好</span></td>
+      <td class="note-cell">可樂/雪碧/王老吉/加多寶/茶飲</td>
+    </tr>
+    <tr style="background:#fffbeb;font-weight:700">
+      <td colspan="2"><b>套餐合計（定價 $3,188）</b></td>
+      <td class="num c-good"><b>795–882</b></td>
+      <td class="num c-good"><b>25–28%</b></td>
+      <td class="center"><span class="r-good">✅ 整體良好</span></td>
+      <td class="note-cell"><b>修正燕餃份量＋確認豆腐份數後，成本率可降至 22–24%</b></td>
+    </tr>
+    <tr style="background:#f3f4f6">
+      <td style="color:#6b7280">單點合計（對照）</td>
+      <td class="price" style="color:#6b7280">$3,438</td>
+      <td colspan="4" style="color:#6b7280;font-size:11px">套餐省 $250（折扣率 7.3%）— 感知薄弱，建議菜單標示原價讓客人有「賺到」感</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- 總結 -->
+<h2 class="h-alert">📊 整體評估 ─ 各類別訂價合理性</h2>
+<table>
+  <thead><tr>
+    <th class="h-alert">類別</th>
+    <th class="h-alert">整體狀況</th>
+    <th class="h-alert">問題品項</th>
+    <th class="h-alert">明星品項（高利潤）</th>
+    <th class="h-alert">建議行動</th>
+  </tr></thead>
+  <tbody>
+    <tr><td><b>鍋底</b></td><td class="center"><span class="r-good">✅ 整體良好</span></td><td>椰子大份 40%</td><td>酸甜百香 13%、乾鍋系列 21–24%</td><td>大份椰子鍋漲至 $1,580</td></tr>
+    <tr><td><b>雞肉</b></td><td class="center"><span class="r-good">✅ 大多良好</span></td><td>溫體切塊雞盤 47% 🚨</td><td>桑拿雞 19%、小份脆皮 20%</td><td>溫體切塊漲至 $680</td></tr>
+    <tr><td><b>牛肉</b></td><td class="center"><span class="r-star">⭐ 表現優秀</span></td><td>無</td><td>雪花胸腹 14%、板腱 18%</td><td>無需調整，主推</td></tr>
+    <tr><td><b>豬肉</b></td><td class="center"><span class="r-crit">🔴 燕餃危機</span></td><td>燕餃 80% 虧損 🔴</td><td>梅花豚 17%</td><td>燕餃漲至 $150 或縮 3顆</td></tr>
+    <tr><td><b>海鮮</b></td><td class="center"><span class="r-star">⭐⭐ 極優</span></td><td>無</td><td>巴沙 4%、白蝦 8%、鯛魚 9%</td><td>主動推薦，獲利主力</td></tr>
+    <tr><td><b>蔬菜</b></td><td class="center"><span class="r-warn">⚠️ 2 項待確認</span></td><td>豆腐（成本待確認）、鴻禧菇漲價</td><td>葉菜類全線 &lt;20%</td><td>確認豆腐份數；菇類漲至 $90</td></tr>
+    <tr><td><b>主食</b></td><td class="center"><span class="r-warn">⚠️ 烏龍偏高</span></td><td>烏龍麵 47%</td><td>冬粉 10%、王子麵 15%</td><td>烏龍麵可漲至 $35</td></tr>
+    <tr><td><b>飲品</b></td><td class="center"><span class="r-crit">🔴 椰子水危機</span></td><td>椰子水 160% 虧損 🔴🔴</td><td>茶飲類 17–30%</td><td>椰子水立即漲至 $200</td></tr>
+    <tr style="background:#fffbeb">
+      <td><b>套餐</b></td>
+      <td class="center"><span class="r-good">✅ 整體良好</span></td>
+      <td>燕餃（80%虧損）、豆腐（份數待確認）</td>
+      <td>升級雪花牛加$138毛利+$127 ⭐</td>
+      <td>燕餃縮3顆；確認豆腐份數；建立升級話術SOP；菜單標示省$250強化感知</td>
+    </tr>
+  </tbody>
+</table>
+
+<br>
+<div style="background:#fff;border-radius:8px;padding:12px 16px;font-size:11px;color:#555;border-left:4px solid #d97706">
+  <b>📌 餐飲業食材成本率參考標準：</b>目標 25–33%（火鍋業）。低於 20% = 優秀；高於 45% = 需調整。<br>
+  <b>本店整體良好</b>，主要問題集中在 3 項：①椰子水單點定價錯誤（立即漲）②燕餃份量過多（調份量或漲價）③豆腐類需確認出份數。修正這 3 項即可顯著改善獲利率。
+</div>
+<br>
+<div style="font-size:10px;color:#bbb;text-align:center">烽味廣味雞煲富民店（Z063）完整菜單成本 BOM｜台灣斤 = 600g｜成本率 = 食材成本 ÷ 現售價 × 100%｜2026/06/19</div>
+</body>
+</html>

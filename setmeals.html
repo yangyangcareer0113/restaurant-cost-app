@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>套餐管理 — 成本物料管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <style>
+    .bom-badge { font-size: 0.72rem; padding: 0.18rem 0.55rem; border-radius: 20px; font-weight: 600; white-space: nowrap; }
+    .bom-star   { background: #dcfce7; color: #14532d; }
+    .bom-good   { background: #d1fae5; color: #065f46; }
+    .bom-warn   { background: #fef3c7; color: #92400e; }
+    .bom-danger { background: #fee2e2; color: #991b1b; }
+    .bom-crit   { background: #dc2626; color: #fff; }
+    .bom-unk    { background: #f3f4f6; color: #6b7280; }
+    .meal-bom { background: #f8fafc; border-top: 1px solid #e2e8f0; }
+    .meal-bom table { font-size: 0.85rem; margin-bottom: 0; }
+    .meal-bom th { font-size: 0.75rem; background: #f1f5f9; }
+    .cost-total-row { background: #fffbeb; font-weight: 700; }
+    .expand-btn { cursor: pointer; user-select: none; }
+  </style>
+</head>
+<body>
+<div class="main-content">
+  <div class="top-header">
+    <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
+    <h6 class="mb-0 fw-bold">🎉 套餐管理</h6>
+    <div class="ms-auto d-flex gap-2">
+      <select id="store-filter" class="form-select form-select-sm d-none" style="width:auto;" onchange="loadMeals()">
+        <option value="">所有門店</option>
+      </select>
+      <button class="btn btn-sm btn-primary" onclick="openAddMealModal()">+ 新增套餐</button>
+    </div>
+  </div>
+
+  <div class="page-body">
+
+    <!-- 套餐列表 -->
+    <div class="table-card mb-3">
+      <div class="table-header">
+        <span class="fw-semibold">套餐列表</span>
+        <small class="text-muted">點「BOM 明細」展開品項成本</small>
+      </div>
+      <div id="meals-container">
+        <div class="text-center text-muted py-4">載入中...</div>
+      </div>
+    </div>
+
+    <div class="text-muted" style="font-size:0.8rem;">
+      💡 成本率目標：25–33%（火鍋套餐）。升級選項的額外毛利 = 加收金額 − 成本差額，請在明細中記錄升級品項。
+    </div>
+
+  </div>
+</div>
+
+<!-- 新增/編輯套餐 Modal -->
+<div class="modal fade" id="mealModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="meal-modal-title">新增套餐</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="meal-id">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">套餐名稱 <span class="text-danger">*</span></label>
+          <input type="text" id="meal-name" class="form-control" placeholder="例：豪華雙人饗宴套餐">
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label fw-semibold">定價（元）</label>
+            <input type="number" id="meal-price" class="form-control" min="0" step="1" value="0">
+          </div>
+          <div class="col-6 d-none" id="meal-store-wrap">
+            <label class="form-label fw-semibold">所屬門店</label>
+            <select id="meal-store" class="form-select"></select>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">備注說明</label>
+          <textarea id="meal-desc" class="form-control" rows="2" placeholder="例：不含10%服務費、可選升級"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button class="btn btn-primary" onclick="saveMeal()">儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 新增/編輯 BOM 品項 Modal -->
+<div class="modal fade" id="smiModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="smi-modal-title">新增品項</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="smi-id">
+        <input type="hidden" id="smi-meal-id">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">品項名稱 <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <select id="smi-item-select" class="form-select" onchange="onItemSelect()">
+              <option value="">— 手動輸入 —</option>
+            </select>
+          </div>
+          <input type="text" id="smi-name" class="form-control mt-1" placeholder="或直接輸入名稱（未在品項庫中的也可填）">
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label fw-semibold">成本估算（元）</label>
+            <input type="number" id="smi-cost" class="form-control" min="0" step="0.01" value="0">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">選項組（選填）</label>
+            <input type="text" id="smi-group" class="form-control" placeholder="例：鍋底選一">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">備注</label>
+          <input type="text" id="smi-notes" class="form-control" placeholder="例：套餐份量較單點小">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button class="btn btn-primary" onclick="saveSmi()">儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/nav.js"></script>
+<script>
+  let currentProfile = null;
+  let allMeals = [];
+  let allLibItems = []; // items from items table for dropdown
+
+  const RC = {
+    star:   { badge: 'bom-star',   label: '⭐ 優秀'   },
+    good:   { badge: 'bom-good',   label: '✅ 良好'   },
+    warn:   { badge: 'bom-warn',   label: '⚠️ 警示'  },
+    danger: { badge: 'bom-danger', label: '🚨 危險'   },
+    crit:   { badge: 'bom-crit',   label: '🔴 虧損'   },
+    unk:    { badge: 'bom-unk',    label: '⚑ 待確認' },
+  };
+
+  function ratingFromRate(rate) {
+    if (rate < 20) return 'star';
+    if (rate < 30) return 'good';
+    if (rate <= 45) return 'warn';
+    if (rate <= 60) return 'danger';
+    return 'crit';
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await requireAdmin();
+    injectNav();
+    const d = await renderUserInfo();
+    currentProfile = d.profile;
+    filterNavByRole(currentProfile.role);
+
+    if (currentProfile.role === 'admin') {
+      const { data } = await supabase.from('stores').select('id,name').order('name');
+      const sel = document.getElementById('store-filter');
+      const sel2 = document.getElementById('meal-store');
+      (data || []).forEach(s => {
+        sel.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.name}</option>`);
+        sel2.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.name}</option>`);
+      });
+      sel.classList.remove('d-none');
+      document.getElementById('meal-store-wrap').classList.remove('d-none');
+    }
+
+    // Load items library for dropdown
+    const { data: libData } = await supabase.from('items').select('id,name,cost_low,cost_high').eq('is_active', true).order('name');
+    allLibItems = libData || [];
+    const smiSel = document.getElementById('smi-item-select');
+    allLibItems.forEach(i => smiSel.insertAdjacentHTML('beforeend', `<option value="${i.id}" data-cost="${i.cost_high || i.cost_low || 0}">${i.name}</option>`));
+
+    await loadMeals();
+  });
+
+  async function loadMeals() {
+    const storeId = currentProfile.role === 'admin'
+      ? document.getElementById('store-filter').value || null
+      : currentProfile.store_id;
+
+    let q = supabase.from('set_meals').select('*, set_meal_items(*)').order('name');
+    if (storeId) q = q.eq('store_id', storeId);
+
+    const { data } = await q;
+    allMeals = data || [];
+    renderMeals(allMeals);
+  }
+
+  function renderMeals(meals) {
+    const container = document.getElementById('meals-container');
+    if (!meals.length) {
+      container.innerHTML = '<div class="text-center text-muted py-4">尚無套餐，點右上角新增</div>';
+      return;
+    }
+
+    container.innerHTML = meals.map(meal => {
+      const items = meal.set_meal_items || [];
+      const totalCost = items.reduce((s, i) => s + (i.cost_est || 0), 0);
+      const rate = meal.price > 0 ? (totalCost / meal.price * 100) : 0;
+      const rKey = items.length ? ratingFromRate(rate) : 'unk';
+      const rc = RC[rKey];
+      const rateStr = items.length && meal.price > 0 ? rate.toFixed(1) + '%' : '—';
+
+      return `
+      <div class="border-bottom">
+        <!-- 套餐主列 -->
+        <div class="d-flex align-items-center p-3 gap-3 flex-wrap">
+          <div class="flex-grow-1">
+            <strong>${meal.name}</strong>
+            ${meal.description ? `<div class="text-muted" style="font-size:0.8rem;">${meal.description}</div>` : ''}
+          </div>
+          <div class="d-flex gap-3 align-items-center text-center flex-wrap">
+            <div>
+              <div class="fw-bold text-primary">$${formatNumber(meal.price, 0)}</div>
+              <div class="text-muted" style="font-size:0.72rem;">定價</div>
+            </div>
+            <div>
+              <div class="fw-bold">$${formatNumber(totalCost, 0)}</div>
+              <div class="text-muted" style="font-size:0.72rem;">估算成本</div>
+            </div>
+            <div>
+              <span class="bom-badge ${rc.badge}">${rateStr} ${rc.label}</span>
+            </div>
+          </div>
+          <div class="d-flex gap-1 flex-shrink-0">
+            <button class="btn btn-sm btn-outline-secondary expand-btn" onclick="toggleBOM('bom-${meal.id}', this)">
+              BOM 明細 ▼
+            </button>
+            <button class="btn btn-sm btn-outline-primary" onclick="openEditMealModal(${JSON.stringify(meal).replace(/"/g,'&quot;')})">編輯</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteMeal('${meal.id}')">刪除</button>
+          </div>
+        </div>
+
+        <!-- BOM 展開區 -->
+        <div id="bom-${meal.id}" class="meal-bom d-none px-3 py-2">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-semibold" style="font-size:0.85rem;">品項成本明細</span>
+            <button class="btn btn-sm btn-outline-success" onclick="openAddSmiModal('${meal.id}')">+ 新增品項</button>
+          </div>
+          <table class="table table-bordered table-hover">
+            <thead>
+              <tr>
+                <th>品項名稱</th>
+                <th>選項組</th>
+                <th>成本估算</th>
+                <th>備注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.length ? items.sort((a,b)=>a.sort_order-b.sort_order).map(it => `
+                <tr>
+                  <td>${it.item_name}</td>
+                  <td class="text-muted">${it.choice_group || '—'}</td>
+                  <td class="fw-bold">$${formatNumber(it.cost_est, 0)}</td>
+                  <td class="text-muted">${it.notes || '—'}</td>
+                  <td>
+                    <button class="btn btn-xs btn-outline-primary btn-sm py-0 px-2 me-1"
+                      onclick="openEditSmiModal(${JSON.stringify(it).replace(/"/g,'&quot;')})">編輯</button>
+                    <button class="btn btn-xs btn-outline-danger btn-sm py-0 px-2"
+                      onclick="deleteSmi('${it.id}', '${meal.id}')">刪除</button>
+                  </td>
+                </tr>
+              `).join('') : '<tr><td colspan="5" class="text-center text-muted">尚無品項，點「新增品項」開始建立 BOM</td></tr>'}
+            </tbody>
+            ${items.length ? `
+            <tfoot>
+              <tr class="cost-total-row">
+                <td colspan="2"><strong>套餐合計（定價 $${formatNumber(meal.price,0)}）</strong></td>
+                <td><strong>$${formatNumber(totalCost,0)}</strong></td>
+                <td colspan="2"><strong>成本率 ${rateStr}</strong>
+                  ${meal.price > 0 && items.length ? `— 毛利 $${formatNumber(meal.price - totalCost, 0)}` : ''}
+                </td>
+              </tr>
+            </tfoot>` : ''}
+          </table>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function toggleBOM(id, btn) {
+    const el = document.getElementById(id);
+    el.classList.toggle('d-none');
+    btn.textContent = el.classList.contains('d-none') ? 'BOM 明細 ▼' : 'BOM 明細 ▲';
+  }
+
+  // ---- 套餐 CRUD ----
+
+  function openAddMealModal() {
+    document.getElementById('meal-modal-title').textContent = '新增套餐';
+    document.getElementById('meal-id').value = '';
+    document.getElementById('meal-name').value = '';
+    document.getElementById('meal-price').value = '0';
+    document.getElementById('meal-desc').value = '';
+    new bootstrap.Modal(document.getElementById('mealModal')).show();
+  }
+
+  function openEditMealModal(meal) {
+    document.getElementById('meal-modal-title').textContent = '編輯套餐';
+    document.getElementById('meal-id').value = meal.id;
+    document.getElementById('meal-name').value = meal.name;
+    document.getElementById('meal-price').value = meal.price;
+    document.getElementById('meal-desc').value = meal.description || '';
+    if (currentProfile.role === 'admin') document.getElementById('meal-store').value = meal.store_id;
+    new bootstrap.Modal(document.getElementById('mealModal')).show();
+  }
+
+  async function saveMeal() {
+    const id = document.getElementById('meal-id').value;
+    const storeId = currentProfile.role === 'admin'
+      ? document.getElementById('meal-store').value
+      : currentProfile.store_id;
+    const name = document.getElementById('meal-name').value.trim();
+    if (!name) { showToast('請填寫套餐名稱', 'danger'); return; }
+    const payload = {
+      store_id: storeId, name,
+      price: parseFloat(document.getElementById('meal-price').value) || 0,
+      description: document.getElementById('meal-desc').value.trim() || null,
+    };
+    let error;
+    if (id) {
+      ({ error } = await supabase.from('set_meals').update(payload).eq('id', id));
+    } else {
+      ({ error } = await supabase.from('set_meals').insert(payload));
+    }
+    if (error) { showToast('儲存失敗：' + error.message, 'danger'); return; }
+    bootstrap.Modal.getInstance(document.getElementById('mealModal')).hide();
+    showToast(id ? '套餐已更新' : '套餐已新增');
+    await loadMeals();
+  }
+
+  async function deleteMeal(id) {
+    if (!confirm('確定刪除此套餐？（BOM 明細也會一併刪除）')) return;
+    const { error } = await supabase.from('set_meals').delete().eq('id', id);
+    if (error) { showToast('刪除失敗', 'danger'); return; }
+    showToast('套餐已刪除');
+    await loadMeals();
+  }
+
+  // ---- BOM 品項 CRUD ----
+
+  function openAddSmiModal(mealId) {
+    document.getElementById('smi-modal-title').textContent = '新增品項';
+    document.getElementById('smi-id').value = '';
+    document.getElementById('smi-meal-id').value = mealId;
+    document.getElementById('smi-item-select').value = '';
+    document.getElementById('smi-name').value = '';
+    document.getElementById('smi-cost').value = '0';
+    document.getElementById('smi-group').value = '';
+    document.getElementById('smi-notes').value = '';
+    new bootstrap.Modal(document.getElementById('smiModal')).show();
+  }
+
+  function openEditSmiModal(item) {
+    document.getElementById('smi-modal-title').textContent = '編輯品項';
+    document.getElementById('smi-id').value = item.id;
+    document.getElementById('smi-meal-id').value = item.set_meal_id;
+    document.getElementById('smi-item-select').value = item.item_id || '';
+    document.getElementById('smi-name').value = item.item_name;
+    document.getElementById('smi-cost').value = item.cost_est || 0;
+    document.getElementById('smi-group').value = item.choice_group || '';
+    document.getElementById('smi-notes').value = item.notes || '';
+    new bootstrap.Modal(document.getElementById('smiModal')).show();
+  }
+
+  function onItemSelect() {
+    const sel = document.getElementById('smi-item-select');
+    const opt = sel.options[sel.selectedIndex];
+    if (opt.value) {
+      document.getElementById('smi-name').value = opt.text;
+      const cost = parseFloat(opt.dataset.cost) || 0;
+      if (cost > 0) document.getElementById('smi-cost').value = cost;
+    }
+  }
+
+  async function saveSmi() {
+    const id = document.getElementById('smi-id').value;
+    const mealId = document.getElementById('smi-meal-id').value;
+    const itemId = document.getElementById('smi-item-select').value || null;
+    const name = document.getElementById('smi-name').value.trim();
+    if (!name) { showToast('請填寫品項名稱', 'danger'); return; }
+    const payload = {
+      set_meal_id: mealId, item_id: itemId, item_name: name,
+      cost_est: parseFloat(document.getElementById('smi-cost').value) || 0,
+      choice_group: document.getElementById('smi-group').value.trim() || null,
+      notes: document.getElementById('smi-notes').value.trim() || null,
+    };
+    let error;
+    if (id) {
+      ({ error } = await supabase.from('set_meal_items').update(payload).eq('id', id));
+    } else {
+      ({ error } = await supabase.from('set_meal_items').insert(payload));
+    }
+    if (error) { showToast('儲存失敗：' + error.message, 'danger'); return; }
+    bootstrap.Modal.getInstance(document.getElementById('smiModal')).hide();
+    showToast(id ? '品項已更新' : '品項已新增');
+    await loadMeals();
+  }
+
+  async function deleteSmi(id, mealId) {
+    if (!confirm('確定刪除此品項？')) return;
+    const { error } = await supabase.from('set_meal_items').delete().eq('id', id);
+    if (error) { showToast('刪除失敗', 'danger'); return; }
+    showToast('品項已刪除');
+    await loadMeals();
+    // re-open the BOM section
+    const bomEl = document.getElementById('bom-' + mealId);
+    if (bomEl) bomEl.classList.remove('d-none');
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>歷史薪資匯入 — 成本物料管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <style>
+    .step-card { background:#fff; border-radius:12px; border:1px solid #e2e8f0; padding:1.5rem; margin-bottom:1rem; }
+    .step-num  { width:32px; height:32px; border-radius:50%; background:#2563eb; color:#fff; font-weight:700;
+                  display:inline-flex; align-items:center; justify-content:center; margin-right:0.75rem; flex-shrink:0; }
+    .log-box   { background:#1e293b; color:#94a3b8; border-radius:8px; padding:1rem; font-family:monospace;
+                  font-size:0.82rem; max-height:360px; overflow-y:auto; white-space:pre-wrap; }
+    .log-ok    { color:#4ade80; }
+    .log-warn  { color:#fbbf24; }
+    .log-err   { color:#f87171; }
+  </style>
+</head>
+<body>
+<div class="main-content">
+  <div class="top-header">
+    <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
+    <h6 class="mb-0 fw-bold">歷史薪資匯入</h6>
+    <span class="ms-auto badge bg-warning text-dark">僅限管理員執行一次</span>
+  </div>
+
+  <div class="page-body" style="max-width:760px;">
+
+    <!-- 說明 -->
+    <div class="step-card" style="background:#fffbeb;border-color:#fde68a;">
+      <strong>⚠ 注意</strong>：此頁面會將富民店 115年01–05月（2026/01–05）共 21 位員工、75 筆薪資記錄匯入資料庫。
+      <br>匯入前請確認：①已以 admin 帳號登入；②Supabase 中已有「富民店」門店記錄。
+      <br>此操作可安全重複執行（upsert），不會產生重複資料。
+    </div>
+
+    <!-- KPI 預覽 -->
+    <div class="row g-3 mb-3">
+      <div class="col-4">
+        <div class="stat-card">
+          <div class="stat-value text-primary">21</div>
+          <div class="stat-label">員工人數</div>
+        </div>
+      </div>
+      <div class="col-4">
+        <div class="stat-card">
+          <div class="stat-value text-success">75</div>
+          <div class="stat-label">薪資記錄筆數</div>
+        </div>
+      </div>
+      <div class="col-4">
+        <div class="stat-card">
+          <div class="stat-value text-warning">5</div>
+          <div class="stat-label">月份（1–5 月）</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 匯入流程 -->
+    <div class="step-card">
+      <div class="d-flex align-items-center mb-3">
+        <span class="step-num">1</span>
+        <div>
+          <strong>確認門店</strong>
+          <div class="text-muted" style="font-size:0.85rem;">自動查詢 Supabase 中的「富民店」</div>
+        </div>
+      </div>
+      <div class="d-flex align-items-center mb-3">
+        <span class="step-num">2</span>
+        <div>
+          <strong>建立員工基本資料</strong>
+          <div class="text-muted" style="font-size:0.85rem;">21 位員工（有記錄則更新，無記錄則新增）</div>
+        </div>
+      </div>
+      <div class="d-flex align-items-center">
+        <span class="step-num">3</span>
+        <div>
+          <strong>匯入歷史薪資記錄</strong>
+          <div class="text-muted" style="font-size:0.85rem;">75 筆 2026/01–05 月資料（含加班時數 + 五月職務津貼）</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 執行按鈕 -->
+    <div class="d-flex gap-2 mb-3">
+      <button id="btn-run" class="btn btn-primary btn-lg" onclick="runImport()">開始匯入</button>
+      <button class="btn btn-outline-secondary" onclick="history.back()">取消</button>
+    </div>
+
+    <!-- 執行 log -->
+    <div id="log-wrap" style="display:none;">
+      <div class="fw-semibold mb-2">執行紀錄</div>
+      <div class="log-box" id="log"></div>
+      <div id="result-bar" class="mt-3" style="display:none;"></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/nav.js"></script>
+<script>
+// ── 嵌入資料 ─────────────────────────────────────────────────
+const IMPORT_DATA = {
+  "staff": [
+    {
+      "name": "黃鉑淯",
+      "position": "經理",
+      "base_salary": 45000,
+      "att_base": 2000
+    },
+    {
+      "name": "劉美琦",
+      "position": "店長",
+      "base_salary": 40000,
+      "att_base": 2000
+    },
+    {
+      "name": "蔡婷恩",
+      "position": "儲備 店長",
+      "base_salary": 35000,
+      "att_base": 2000
+    },
+    {
+      "name": "陳祐慧",
+      "position": "正職",
+      "base_salary": 35000,
+      "att_base": 2000
+    },
+    {
+      "name": "林淇亦",
+      "position": "正職",
+      "base_salary": 35000,
+      "att_base": 2000
+    },
+    {
+      "name": "林祐生",
+      "position": "正職",
+      "base_salary": 35000,
+      "att_base": 2000
+    },
+    {
+      "name": "周芊聿",
+      "position": "儲備   廚師長",
+      "base_salary": 35000,
+      "att_base": 2000
+    },
+    {
+      "name": "林紘毅",
+      "position": "服務生",
+      "base_salary": 0,
+      "att_base": 0
+    },
+    {
+      "name": "李祐穎",
+      "position": "服務生",
+      "base_salary": 0,
+      "att_base": 0
+    },
+    {
+      "name": "周家儀",
+      "position": "服務生",
+      "base_salary": 0,
+      "att_base": 0
+    },
+    {
+      "name": "潘昱良",
+      "position": "服務生",
+      "base_salary": 0,
+      "att_base": 0
+    },
+    {
+      "name": "洪豪傑",
+      "position": "服務生",
+      "base_salary": 0,
+      "att_base": 0
+    },
+    {
+      "name": "張晏碩",
+      "position": "服務生",
+      "base_salary": 0,
+      "att_base": 0
+    },
+    {
+      "name": "王宥翔",
+      "position": "服務生",
+      "base_salary": 0,
+      "att_base": 0
+    },
+    {
+      "name": "林紋玉",
+      "position": "服務生",
+      "base_salary": 0,
+      "att_base": 0
+    },
+    {
+      "name": "婉庭",
+      "position": "服務生",
+      "base_salary": 0,
+      "att_base": 0
+    },
+    {
+      "name": "邱雅萱",
+      "position": "正職",
+      "base_salary": 35000,
+      "att_base": 2000
+    },
+    {
+      "name": "蔡承叡",
+      "position": "服務生",
+      "base_salary": 0,
+      "att_base": 0
+    },
+    {
+      "name": "呂玟欣",
+      "position": "行政",
+      "base_salary": 33000,
+      "att_base": 0
+    },
+    {
+      "name": "LEO",
+      "position": "服務生",
+      "base_salary": 0,
+      "att_base": 0
+    },
+    {
+      "name": "林家全",
+      "position": "PT",
+      "base_salary": 0,
+      "att_base": 0
+    }
+  ],
+  "payroll": [
+    {
+      "name": "黃鉑淯",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 45000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 46.19,
+      "performance_bonus": 10049,
+      "special_bonus": 0,
+      "deductions": 1855
+    },
+    {
+      "name": "劉美琦",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 40000,
+      "position_allowance": 2000,
+      "attendance_bonus": 2000,
+      "overtime_hours": 42.86,
+      "performance_bonus": 9856,
+      "special_bonus": 0,
+      "deductions": 1547
+    },
+    {
+      "name": "蔡婷恩",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 1910,
+      "overtime_hours": 49.68,
+      "performance_bonus": 9749,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "陳祐慧",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 48.7,
+      "performance_bonus": 9523,
+      "special_bonus": 0,
+      "deductions": 0
+    },
+    {
+      "name": "林淇亦",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 64.17,
+      "performance_bonus": 13670,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "林祐生",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 53.83,
+      "performance_bonus": 10679,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "周芊聿",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 35000,
+      "position_allowance": 1000,
+      "attendance_bonus": 1820,
+      "overtime_hours": 60.66,
+      "performance_bonus": 12142,
+      "special_bonus": 0,
+      "deductions": 1702
+    },
+    {
+      "name": "林紘毅",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 102.52,
+      "performance_bonus": 20504,
+      "special_bonus": 0,
+      "deductions": 771
+    },
+    {
+      "name": "李祐穎",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 13.67,
+      "performance_bonus": 2734,
+      "special_bonus": 0,
+      "deductions": 179
+    },
+    {
+      "name": "周家儀",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 45.03,
+      "performance_bonus": 9006,
+      "special_bonus": 0,
+      "deductions": 633
+    },
+    {
+      "name": "潘昱良",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 104.67,
+      "performance_bonus": 20934,
+      "special_bonus": 0,
+      "deductions": 771
+    },
+    {
+      "name": "洪豪傑",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 98.69,
+      "performance_bonus": 19738,
+      "special_bonus": 0,
+      "deductions": 729
+    },
+    {
+      "name": "張晏碩",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 52.0,
+      "performance_bonus": 10400,
+      "special_bonus": 0,
+      "deductions": 167
+    },
+    {
+      "name": "王宥翔",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 133.36,
+      "performance_bonus": 26672,
+      "special_bonus": 0,
+      "deductions": 771
+    },
+    {
+      "name": "林紋玉",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 100.35,
+      "performance_bonus": 20070,
+      "special_bonus": 0,
+      "deductions": 447
+    },
+    {
+      "name": "婉庭",
+      "year": 2026,
+      "month": 1,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 39.69,
+      "performance_bonus": 8732,
+      "special_bonus": 0,
+      "deductions": 0
+    },
+    {
+      "name": "黃鉑淯",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 45000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 63.67,
+      "performance_bonus": 13208,
+      "special_bonus": 0,
+      "deductions": 1855
+    },
+    {
+      "name": "劉美琦",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 40000,
+      "position_allowance": 2000,
+      "attendance_bonus": 1910,
+      "overtime_hours": 81.19,
+      "performance_bonus": 15477,
+      "special_bonus": 0,
+      "deductions": 1547
+    },
+    {
+      "name": "蔡婷恩",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 63.69,
+      "performance_bonus": 10745,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "陳祐慧",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 64.51,
+      "performance_bonus": 10862,
+      "special_bonus": 0,
+      "deductions": 1444
+    },
+    {
+      "name": "林淇亦",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 1910,
+      "overtime_hours": 95.17,
+      "performance_bonus": 17841,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "林祐生",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 1910,
+      "overtime_hours": 77.36,
+      "performance_bonus": 13616,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "周芊聿",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 35000,
+      "position_allowance": 1000,
+      "attendance_bonus": 1910,
+      "overtime_hours": 78.18,
+      "performance_bonus": 13689,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "邱雅萱",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 33833,
+      "position_allowance": 0,
+      "attendance_bonus": 1910,
+      "overtime_hours": 62.34,
+      "performance_bonus": 10433,
+      "special_bonus": 0,
+      "deductions": 1444
+    },
+    {
+      "name": "林紘毅",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 53.84,
+      "performance_bonus": 10768,
+      "special_bonus": 0,
+      "deductions": 771
+    },
+    {
+      "name": "蔡承叡",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 9.0,
+      "performance_bonus": 1800,
+      "special_bonus": 0,
+      "deductions": 521
+    },
+    {
+      "name": "周家儀",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 72.99,
+      "performance_bonus": 14598,
+      "special_bonus": 0,
+      "deductions": 934
+    },
+    {
+      "name": "潘昱良",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 113.01,
+      "performance_bonus": 22602,
+      "special_bonus": 0,
+      "deductions": 771
+    },
+    {
+      "name": "洪豪傑",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 139.35,
+      "performance_bonus": 27870,
+      "special_bonus": 0,
+      "deductions": 313
+    },
+    {
+      "name": "張晏碩",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 129.01,
+      "performance_bonus": 25802,
+      "special_bonus": 0,
+      "deductions": 313
+    },
+    {
+      "name": "王宥翔",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 108.18,
+      "performance_bonus": 21636,
+      "special_bonus": 0,
+      "deductions": 771
+    },
+    {
+      "name": "林紋玉",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 41.0,
+      "performance_bonus": 8200,
+      "special_bonus": 0,
+      "deductions": 373
+    },
+    {
+      "name": "婉庭",
+      "year": 2026,
+      "month": 2,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 70.34,
+      "performance_bonus": 15475,
+      "special_bonus": 0,
+      "deductions": 0
+    },
+    {
+      "name": "黃鉑淯",
+      "year": 2026,
+      "month": 3,
+      "base_salary": 45000,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 0.0,
+      "performance_bonus": 0,
+      "special_bonus": 0,
+      "deductions": 1855
+    },
+    {
+      "name": "蔡婷恩",
+      "year": 2026,
+      "month": 3,
+      "base_salary": 35000,
+      "position_allowance": 2000,
+      "attendance_bonus": 2000,
+      "overtime_hours": 24.52,
+      "performance_bonus": 4638,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "陳祐慧",
+      "year": 2026,
+      "month": 3,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 24.52,
+      "performance_bonus": 4654,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "林淇亦",
+      "year": 2026,
+      "month": 3,
+      "base_salary": 35000,
+      "position_allowance": 2000,
+      "attendance_bonus": 1730,
+      "overtime_hours": 49.77,
+      "performance_bonus": 10252,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "林祐生",
+      "year": 2026,
+      "month": 3,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 46.98,
+      "performance_bonus": 9544,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "周芊聿",
+      "year": 2026,
+      "month": 3,
+      "base_salary": 35000,
+      "position_allowance": 1000,
+      "attendance_bonus": 2000,
+      "overtime_hours": 41.52,
+      "performance_bonus": 8511,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "邱雅萱",
+      "year": 2026,
+      "month": 3,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 36.84,
+      "performance_bonus": 7427,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "蔡承叡",
+      "year": 2026,
+      "month": 3,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 46.66,
+      "performance_bonus": 9332,
+      "special_bonus": 0,
+      "deductions": 771
+    },
+    {
+      "name": "洪豪傑",
+      "year": 2026,
+      "month": 3,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 87.0,
+      "performance_bonus": 17400,
+      "special_bonus": 0,
+      "deductions": 313
+    },
+    {
+      "name": "潘昱良",
+      "year": 2026,
+      "month": 3,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 66.31,
+      "performance_bonus": 13262,
+      "special_bonus": 0,
+      "deductions": 771
+    },
+    {
+      "name": "張晏碩",
+      "year": 2026,
+      "month": 3,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 73.33,
+      "performance_bonus": 14666,
+      "special_bonus": 0,
+      "deductions": 313
+    },
+    {
+      "name": "王宥翔",
+      "year": 2026,
+      "month": 3,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 94.69,
+      "performance_bonus": 18938,
+      "special_bonus": 0,
+      "deductions": 771
+    },
+    {
+      "name": "呂玟欣",
+      "year": 2026,
+      "month": 3,
+      "base_salary": 31935,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 0.0,
+      "performance_bonus": 0,
+      "special_bonus": 0,
+      "deductions": 1321
+    },
+    {
+      "name": "婉庭",
+      "year": 2026,
+      "month": 3,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 78.68,
+      "performance_bonus": 17310,
+      "special_bonus": 0,
+      "deductions": 0
+    },
+    {
+      "name": "黃鉑淯",
+      "year": 2026,
+      "month": 4,
+      "base_salary": 45000,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 0.0,
+      "performance_bonus": 0,
+      "special_bonus": 0,
+      "deductions": 1855
+    },
+    {
+      "name": "蔡婷恩",
+      "year": 2026,
+      "month": 4,
+      "base_salary": 35000,
+      "position_allowance": 2000,
+      "attendance_bonus": 2000,
+      "overtime_hours": 55.98,
+      "performance_bonus": 11925,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "陳祐慧",
+      "year": 2026,
+      "month": 4,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 1910,
+      "overtime_hours": 36.67,
+      "performance_bonus": 7589,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "林淇亦",
+      "year": 2026,
+      "month": 4,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 1910,
+      "overtime_hours": 54.73,
+      "performance_bonus": 11500,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "林祐生",
+      "year": 2026,
+      "month": 4,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 1730,
+      "overtime_hours": 66.66,
+      "performance_bonus": 13720,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "周芊聿",
+      "year": 2026,
+      "month": 4,
+      "base_salary": 35000,
+      "position_allowance": 3000,
+      "attendance_bonus": 2000,
+      "overtime_hours": 52.85,
+      "performance_bonus": 11746,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "邱雅萱",
+      "year": 2026,
+      "month": 4,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 59.35,
+      "performance_bonus": 12551,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "洪豪傑",
+      "year": 2026,
+      "month": 4,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 97.51,
+      "performance_bonus": 19502,
+      "special_bonus": 0,
+      "deductions": 313
+    },
+    {
+      "name": "潘昱良",
+      "year": 2026,
+      "month": 4,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 69.33,
+      "performance_bonus": 13866,
+      "special_bonus": 0,
+      "deductions": 1229
+    },
+    {
+      "name": "張晏碩",
+      "year": 2026,
+      "month": 4,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 72.99,
+      "performance_bonus": 14598,
+      "special_bonus": 0,
+      "deductions": 313
+    },
+    {
+      "name": "王宥翔",
+      "year": 2026,
+      "month": 4,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 109.68,
+      "performance_bonus": 21936,
+      "special_bonus": 0,
+      "deductions": 771
+    },
+    {
+      "name": "呂玟欣",
+      "year": 2026,
+      "month": 4,
+      "base_salary": 33000,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 0.0,
+      "performance_bonus": 0,
+      "special_bonus": 0,
+      "deductions": 1349
+    },
+    {
+      "name": "婉庭",
+      "year": 2026,
+      "month": 4,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 99.0,
+      "performance_bonus": 21780,
+      "special_bonus": 0,
+      "deductions": 0
+    },
+    {
+      "name": "LEO",
+      "year": 2026,
+      "month": 4,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 32.34,
+      "performance_bonus": 6468,
+      "special_bonus": 0,
+      "deductions": 0
+    },
+    {
+      "name": "黃鉑淯",
+      "year": 2026,
+      "month": 5,
+      "base_salary": 45000,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 0.0,
+      "performance_bonus": 0,
+      "special_bonus": 0,
+      "deductions": 1855
+    },
+    {
+      "name": "蔡婷恩",
+      "year": 2026,
+      "month": 5,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 100.68,
+      "performance_bonus": 21304,
+      "special_bonus": 2000,
+      "deductions": 1471
+    },
+    {
+      "name": "陳祐慧",
+      "year": 2026,
+      "month": 5,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 64.02,
+      "performance_bonus": 12260,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "林淇亦",
+      "year": 2026,
+      "month": 5,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 91.51,
+      "performance_bonus": 18828,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "林祐生",
+      "year": 2026,
+      "month": 5,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 91.69,
+      "performance_bonus": 18917,
+      "special_bonus": 0,
+      "deductions": 1561
+    },
+    {
+      "name": "周芊聿",
+      "year": 2026,
+      "month": 5,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 97.17,
+      "performance_bonus": 20316,
+      "special_bonus": 3000,
+      "deductions": 1471
+    },
+    {
+      "name": "邱雅萱",
+      "year": 2026,
+      "month": 5,
+      "base_salary": 35000,
+      "position_allowance": 0,
+      "attendance_bonus": 2000,
+      "overtime_hours": 97.85,
+      "performance_bonus": 20516,
+      "special_bonus": 0,
+      "deductions": 1471
+    },
+    {
+      "name": "潘昱良",
+      "year": 2026,
+      "month": 5,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 75.98,
+      "performance_bonus": 15196,
+      "special_bonus": 0,
+      "deductions": 771
+    },
+    {
+      "name": "王宥翔",
+      "year": 2026,
+      "month": 5,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 131.68,
+      "performance_bonus": 26336,
+      "special_bonus": 0,
+      "deductions": 771
+    },
+    {
+      "name": "洪豪傑",
+      "year": 2026,
+      "month": 5,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 116.51,
+      "performance_bonus": 23302,
+      "special_bonus": 0,
+      "deductions": 313
+    },
+    {
+      "name": "林家全",
+      "year": 2026,
+      "month": 5,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 83.17,
+      "performance_bonus": 16634,
+      "special_bonus": 0,
+      "deductions": 750
+    },
+    {
+      "name": "林紘毅",
+      "year": 2026,
+      "month": 5,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 63.66,
+      "performance_bonus": 12732,
+      "special_bonus": 0,
+      "deductions": 750
+    },
+    {
+      "name": "呂玟欣",
+      "year": 2026,
+      "month": 5,
+      "base_salary": 33000,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 0.0,
+      "performance_bonus": 0,
+      "special_bonus": 0,
+      "deductions": 1349
+    },
+    {
+      "name": "婉庭",
+      "year": 2026,
+      "month": 5,
+      "base_salary": 0,
+      "position_allowance": 0,
+      "attendance_bonus": 0,
+      "overtime_hours": 126.82,
+      "performance_bonus": 27900,
+      "special_bonus": 0,
+      "deductions": 0
+    }
+  ]
+}
+};
+
+// ── 初始化 ───────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  injectNav();
+  const session = await requireAdmin();
+  if (!session) return;
+  const { profile } = await renderUserInfo();
+  filterNavByRole(profile.role);
+});
+
+// ── 匯入主程序 ───────────────────────────────────────────────
+let logEl;
+async function runImport() {
+  document.getElementById('btn-run').disabled = true;
+  document.getElementById('log-wrap').style.display = '';
+  logEl = document.getElementById('log');
+  logEl.innerHTML = '';
+
+  try {
+    // Step 1: 查詢 admin profile + store
+    log('⏳ 查詢管理員帳號與門店…');
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { log('✗ 未登入', 'err'); return; }
+
+    const { data: profile, error: pe } = await supabase
+      .from('profiles').select('*,stores(*)').eq('id', session.user.id).single();
+    if (pe || !profile) { log('✗ 無法讀取 profile: ' + (pe?.message||''), 'err'); return; }
+    log(`✓ 登入身份：${profile.full_name || session.user.email} (${profile.role})`, 'ok');
+
+    // 找富民店 store_id
+    const { data: stores } = await supabase.from('stores').select('id,name').ilike('name', '%富民%');
+    if (!stores || stores.length === 0) {
+      log('✗ 找不到「富民店」門店記錄，請先到門店設定中建立「富民店」', 'err');
+      document.getElementById('btn-run').disabled = false;
+      return;
+    }
+    const store = stores[0];
+    log(`✓ 門店：${store.name} (id=${store.id.slice(0,8)}…)`, 'ok');
+
+    // Step 2: upsert 員工
+    log('\n⏳ 建立員工基本資料 (21 人)…');
+    const staffMap = {};  // name -> id
+
+    for (const s of IMPORT_DATA.staff) {
+      // 先查是否已存在 (同 store_id + name)
+      const { data: existing } = await supabase
+        .from('staff').select('id').eq('store_id', store.id).eq('name', s.name).maybeSingle();
+
+      const payload = {
+        store_id: store.id,
+        name: s.name,
+        position: s.position || '員工',
+        base_salary: s.base_salary || 0,
+        position_allowance: 0,
+        attendance_bonus_amount: s.att_base || 0,
+        status: 'active',
+      };
+
+      let sid;
+      if (existing) {
+        const { error } = await supabase.from('staff').update(payload).eq('id', existing.id);
+        if (error) { log(`  ✗ 更新 ${s.name} 失敗: ${error.message}`, 'err'); continue; }
+        sid = existing.id;
+        log(`  → 更新：${s.name} (${s.position})`, 'warn');
+      } else {
+        const { data: ins, error } = await supabase.from('staff').insert(payload).select('id').single();
+        if (error) { log(`  ✗ 新增 ${s.name} 失敗: ${error.message}`, 'err'); continue; }
+        sid = ins.id;
+        log(`  + 新增：${s.name} (${s.position}) 底薪=${s.base_salary}`, 'ok');
+      }
+      staffMap[s.name] = sid;
+    }
+    log(`✓ 員工資料完成，共 ${Object.keys(staffMap).length} 人`, 'ok');
+
+    // Step 3: upsert 薪資記錄
+    log('\n⏳ 匯入歷史薪資記錄 (75 筆)…');
+    let ok = 0, skip = 0, fail = 0;
+
+    for (const r of IMPORT_DATA.payroll) {
+      const sid = staffMap[r.name];
+      if (!sid) { log(`  ⚠ 找不到員工 ${r.name}，跳過 ${r.year}/${String(r.month).padStart(2,'0')}`, 'warn'); skip++; continue; }
+
+      const payload = {
+        store_id: store.id,
+        staff_id: sid,
+        year: r.year,
+        month: r.month,
+        base_salary: r.base_salary,
+        position_allowance: r.position_allowance,
+        attendance_bonus: r.attendance_bonus,
+        performance_bonus: r.performance_bonus,
+        special_bonus: r.special_bonus,
+        deductions: r.deductions,
+        notes: null,
+      };
+
+      // 先查是否已存在
+      const { data: existing } = await supabase
+        .from('payroll_records')
+        .select('id').eq('staff_id', sid).eq('year', r.year).eq('month', r.month)
+        .maybeSingle();
+
+      let error;
+      if (existing) {
+        ({ error } = await supabase.from('payroll_records').update(payload).eq('id', existing.id));
+        if (!error) { log(`  → 更新：${r.year}/${String(r.month).padStart(2,'0')} ${r.name}`, 'warn'); ok++; }
+      } else {
+        ({ error } = await supabase.from('payroll_records').insert(payload));
+        if (!error) { log(`  + 新增：${r.year}/${String(r.month).padStart(2,'0')} ${r.name}`, 'ok'); ok++; }
+      }
+      if (error) { log(`  ✗ ${r.name} ${r.year}/${r.month} 失敗: ${error.message}`, 'err'); fail++; }
+    }
+
+    log(`\n✓ 薪資記錄完成：成功 ${ok} 筆，跳過 ${skip} 筆，失敗 ${fail} 筆`, fail ? 'warn' : 'ok');
+
+    // 結果欄
+    const bar = document.getElementById('result-bar');
+    bar.style.display = '';
+    bar.innerHTML = fail === 0
+      ? `<div class="alert alert-success mb-0">✅ 匯入完成！員工 ${Object.keys(staffMap).length} 人，薪資記錄 ${ok} 筆。<a href="payroll.html" class="btn btn-sm btn-success ms-3">前往薪資頁面</a></div>`
+      : `<div class="alert alert-warning mb-0">⚠ 完成但有 ${fail} 筆錯誤，請查看 log。</div>`;
+
+  } catch (e) {
+    log('✗ 未預期錯誤：' + e.message, 'err');
+    document.getElementById('btn-run').disabled = false;
+  }
+}
+
+function log(msg, type) {
+  const span = document.createElement('span');
+  span.className = type === 'ok' ? 'log-ok' : type === 'err' ? 'log-err' : type === 'warn' ? 'log-warn' : '';
+  span.textContent = msg + '\n';
+  logEl.appendChild(span);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+</script>
+</body>
+</html>

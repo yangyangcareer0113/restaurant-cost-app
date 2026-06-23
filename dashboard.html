@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>儀表板 — 成本物料管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <style>
+    .bom-badge { font-size: 0.72rem; padding: 0.18rem 0.55rem; border-radius: 20px; font-weight: 600; white-space: nowrap; }
+    .bom-crit   { background: #dc2626; color: #fff; }
+    .bom-danger { background: #fee2e2; color: #991b1b; }
+    .bom-warn   { background: #fef3c7; color: #92400e; }
+    .bom-unk    { background: #f3f4f6; color: #6b7280; }
+
+    .alert-row { display: flex; justify-content: space-between; align-items: center;
+                 padding: 9px 0; border-bottom: 1px solid #f1f5f9; gap: 8px; }
+    .alert-row:last-child { border-bottom: none; }
+    .alert-name { font-weight: 600; font-size: 0.9rem; }
+    .alert-meta { font-size: 0.78rem; color: #64748b; margin-top: 1px; }
+
+    .section-divider { font-size: 0.72rem; font-weight: 700; color: #94a3b8;
+                       letter-spacing: 0.08em; text-transform: uppercase;
+                       padding: 6px 0 4px; border-top: 1px solid #e2e8f0; margin-top: 8px; }
+    .empty-state { text-align: center; color: #94a3b8; padding: 28px 0; font-size: 0.88rem; }
+  </style>
+</head>
+<body>
+  <div class="main-content">
+    <div class="top-header">
+      <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
+      <h6 class="mb-0 fw-bold">儀表板</h6>
+      <div class="ms-auto" id="store-selector-wrap" style="display:none;">
+        <select id="store-selector" class="form-select form-select-sm" style="width:auto;" onchange="loadDashboard()">
+          <option value="">所有門店</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- KPI 卡片 -->
+      <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-value text-primary" id="stat-items">—</div>
+            <div class="stat-label">管理品項數</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-value text-danger" id="stat-crit">—</div>
+            <div class="stat-label">✅ 已填成本品項</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-value text-warning" id="stat-unk">—</div>
+            <div class="stat-label">⚑ 待補成本品項</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card">
+            <div class="stat-value text-success" id="stat-cost">—</div>
+            <div class="stat-label">本月進貨成本（元）</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3">
+
+        <!-- 左欄：成本警示（僅 admin） -->
+        <div class="col-12 col-md-5" id="bom-section">
+          <div class="table-card h-100">
+            <div class="table-header">
+              <span class="fw-semibold">⚠️ 成本警示品項</span>
+              <a href="bom.html" class="btn btn-sm btn-outline-primary">完整 BOM</a>
+            </div>
+            <div class="p-3" id="bom-alert-list">
+              <div class="empty-state">載入中...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右欄：庫存預警 + 本月趨勢 -->
+        <div class="col-12 col-md-7 d-flex flex-column gap-3">
+
+          <!-- 庫存預警 -->
+          <div class="table-card">
+            <div class="table-header">
+              <span class="fw-semibold">🏪 庫存預警</span>
+              <a href="inventory.html" class="btn btn-sm btn-outline-secondary">查看全部</a>
+            </div>
+            <div class="p-3" id="stock-alert-list">
+              <div class="empty-state">載入中...</div>
+            </div>
+          </div>
+
+          <!-- 本月成本趨勢 -->
+          <div class="table-card">
+            <div class="table-header">
+              <span class="fw-semibold">📈 本月進貨成本趨勢</span>
+            </div>
+            <div class="p-3">
+              <canvas id="cost-chart" height="160"></canvas>
+              <div id="chart-empty" class="empty-state d-none">
+                尚無本月進貨記錄<br>
+                <a href="records.html" class="btn btn-sm btn-primary mt-2">前往填寫每日記錄</a>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+    let currentProfile = null;
+    let costChart = null;
+
+    function isTodo(item) {
+      return !item.unit_cost || item.unit_cost === 0;
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await requireAuth();
+      injectNav();
+      const data = await renderUserInfo();
+      if (!data) return;
+      currentProfile = data.profile;
+
+      filterNavByRole(currentProfile.role);
+
+      if (currentProfile.role === 'admin') {
+        const { data: stores } = await supabase.from('stores').select('id,name').order('name');
+        const sel = document.getElementById('store-selector');
+        (stores || []).forEach(s => sel.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.name}</option>`));
+        document.getElementById('store-selector-wrap').style.display = '';
+      }
+
+      await loadDashboard();
+    });
+
+    async function loadDashboard() {
+      const storeId = currentProfile.role === 'admin'
+        ? document.getElementById('store-selector')?.value || null
+        : currentProfile.store_id;
+
+      // ── 品項 & BOM ──
+      let iq = supabase.from('items').select('*').eq('is_active', true);
+      if (storeId) iq = iq.eq('store_id', storeId);
+      const { data: items } = await iq;
+      const allItems = items || [];
+
+      document.getElementById('stat-items').textContent = allItems.length;
+
+      const filledItems = allItems.filter(i => !isTodo(i));
+      const todoItems   = allItems.filter(i => isTodo(i));
+      document.getElementById('stat-crit').textContent = filledItems.length;
+      document.getElementById('stat-unk').textContent  = todoItems.length;
+
+      renderBOMAlerts(todoItems);
+
+      // ── 本月記錄 ──
+      const now = new Date();
+      const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+      let rq = supabase.from('inventory_records')
+        .select('purchase_cost, waste_qty, current_stock, item_id, record_date, items(name,min_stock_qty)')
+        .gte('record_date', monthStart);
+      if (storeId) rq = rq.eq('store_id', storeId);
+      const { data: records } = await rq;
+      const recs = records || [];
+
+      const totalCost = recs.reduce((s, r) => s + (r.purchase_cost || 0), 0);
+      document.getElementById('stat-cost').textContent = formatNumber(totalCost);
+
+      // ── 庫存預警 ──
+      let invQ = supabase.from('inventory_records')
+        .select('current_stock, item_id, items(name,min_stock_qty)')
+        .order('record_date', { ascending: false });
+      if (storeId) invQ = invQ.eq('store_id', storeId);
+      const { data: invRecs } = await invQ;
+      const latestMap = {};
+      (invRecs || []).forEach(r => { if (!latestMap[r.item_id]) latestMap[r.item_id] = r; });
+      const stockAlerts = Object.values(latestMap).filter(r =>
+        stockAlertLevel(r.current_stock, r.items?.min_stock_qty) !== 'ok'
+      );
+      renderStockAlerts(stockAlerts);
+
+      // ── 趨勢圖 ──
+      const dailyCost = {};
+      recs.forEach(r => { const d = r.record_date; dailyCost[d] = (dailyCost[d]||0) + (r.purchase_cost||0); });
+      const labels = Object.keys(dailyCost).sort();
+
+      if (!labels.length) {
+        document.getElementById('cost-chart').style.display = 'none';
+        document.getElementById('chart-empty').classList.remove('d-none');
+      } else {
+        document.getElementById('cost-chart').style.display = '';
+        document.getElementById('chart-empty').classList.add('d-none');
+        if (costChart) costChart.destroy();
+        costChart = new Chart(document.getElementById('cost-chart'), {
+          type: 'line',
+          data: {
+            labels: labels.map(d => d.slice(5)),
+            datasets: [{ label: '進貨成本（元）', data: labels.map(d => dailyCost[d]),
+              borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)',
+              fill: true, tension: 0.3, pointRadius: 4 }]
+          },
+          options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+      }
+    }
+
+    function renderBOMAlerts(todoItems) {
+      const box = document.getElementById('bom-alert-list');
+      if (!todoItems.length) {
+        box.innerHTML = '<div class="empty-state">✅ 所有品項成本資料已完整</div>';
+        return;
+      }
+      let html = `<div class="section-divider">待補單位成本（${todoItems.length} 項）</div>`;
+      html += todoItems.slice(0, 6).map(item => `
+        <div class="alert-row">
+          <div>
+            <div class="alert-name">${item.name}</div>
+            <div class="alert-meta">${item.supplier || '廠商未填'} ／ ${item.category||''} ／ ${item.unit}</div>
+          </div>
+          <span class="bom-badge bom-unk">⚑ 待補</span>
+        </div>`).join('');
+      if (todoItems.length > 6) {
+        html += `<div style="font-size:0.78rem;color:#94a3b8;text-align:center;padding-top:6px;">另有 ${todoItems.length - 6} 項待補⋯ <a href="bom.html">查看全部</a></div>`;
+      }
+      box.innerHTML = html;
+    }
+
+    function renderStockAlerts(alerts) {
+      const box = document.getElementById('stock-alert-list');
+      if (!alerts.length) {
+        box.innerHTML = '<div class="empty-state">✅ 庫存正常（尚無每日記錄）</div>';
+        return;
+      }
+      box.innerHTML = alerts.slice(0, 6).map(r => {
+        const level = stockAlertLevel(r.current_stock, r.items?.min_stock_qty);
+        const cls = level === 'danger' ? 'badge-stock-danger' : 'badge-stock-warning';
+        return `<div class="alert-row">
+          <span class="alert-name">${r.items?.name || '—'}</span>
+          <span class="badge ${cls}">庫存 ${r.current_stock} / 安全 ${r.items?.min_stock_qty}</span>
+        </div>`;
+      }).join('');
+    }
+  </script>
+</body>
+</html>

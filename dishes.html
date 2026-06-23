@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>成品菜單 — 成本物料管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <style>
+    .dish-item { padding:10px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.12s; }
+    .dish-item:hover { background:#f8fafc; }
+    .dish-item.active { background:#eff6ff; border-left:3px solid #2563eb; }
+    .dish-name { font-weight:600; font-size:0.9rem; }
+    .dish-meta { font-size:0.75rem; color:#64748b; margin-top:2px; }
+    .cost-badge { font-size:0.7rem; padding:2px 7px; border-radius:12px; font-weight:600; white-space:nowrap; }
+    .cb-star   { background:#dcfce7; color:#14532d; }
+    .cb-good   { background:#d1fae5; color:#065f46; }
+    .cb-warn   { background:#fef3c7; color:#92400e; }
+    .cb-danger { background:#fee2e2; color:#991b1b; }
+    .cb-crit   { background:#dc2626; color:#fff; }
+    .cb-unk    { background:#f3f4f6; color:#6b7280; }
+    .cost-summary { background:#f8fafc; border-radius:8px; padding:14px 16px; }
+    .cs-row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; font-size:0.9rem; }
+    .cs-total { border-top:1px solid #e2e8f0; margin-top:6px; padding-top:8px; font-weight:700; font-size:1rem; }
+    .right-empty { display:flex; align-items:center; justify-content:center; min-height:340px; color:#94a3b8; text-align:center; }
+    .tag-single { font-size:0.65rem; background:#e0f2fe; color:#0369a1; border-radius:10px; padding:1px 6px; }
+    .tag-set    { font-size:0.65rem; background:#fef3c7; color:#92400e; border-radius:10px; padding:1px 6px; }
+  </style>
+</head>
+<body>
+<div class="main-content">
+  <div class="top-header">
+    <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
+    <h6 class="mb-0 fw-bold">🍽️ 成品菜單管理</h6>
+    <div class="ms-auto">
+      <button class="btn btn-sm btn-primary" onclick="openNewDish()">+ 新增菜品</button>
+    </div>
+  </div>
+
+  <div class="page-body">
+    <div class="row g-3">
+
+      <!-- 左欄：菜品列表 -->
+      <div class="col-12 col-lg-4">
+        <div class="table-card">
+          <div class="p-2 px-3 border-bottom d-flex gap-2">
+            <input type="text" id="dish-search" class="form-control form-control-sm" placeholder="搜尋..." oninput="renderDishList()">
+            <select id="dish-cat-filter" class="form-select form-select-sm" style="width:auto;min-width:80px;" onchange="renderDishList()">
+              <option value="">所有類別</option>
+            </select>
+          </div>
+          <div id="dish-list" style="max-height:calc(100vh - 195px);overflow-y:auto;min-height:120px;">
+            <div class="text-center text-muted py-4" style="font-size:0.85rem;">載入中...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右欄：BOM 編輯器 -->
+      <div class="col-12 col-lg-8" id="right-panel">
+        <div class="table-card">
+          <div class="right-empty">
+            <div>
+              <div style="font-size:2.2rem;margin-bottom:10px;">🍽️</div>
+              <div style="font-size:0.95rem;">← 選擇左側菜品，或新增一道菜</div>
+              <small class="d-block mt-2 text-muted">建立食材配方後，系統自動計算成本率</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- 新增/編輯菜品 Modal -->
+<div class="modal fade" id="dishModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="dish-modal-title">新增菜品</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-dish-id">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">菜品名稱 <span class="text-danger">*</span></label>
+          <input type="text" id="dish-name" class="form-control" placeholder="例：招牌廣味雞煲（大份）、豪華雙人套餐">
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label fw-semibold">類別</label>
+            <input type="text" id="dish-category" class="form-control" placeholder="例：雞煲、海鮮、套餐">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">類型</label>
+            <select id="dish-type" class="form-select">
+              <option value="single">單點菜品</option>
+              <option value="set_meal">套餐</option>
+            </select>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">售價（元）</label>
+          <div class="input-group">
+            <span class="input-group-text">$</span>
+            <input type="number" id="dish-price" class="form-control" min="0" step="1" value="0">
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold">備註</label>
+          <input type="text" id="dish-notes" class="form-control" placeholder="選填">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button class="btn btn-primary" onclick="saveDish()">儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/nav.js"></script>
+<script>
+let currentProfile = null;
+let itemsData = {};
+let semisData = {};
+let allDishes = [];
+let currentDish = null;
+let currentBomLines = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await requireAdmin();
+  injectNav();
+  const data = await renderUserInfo();
+  currentProfile = data.profile;
+  filterNavByRole(currentProfile.role);
+  await loadRefData();
+  await loadDishes();
+});
+
+async function loadRefData() {
+  const sid = currentProfile.store_id;
+  const [{ data: items }, { data: semis }] = await Promise.all([
+    supabase.from('items').select('id,name,unit,unit_cost,bom_unit,bom_conversion,category').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
+    supabase.from('semi_products').select('id,name,category,output_qty,output_unit').eq('store_id',sid).eq('is_active',true).order('name')
+  ]);
+  (items||[]).forEach(i => { itemsData[i.id] = i; });
+
+  const semiIds = (semis||[]).map(s => s.id);
+  let semiLines = [];
+  if (semiIds.length) {
+    const { data } = await supabase.from('bom_lines').select('*').eq('parent_type','semi').in('parent_id', semiIds);
+    semiLines = data || [];
+  }
+  (semis||[]).forEach(semi => {
+    const lines = semiLines.filter(l => l.parent_id === semi.id);
+    let total = 0;
+    lines.forEach(l => {
+      if (l.child_type === 'item') {
+        const item = itemsData[l.child_id];
+        if (item?.unit_cost > 0 && item.bom_conversion > 0) {
+          total += (item.unit_cost / item.bom_conversion) * l.std_qty * (1 + (l.waste_rate||0)/100);
+        }
+      }
+    });
+    semi.totalCost = total;
+    semi.costPerUnit = semi.output_qty > 0 ? total / semi.output_qty : 0;
+    semisData[semi.id] = semi;
+  });
+}
+
+async function loadDishes() {
+  const { data } = await supabase.from('dishes').select('*').eq('store_id', currentProfile.store_id).eq('is_active',true).order('category').order('name');
+  allDishes = data || [];
+  const cats = [...new Set(allDishes.map(d => d.category).filter(Boolean))].sort();
+  const cf = document.getElementById('dish-cat-filter');
+  cf.innerHTML = '<option value="">所有類別</option>';
+  cats.forEach(c => cf.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  renderDishList();
+}
+
+function renderDishList() {
+  const q = document.getElementById('dish-search').value.toLowerCase();
+  const cat = document.getElementById('dish-cat-filter').value;
+  const filtered = allDishes.filter(d => (!q || d.name.toLowerCase().includes(q)) && (!cat || d.category === cat));
+  const list = document.getElementById('dish-list');
+  if (!filtered.length) {
+    list.innerHTML = '<div class="text-center text-muted py-5" style="font-size:0.85rem;">尚無菜品<br><small>點「+ 新增菜品」開始建立</small></div>';
+    return;
+  }
+  list.innerHTML = filtered.map(d => {
+    const isActive = currentDish?.id === d.id ? 'active' : '';
+    const typeTag = d.dish_type === 'set_meal'
+      ? '<span class="tag-set ms-1">套餐</span>'
+      : '<span class="tag-single ms-1">單點</span>';
+    return `<div class="dish-item ${isActive}" onclick="selectDish('${d.id}')">
+      <div class="dish-name">${d.name}${typeTag}</div>
+      <div class="dish-meta">${d.category ? `<span class="badge bg-light text-secondary border me-1" style="font-size:0.65rem;">${d.category}</span>` : ''}售價 $${d.selling_price||0}</div>
+    </div>`;
+  }).join('');
+}
+
+async function selectDish(id) {
+  currentDish = allDishes.find(d => d.id === id);
+  if (!currentDish) return;
+  renderDishList();
+  const { data } = await supabase.from('bom_lines').select('*').eq('parent_type','dish').eq('parent_id', id).order('sort_order').order('created_at');
+  currentBomLines = data || [];
+  renderRightPanel();
+}
+
+function calcLineCost(line) {
+  if (line.child_type === 'item') {
+    const item = itemsData[line.child_id];
+    if (!item || !item.unit_cost || !(item.bom_conversion > 0)) return 0;
+    return (item.unit_cost / item.bom_conversion) * line.std_qty * (1 + (line.waste_rate||0)/100);
+  }
+  const semi = semisData[line.child_id];
+  if (!semi) return 0;
+  return semi.costPerUnit * line.std_qty * (1 + (line.waste_rate||0)/100);
+}
+
+function costBadge(rate) {
+  if (rate === null || isNaN(rate)) return `<span class="cost-badge cb-unk">⚑ 待計算</span>`;
+  if (rate < 20)  return `<span class="cost-badge cb-star">⭐ ${rate.toFixed(1)}%</span>`;
+  if (rate < 30)  return `<span class="cost-badge cb-good">✅ ${rate.toFixed(1)}%</span>`;
+  if (rate <= 45) return `<span class="cost-badge cb-warn">⚠️ ${rate.toFixed(1)}%</span>`;
+  if (rate <= 65) return `<span class="cost-badge cb-danger">🚨 ${rate.toFixed(1)}%</span>`;
+  return `<span class="cost-badge cb-crit">🔴 ${rate.toFixed(1)}%</span>`;
+}
+
+function getChildName(line) {
+  return line.child_type === 'item'
+    ? (itemsData[line.child_id]?.name || '—')
+    : (semisData[line.child_id]?.name || '—');
+}
+
+function buildChildOpts(type) {
+  if (type === 'item') {
+    return Object.values(itemsData).map(i =>
+      `<option value="${i.id}" data-unit="${i.bom_unit||'g'}" data-cpu="${(i.unit_cost/(i.bom_conversion||1)).toFixed(4)}">${i.name}（${i.unit}）</option>`
+    ).join('');
+  }
+  return Object.values(semisData).map(s =>
+    `<option value="${s.id}" data-unit="${s.output_unit}" data-cpu="${s.costPerUnit.toFixed(4)}">${s.name}</option>`
+  ).join('');
+}
+
+function renderRightPanel() {
+  const d = currentDish;
+  const totalCost = currentBomLines.reduce((s, l) => s + calcLineCost(l), 0);
+  const costRate = d.selling_price > 0 ? totalCost / d.selling_price * 100 : null;
+  const margin   = d.selling_price > 0 ? d.selling_price - totalCost : null;
+
+  document.getElementById('right-panel').innerHTML = `
+    <div class="d-flex flex-column gap-3">
+
+      <!-- 菜品資訊卡 -->
+      <div class="table-card">
+        <div class="table-header d-flex justify-content-between align-items-center">
+          <span class="fw-semibold">${d.dish_type==='set_meal'?'🎉':'🍽️'} ${d.name}</span>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" onclick="openEditDish()">編輯資訊</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteDish('${d.id}')">移除</button>
+          </div>
+        </div>
+        <div class="p-3">
+          <div class="row g-2 text-center">
+            <div class="col-4">
+              <div class="text-muted" style="font-size:0.73rem;">類型</div>
+              <div class="fw-semibold" style="font-size:0.88rem;">${d.dish_type==='set_meal'?'套餐':'單點'}</div>
+            </div>
+            <div class="col-4">
+              <div class="text-muted" style="font-size:0.73rem;">售價</div>
+              <div class="fw-semibold" style="font-size:0.88rem;">$${formatNumber(d.selling_price,0)}</div>
+            </div>
+            <div class="col-4">
+              <div class="text-muted" style="font-size:0.73rem;">食材成本率</div>
+              <div>${currentBomLines.length ? costBadge(costRate) : '<span class="cost-badge cb-unk">⚑ 待建配方</span>'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOM 配方 -->
+      <div class="table-card">
+        <div class="table-header d-flex justify-content-between">
+          <span class="fw-semibold">📋 BOM 配方明細</span>
+          <small class="text-muted">${currentBomLines.length} 項食材</small>
+        </div>
+        <div class="p-3">
+          ${currentBomLines.length === 0 ? `
+            <div class="text-center text-muted py-3" style="font-size:0.85rem;">尚未加入食材，使用下方表單新增</div>
+          ` : `
+            <div class="table-responsive">
+              <table class="table table-sm mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th style="font-size:0.8rem;">食材</th>
+                    <th style="font-size:0.8rem;">類型</th>
+                    <th style="font-size:0.8rem;">用量</th>
+                    <th style="font-size:0.8rem;">損耗</th>
+                    <th style="font-size:0.8rem;" class="text-end">項目成本</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${currentBomLines.map(line => {
+                    const lineCost = calcLineCost(line);
+                    const typeBadge = line.child_type === 'item'
+                      ? '<span class="tag-single">原物料</span>'
+                      : '<span class="tag-set">半成品</span>';
+                    return `<tr>
+                      <td class="fw-semibold" style="font-size:0.88rem;">${getChildName(line)}</td>
+                      <td>${typeBadge}</td>
+                      <td style="font-size:0.82rem;">${formatNumber(line.std_qty,2)} ${line.bom_unit}</td>
+                      <td style="font-size:0.82rem;">${line.waste_rate?line.waste_rate+'%':'—'}</td>
+                      <td class="text-end fw-semibold text-success" style="font-size:0.88rem;">$${formatNumber(lineCost,1)}</td>
+                      <td><button class="btn btn-outline-danger" style="padding:1px 7px;font-size:0.72rem;border-radius:4px;" onclick="deleteBomLine('${line.id}')">×</button></td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          `}
+
+          <!-- 成本摘要 -->
+          <div class="cost-summary mt-3">
+            <div class="cs-row"><span class="text-muted">食材總成本</span><strong class="text-success">$${formatNumber(totalCost,1)}</strong></div>
+            <div class="cs-row"><span class="text-muted">售價</span><span>$${formatNumber(d.selling_price||0,0)}</span></div>
+            ${margin!==null?`<div class="cs-row"><span class="text-muted">毛利</span><span class="${margin>=0?'text-success':'text-danger'}">$${formatNumber(margin,1)}</span></div>`:''}
+            <div class="cs-row cs-total"><span>食材成本率</span><span>${currentBomLines.length?costBadge(costRate):'<span class="cost-badge cb-unk">尚無配方</span>'}</span></div>
+          </div>
+
+          <!-- 新增食材 -->
+          <hr class="my-3">
+          <div class="fw-semibold mb-2" style="font-size:0.88rem;">＋ 新增食材到配方</div>
+          <div class="row g-2 align-items-end">
+            <div class="col-6 col-sm-3">
+              <label class="form-label mb-1" style="font-size:0.78rem;">類型</label>
+              <select id="add-child-type" class="form-select form-select-sm" onchange="onAddTypeChange()">
+                <option value="item">原物料</option>
+                <option value="semi">半成品</option>
+              </select>
+            </div>
+            <div class="col-6 col-sm-5">
+              <label class="form-label mb-1" style="font-size:0.78rem;">食材</label>
+              <select id="add-child-id" class="form-select form-select-sm" onchange="onChildSelect()">
+                <option value="">請選擇</option>
+                ${buildChildOpts('item')}
+              </select>
+            </div>
+            <div class="col-4 col-sm-2">
+              <label class="form-label mb-1" style="font-size:0.78rem;">用量</label>
+              <input type="number" id="add-qty" class="form-control form-control-sm" min="0" step="0.01" placeholder="0" oninput="updateCostPreview()">
+            </div>
+            <div class="col-4 col-sm-2">
+              <label class="form-label mb-1" style="font-size:0.78rem;">BOM 單位</label>
+              <input type="text" id="add-bom-unit" class="form-control form-control-sm" placeholder="g">
+            </div>
+          </div>
+          <div class="row g-2 align-items-end mt-1">
+            <div class="col-4 col-sm-2">
+              <label class="form-label mb-1" style="font-size:0.78rem;">損耗率 %</label>
+              <input type="number" id="add-waste" class="form-control form-control-sm" min="0" max="99" step="1" value="0" oninput="updateCostPreview()">
+            </div>
+            <div class="col-5 col-sm-7">
+              <label class="form-label mb-1" style="font-size:0.78rem;">備註（選填）</label>
+              <input type="text" id="add-line-notes" class="form-control form-control-sm">
+            </div>
+            <div class="col-3 col-sm-3">
+              <button class="btn btn-primary btn-sm w-100" onclick="addBomLine()">加入</button>
+            </div>
+          </div>
+          <div id="cost-preview" class="mt-2 text-muted" style="font-size:0.8rem;"></div>
+        </div>
+      </div>
+
+    </div>`;
+}
+
+function onAddTypeChange() {
+  const type = document.getElementById('add-child-type').value;
+  const sel = document.getElementById('add-child-id');
+  sel.innerHTML = '<option value="">請選擇</option>' + buildChildOpts(type);
+  document.getElementById('add-bom-unit').value = '';
+  document.getElementById('add-qty').value = '';
+  updateCostPreview();
+}
+
+function onChildSelect() {
+  const opt = document.getElementById('add-child-id').selectedOptions[0];
+  if (opt?.dataset.unit) document.getElementById('add-bom-unit').value = opt.dataset.unit;
+  updateCostPreview();
+}
+
+function updateCostPreview() {
+  const opt   = document.getElementById('add-child-id')?.selectedOptions[0];
+  const qty   = parseFloat(document.getElementById('add-qty')?.value) || 0;
+  const waste = parseFloat(document.getElementById('add-waste')?.value) || 0;
+  const prev  = document.getElementById('cost-preview');
+  if (!prev) return;
+  if (!opt?.value || qty <= 0) { prev.textContent = ''; return; }
+  const cpu  = parseFloat(opt.dataset.cpu) || 0;
+  const unit = document.getElementById('add-bom-unit').value || '—';
+  prev.textContent = `此項目預估成本：$${formatNumber(cpu * qty * (1 + waste/100), 1)} （$${formatNumber(cpu,3)} / ${unit}）`;
+}
+
+async function addBomLine() {
+  const childId   = document.getElementById('add-child-id').value;
+  const childType = document.getElementById('add-child-type').value;
+  const qty   = parseFloat(document.getElementById('add-qty').value) || 0;
+  const unit  = document.getElementById('add-bom-unit').value.trim() || 'g';
+  const waste = parseFloat(document.getElementById('add-waste').value) || 0;
+  const notes = document.getElementById('add-line-notes').value.trim() || null;
+
+  if (!childId)  { showToast('請選擇食材', 'danger'); return; }
+  if (qty <= 0)  { showToast('請填寫用量', 'danger'); return; }
+
+  const { error } = await supabase.from('bom_lines').insert({
+    store_id: currentProfile.store_id,
+    parent_type: 'dish', parent_id: currentDish.id,
+    child_type: childType, child_id: childId,
+    std_qty: qty, bom_unit: unit, waste_rate: waste,
+    notes, sort_order: currentBomLines.length
+  });
+  if (error) { showToast('新增失敗：' + error.message, 'danger'); return; }
+  showToast('✓ 食材已加入配方');
+
+  const { data } = await supabase.from('bom_lines').select('*').eq('parent_type','dish').eq('parent_id', currentDish.id).order('sort_order').order('created_at');
+  currentBomLines = data || [];
+  renderRightPanel();
+}
+
+async function deleteBomLine(id) {
+  if (!confirm('確定移除這項食材？')) return;
+  await supabase.from('bom_lines').delete().eq('id', id);
+  currentBomLines = currentBomLines.filter(l => l.id !== id);
+  renderRightPanel();
+  showToast('已移除', 'warning');
+}
+
+function openNewDish() {
+  document.getElementById('dish-modal-title').textContent = '新增菜品';
+  document.getElementById('edit-dish-id').value = '';
+  ['dish-name','dish-category','dish-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('dish-type').value = 'single';
+  document.getElementById('dish-price').value = '0';
+  new bootstrap.Modal(document.getElementById('dishModal')).show();
+}
+
+function openEditDish() {
+  if (!currentDish) return;
+  document.getElementById('dish-modal-title').textContent = '編輯菜品資訊';
+  document.getElementById('edit-dish-id').value = currentDish.id;
+  document.getElementById('dish-name').value = currentDish.name;
+  document.getElementById('dish-category').value = currentDish.category || '';
+  document.getElementById('dish-type').value = currentDish.dish_type || 'single';
+  document.getElementById('dish-price').value = currentDish.selling_price || 0;
+  document.getElementById('dish-notes').value = currentDish.notes || '';
+  new bootstrap.Modal(document.getElementById('dishModal')).show();
+}
+
+async function saveDish() {
+  const id = document.getElementById('edit-dish-id').value;
+  const payload = {
+    store_id: currentProfile.store_id,
+    name: document.getElementById('dish-name').value.trim(),
+    category: document.getElementById('dish-category').value.trim() || null,
+    dish_type: document.getElementById('dish-type').value,
+    selling_price: parseFloat(document.getElementById('dish-price').value) || 0,
+    notes: document.getElementById('dish-notes').value.trim() || null
+  };
+  if (!payload.name) { showToast('請填寫菜品名稱', 'danger'); return; }
+
+  let error, data;
+  if (id) {
+    ({ error } = await supabase.from('dishes').update(payload).eq('id', id));
+  } else {
+    ({ data, error } = await supabase.from('dishes').insert(payload).select().single());
+  }
+  if (error) { showToast('儲存失敗：' + error.message, 'danger'); return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('dishModal')).hide();
+  showToast(id ? '✓ 菜品已更新' : '✓ 菜品已新增，可開始建立配方');
+
+  await loadDishes();
+  if (!id && data) { await selectDish(data.id); }
+  else if (id) { currentDish = allDishes.find(d => d.id === id); renderRightPanel(); }
+}
+
+async function deleteDish(id) {
+  if (!confirm(`確定移除「${currentDish.name}」及其所有配方？`)) return;
+  await supabase.from('bom_lines').delete().eq('parent_type','dish').eq('parent_id', id);
+  await supabase.from('dishes').update({ is_active: false }).eq('id', id);
+  currentDish = null; currentBomLines = [];
+  document.getElementById('right-panel').innerHTML = `<div class="table-card"><div class="right-empty"><div style="color:#94a3b8;">已移除菜品，← 選擇其他菜品</div></div></div>`;
+  showToast('已移除', 'warning');
+  await loadDishes();
+}
+</script>
+</body>
+</html>
