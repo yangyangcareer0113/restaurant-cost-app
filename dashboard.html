@@ -130,12 +130,13 @@
           </div>
         </div>
 
-        <!-- 進度 / 預估完成 -->
+        <!-- 節奏達成率 -->
         <div class="col-6 col-md-4">
           <div class="today-card h-100">
-            <div class="tc-label">🎯 月目標進度</div>
+            <div class="tc-label">🎯 今日節奏達成率</div>
             <div class="tc-value text-primary" id="rev-pace-pct">—</div>
             <div class="tc-sub" id="rev-pace-sub">進度計算中</div>
+            <div style="font-size:0.7rem;color:#94a3b8;margin-top:4px;">※ 今日應達進度 ÷ 實際累積<br>（與左側總達成率不同）</div>
           </div>
         </div>
 
@@ -464,11 +465,11 @@
         // 達成狀態文字
         let pctLabel = '';
         if (revMonth >= TARGET_REVENUE_HIGH) {
-          pctLabel = `✅ 高標達成 ${(revMonth/TARGET_REVENUE_HIGH*100).toFixed(1)}%`;
+          pctLabel = `✅ 高標達成 ${(revMonth/TARGET_REVENUE_HIGH*100).toFixed(1)}%（對 $250 萬）`;
         } else if (revMonth >= TARGET_REVENUE_LOW) {
-          pctLabel = `🟡 低標達成，距高標差 $${formatNumber(TARGET_REVENUE_HIGH - revMonth)}`;
+          pctLabel = `🟡 低標達成 ${(revMonth/TARGET_REVENUE_LOW*100).toFixed(1)}%，距高標差 $${formatNumber(TARGET_REVENUE_HIGH - revMonth)}`;
         } else {
-          pctLabel = `🔴 ${(revMonth/TARGET_REVENUE_LOW*100).toFixed(1)}%（低標 200萬），差 $${formatNumber(TARGET_REVENUE_LOW - revMonth)}`;
+          pctLabel = `🔴 低標達成 ${(revMonth/TARGET_REVENUE_LOW*100).toFixed(1)}%（對 $200 萬），差 $${formatNumber(TARGET_REVENUE_LOW - revMonth)}`;
         }
         document.getElementById('rev-month-pct').textContent = pctLabel;
 
@@ -479,7 +480,7 @@
         document.getElementById('rev-pace-pct').className = `tc-value ${paceClass}`;
         document.getElementById('rev-pace-pct').textContent = `${pacePct}%`;
         document.getElementById('rev-pace-sub').textContent =
-          `${pacePct >= 100 ? '超前低標節奏' : pacePct >= 90 ? '略落後，仍可追' : '落後，需加速'} ／預期節奏 $${formatNumber(Math.round(expectedByNow))}`;
+          `${pacePct >= 100 ? '超前節奏' : pacePct >= 90 ? '略落後，仍可追' : '落後，需加速'} ／今日應達 $${formatNumber(Math.round(expectedByNow))}（低標日均）`;
       } else {
         document.getElementById('rev-pace-pct').textContent = '—';
         document.getElementById('rev-pace-sub').textContent = '肚肚連線失敗';
