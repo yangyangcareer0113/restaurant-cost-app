@@ -367,17 +367,27 @@
           (s, si) => s + (si.counted_qty || 0) * (si.unit_cost || 0), 0);
       }));
 
-      // 4. 薪資（每月）
+      // 4. 薪資（每月）— 含假扣 + 伙食津貼 + 勞健保勞退（總人事成本）
       const laborMap = {};
       await Promise.all(periods.map(async p => {
         const [y, m] = p.split('-').map(Number);
-        const { data } = await supabase
-          .from('payroll_records')
-          .select('base_salary, position_allowance, attendance_bonus, performance_bonus, special_bonus, deductions')
-          .eq('store_id', storeId).eq('year', y).eq('month', m);
-        laborMap[p] = (data || []).reduce((s, r) =>
+        const [{ data: prData }, { data: ohData }] = await Promise.all([
+          supabase
+            .from('payroll_records')
+            .select('base_salary, position_allowance, attendance_bonus, performance_bonus, special_bonus, deductions, leave_deductions')
+            .eq('store_id', storeId).eq('year', y).eq('month', m),
+          supabase
+            .from('monthly_overhead')
+            .select('meal_allowance, employer_insurance')
+            .eq('store_id', storeId).eq('year', y).eq('month', m)
+            .maybeSingle()
+        ]);
+        const payroll = (prData || []).reduce((s, r) =>
           s + (r.base_salary||0) + (r.position_allowance||0) + (r.attendance_bonus||0)
-            + (r.performance_bonus||0) + (r.special_bonus||0) - (r.deductions||0), 0);
+            + (r.performance_bonus||0) + (r.special_bonus||0)
+            - (r.deductions||0) - (r.leave_deductions||0), 0);
+        const overhead = (ohData?.meal_allowance || 0) + (ohData?.employer_insurance || 0);
+        laborMap[p] = payroll + overhead;
       }));
 
       // 5. 組合
