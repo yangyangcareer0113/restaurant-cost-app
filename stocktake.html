@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>月底盤點 — 成本物料管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <style>
+    .status-ribbon {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .badge-draft     { background: #fef3c7; color: #92400e; }
+    .badge-submitted { background: #dbeafe; color: #1e40af; }
+    .badge-reviewed  { background: #dcfce7; color: #166534; }
+
+    .progress-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .cost-summary {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      color: #fff;
+      margin-bottom: 1rem;
+    }
+    .cost-summary .cs-label { font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.2rem; }
+    .cost-summary .cs-value { font-size: 1.15rem; font-weight: 700; }
+    .cost-summary .cs-highlight { font-size: 1.5rem; color: #fbbf24; }
+    .cost-summary .cs-arrow {
+      font-size: 1.2rem; color: #64748b;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .category-row td {
+      background: #f8fafc !important;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      padding: 0.4rem 1rem !important;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .count-input {
+      width: 90px;
+      text-align: right;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .count-input:focus {
+      border-color: #2563eb;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+    }
+    .count-input.filled  { border-color: #16a34a; background: #f0fdf4; }
+    .count-input:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+
+    .note-input {
+      border: 1.5px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.82rem;
+      color: #475569;
+      width: 100%;
+      min-width: 80px;
+    }
+    .note-input:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+
+    .save-indicator {
+      font-size: 0.78rem;
+      color: #16a34a;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .save-indicator.show { opacity: 1; }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #94a3b8;
+    }
+    .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+
+    @media (max-width: 767.98px) {
+      .count-input { width: 75px; }
+      .note-input  { min-width: 60px; }
+      .cost-summary .cs-arrow { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="main-content">
+    <!-- Top header -->
+    <div class="top-header">
+      <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
+      <h6 class="mb-0 fw-bold">📋 月底盤點</h6>
+      <div class="ms-auto d-flex gap-2 align-items-center flex-wrap">
+        <select id="store-filter" class="form-select form-select-sm d-none" style="width:auto;" onchange="onStoreChange()">
+          <option value="">請選擇門店</option>
+        </select>
+        <select id="period-select" class="form-select form-select-sm" style="width:auto;" onchange="loadStocktake()">
+        </select>
+        <span class="save-indicator" id="save-indicator">✓ 已儲存</span>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Status ribbon -->
+      <div class="status-ribbon">
+        <div>
+          <div class="text-muted small mb-1">本期盤點狀態</div>
+          <span class="badge fs-6 px-3 py-2" id="status-badge">載入中...</span>
+        </div>
+        <div class="d-flex gap-2 flex-wrap align-items-center" id="action-buttons"></div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="progress-card">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="fw-semibold small">盤點進度</span>
+          <span id="progress-text" class="text-muted small">—</span>
+        </div>
+        <div class="progress" style="height: 8px;">
+          <div class="progress-bar bg-success" id="progress-bar" role="progressbar" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Admin cost summary -->
+      <div class="cost-summary d-none" id="cost-summary">
+        <div class="small fw-semibold mb-3" style="color:#94a3b8;">📊 本月物料成本試算（需雙方都有盤點資料）</div>
+        <div class="row g-2 align-items-center">
+          <div class="col-5 col-md-3">
+            <div class="cs-label">期初庫存（上月盤點）</div>
+            <div class="cs-value" id="cs-begin">—</div>
+          </div>
+          <div class="col-2 col-md-1 cs-arrow">＋</div>
+          <div class="col-5 col-md-2">
+            <div class="cs-label">本月進貨</div>
+            <div class="cs-value" id="cs-purchase">—</div>
+          </div>
+          <div class="col-2 col-md-1 cs-arrow">－</div>
+          <div class="col-5 col-md-2">
+            <div class="cs-label">期末庫存（本月盤點）</div>
+            <div class="cs-value" id="cs-ending">—</div>
+          </div>
+          <div class="col-2 col-md-1 cs-arrow">＝</div>
+          <div class="col-12 col-md-2 mt-2 mt-md-0">
+            <div class="cs-label">估算本月物料成本</div>
+            <div class="cs-value cs-highlight" id="cs-cost">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Item table -->
+      <div class="table-card">
+        <div class="table-header">
+          <span class="fw-semibold">品項清單</span>
+          <input type="text" id="search" class="form-control form-control-sm"
+            placeholder="搜尋品項或分類..." style="width:180px;" oninput="renderTable()">
+        </div>
+        <div id="item-list">
+          <div class="empty-state">
+            <div class="empty-icon">📦</div>
+            <div>載入中...</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+    let currentProfile = null;
+    let currentStocktake = null;
+    let allItems = [];
+    let countMap = {};        // item_id → { si_id, counted_qty, notes }
+    let currentStoreId = null;
+    let saveTimers = {};      // item_id → timeout handle
+
+    // ============================================================
+    // 初始化
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', async () => {
+      await requireAuth();
+      injectNav();
+      const data = await renderUserInfo();
+      currentProfile = data.profile;
+      filterNavByRole(currentProfile.role);
+
+      buildPeriodOptions();
+
+      if (currentProfile.role === 'admin') {
+        document.getElementById('store-filter').classList.remove('d-none');
+        document.getElementById('cost-summary').classList.remove('d-none');
+        await loadStoresFilter();
+      } else {
+        currentStoreId = currentProfile.store_id;
+        if (!currentStoreId) {
+          showEmptyState('您尚未分配門店，請聯絡管理員');
+          return;
+        }
+        await loadStocktake();
+      }
+    });
+
+    // ============================================================
+    // 期別選項：目前月 + 往前 5 個月
+    // ============================================================
+    function buildPeriodOptions() {
+      const sel = document.getElementById('period-select');
+      const now = new Date();
+      for (let i = 0; i < 6; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const label = `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`;
+        sel.insertAdjacentHTML('beforeend', `<option value="${val}">${label}</option>`);
+      }
+    }
+
+    // ============================================================
+    // Admin：載入門店清單
+    // ============================================================
+    async function loadStoresFilter() {
+      const { data } = await supabase.from('stores').select('id, name').order('name');
+      const sel = document.getElementById('store-filter');
+      (data || []).forEach(s =>
+        sel.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.name}</option>`)
+      );
+      if (data && data.length) {
+        currentStoreId = data[0].id;
+        sel.value = data[0].id;
+        await loadStocktake();
+      }
+    }
+
+    async function onStoreChange() {
+      currentStoreId = document.getElementById('store-filter').value || null;
+      await loadStocktake();
+    }
+
+    // ============================================================
+    // 載入（或建立）本期盤點單
+    // ============================================================
+    async function loadStocktake() {
+      if (!currentStoreId) return;
+      const period = document.getElementById('period-select').value;
+
+      // 載入品項
+      const { data: items } = await supabase
+        .from('items')
+        .select('id, name, unit, category, min_stock_qty, cost_low')
+        .eq('store_id', currentStoreId)
+        .eq('is_active', true)
+        .order('category')
+        .order('name');
+      allItems = items || [];
+
+      // 找既有盤點單
+      const { data: existing } = await supabase
+        .from('stocktakes')
+        .select('*')
+        .eq('store_id', currentStoreId)
+        .eq('period', period)
+        .maybeSingle();
+
+      if (existing) {
+        currentStocktake = existing;
+      } else if (currentProfile.role !== 'admin') {
+        // store_manager 自動建立草稿
+        const { data: { session } } = await supabase.auth.getSession();
+        const { data: created, error } = await supabase
+          .from('stocktakes')
+          .insert({ store_id: currentStoreId, period, created_by: session.user.id })
+          .select()
+          .single();
+        if (error) {
+          showToast('建立盤點單失敗：' + error.message, 'danger');
+          currentStocktake = null;
+        } else {
+          currentStocktake = created;
+        }
+      } else {
+        currentStocktake = null;
+      }
+
+      // 載入已填的盤點數量
+      countMap = {};
+      if (currentStocktake) {
+        const { data: siList } = await supabase
+          .from('stocktake_items')
+          .select('id, item_id, counted_qty, notes')
+          .eq('stocktake_id', currentStocktake.id);
+        (siList || []).forEach(si => {
+          countMap[si.item_id] = { si_id: si.id, counted_qty: si.counted_qty, notes: si.notes };
+        });
+      }
+
+      updateStatusUI();
+      renderTable();
+
+      if (currentProfile.role === 'admin') {
+        await loadCostSummary(period);
+      }
+    }
+
+    // ============================================================
+    // 狀態 ribbon
+    // ============================================================
+    function updateStatusUI() {
+      const badge   = document.getElementById('status-badge');
+      const actions = document.getElementById('action-buttons');
+
+      if (!currentStocktake) {
+        badge.className = 'badge fs-6 px-3 py-2 bg-secondary';
+        badge.textContent = '尚未建立';
+        actions.innerHTML = '<span class="text-muted small">門店員工登入後可建立本期盤點</span>';
+        return;
+      }
+
+      const map = {
+        draft:     { cls: 'badge-draft',     text: '草稿中' },
+        submitted: { cls: 'badge-submitted', text: '已提交，待審核' },
+        reviewed:  { cls: 'badge-reviewed',  text: '✅ 已審核完成' }
+      };
+      const s = map[currentStocktake.status] || { cls: 'bg-secondary', text: currentStocktake.status };
+      badge.className = `badge fs-6 px-3 py-2 ${s.cls}`;
+      badge.textContent = s.text;
+
+      let html = '';
+      if (currentStocktake.status === 'draft' && currentProfile.role !== 'admin') {
+        html += `<button class="btn btn-primary" onclick="submitStocktake()">📤 提交盤點</button>`;
+      }
+      if (currentStocktake.status === 'submitted' && currentProfile.role === 'admin') {
+        html += `<button class="btn btn-success" onclick="reviewStocktake()">✅ 確認審核</button>`;
+      }
+      if (currentStocktake.status === 'reviewed') {
+        const d = currentStocktake.reviewed_at
+          ? new Date(currentStocktake.reviewed_at).toLocaleDateString('zh-TW') : '';
+        html += `<span class="text-muted small">審核完成於 ${d}</span>`;
+      }
+      actions.innerHTML = html;
+    }
+
+    // ============================================================
+    // 渲染品項表
+    // ============================================================
+    function renderTable() {
+      const q        = document.getElementById('search').value.toLowerCase();
+      const isLocked = !currentStocktake
+                    || currentStocktake.status !== 'draft'
+                    || currentProfile.role === 'admin';
+
+      let filtered = allItems.filter(i =>
+        i.name.toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q)
+      );
+
+      if (!filtered.length) {
+        showEmptyState(allItems.length ? '沒有符合搜尋條件的品項' : '此門店尚無啟用品項');
+        updateProgress();
+        return;
+      }
+
+      // 依分類分組
+      const categories = [...new Set(filtered.map(i => i.category || '其他'))];
+
+      let html = `
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>品項</th>
+                <th>單位</th>
+                <th class="text-end">安全庫存</th>
+                <th class="text-end">盤點數量</th>
+                <th>備註</th>
+              </tr>
+            </thead>
+            <tbody>`;
+
+      for (const cat of categories) {
+        const catItems = filtered.filter(i => (i.category || '其他') === cat);
+        html += `<tr class="category-row"><td colspan="5">📁 ${cat}（${catItems.length} 項）</td></tr>`;
+
+        for (const item of catItems) {
+          const entry = countMap[item.id];
+          const qty   = (entry?.counted_qty !== null && entry?.counted_qty !== undefined) ? entry.counted_qty : '';
+          const notes = entry?.notes || '';
+          const filledCls = qty !== '' ? 'filled' : '';
+
+          html += `
+            <tr>
+              <td><strong>${item.name}</strong></td>
+              <td class="text-muted">${item.unit}</td>
+              <td class="text-end text-muted small">${item.min_stock_qty} ${item.unit}</td>
+              <td class="text-end">
+                <input type="number"
+                  class="count-input ${filledCls}"
+                  id="qty-${item.id}"
+                  value="${qty}"
+                  min="0" step="0.01"
+                  placeholder="—"
+                  ${isLocked ? 'disabled' : ''}
+                  oninput="onInputChange('${item.id}', this)"
+                  onchange="scheduleAutoSave('${item.id}')">
+              </td>
+              <td>
+                <input type="text"
+                  class="note-input"
+                  id="note-${item.id}"
+                  value="${notes}"
+                  placeholder="${isLocked ? '—' : '備註（可留空）'}"
+                  ${isLocked ? 'disabled' : ''}
+                  onchange="scheduleAutoSave('${item.id}')">
+              </td>
+            </tr>`;
+        }
+      }
+
+      html += '</tbody></table></div>';
+      document.getElementById('item-list').innerHTML = html;
+      updateProgress();
+    }
+
+    function showEmptyState(msg) {
+      document.getElementById('item-list').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <div>${msg}</div>
+        </div>`;
+    }
+
+    // ============================================================
+    // 進度更新
+    // ============================================================
+    function updateProgress() {
+      const total   = allItems.length;
+      const counted = allItems.filter(i => {
+        const e = countMap[i.id];
+        return e && e.counted_qty !== null && e.counted_qty !== undefined && e.counted_qty !== '';
+      }).length;
+      const pct = total ? Math.round(counted / total * 100) : 0;
+      document.getElementById('progress-text').textContent = `已盤 ${counted} / ${total} 品項`;
+      document.getElementById('progress-bar').style.width = pct + '%';
+    }
+
+    // ============================================================
+    // 輸入處理（即時標色 + 防抖儲存）
+    // ============================================================
+    function onInputChange(itemId, input) {
+      if (input.value !== '') {
+        input.classList.add('filled');
+      } else {
+        input.classList.remove('filled');
+      }
+      scheduleAutoSave(itemId);
+    }
+
+    function scheduleAutoSave(itemId) {
+      clearTimeout(saveTimers[itemId]);
+      saveTimers[itemId] = setTimeout(() => saveItem(itemId), 800);
+    }
+
+    async function saveItem(itemId) {
+      if (!currentStocktake || currentStocktake.status !== 'draft') return;
+
+      const qtyEl  = document.getElementById(`qty-${itemId}`);
+      const noteEl = document.getElementById(`note-${itemId}`);
+      if (!qtyEl) return;
+
+      const qty   = qtyEl.value !== '' ? parseFloat(qtyEl.value) : null;
+      const notes = noteEl?.value?.trim() || null;
+      const item  = allItems.find(i => i.id === itemId);
+      const unitCost = item?.cost_low || 0;
+
+      const existing = countMap[itemId];
+
+      if (existing?.si_id) {
+        const { error } = await supabase
+          .from('stocktake_items')
+          .update({ counted_qty: qty, notes, updated_at: new Date().toISOString() })
+          .eq('id', existing.si_id);
+        if (error) { showToast('儲存失敗', 'danger'); return; }
+      } else {
+        const { data, error } = await supabase
+          .from('stocktake_items')
+          .insert({
+            stocktake_id: currentStocktake.id,
+            item_id: itemId,
+            counted_qty: qty,
+            unit_cost: unitCost,
+            notes
+          })
+          .select()
+          .single();
+        if (error) { showToast('儲存失敗', 'danger'); return; }
+        countMap[itemId] = { si_id: data.id, counted_qty: qty, notes };
+      }
+
+      countMap[itemId] = { ...countMap[itemId], counted_qty: qty, notes };
+      updateProgress();
+      showSaveIndicator();
+    }
+
+    function showSaveIndicator() {
+      const el = document.getElementById('save-indicator');
+      el.classList.add('show');
+      clearTimeout(showSaveIndicator._t);
+      showSaveIndicator._t = setTimeout(() => el.classList.remove('show'), 2000);
+    }
+
+    // ============================================================
+    // 提交（員工）
+    // ============================================================
+    async function submitStocktake() {
+      if (!currentStocktake) return;
+      const counted = allItems.filter(i => {
+        const e = countMap[i.id];
+        return e && e.counted_qty !== null && e.counted_qty !== undefined;
+      }).length;
+      const msg = counted === 0
+        ? '尚未填寫任何盤點數量，確定還是要提交嗎？'
+        : `已盤 ${counted} / ${allItems.length} 品項，確定提交？提交後不可修改。`;
+      if (!confirm(msg)) return;
+
+      const { error } = await supabase
+        .from('stocktakes')
+        .update({ status: 'submitted', submitted_at: new Date().toISOString() })
+        .eq('id', currentStocktake.id);
+
+      if (error) { showToast('提交失敗：' + error.message, 'danger'); return; }
+      currentStocktake.status = 'submitted';
+      showToast('盤點已提交！等待老闆審核 ✅');
+      updateStatusUI();
+      renderTable();
+    }
+
+    // ============================================================
+    // 審核（老闆）
+    // ============================================================
+    async function reviewStocktake() {
+      if (!currentStocktake) return;
+      if (!confirm('確認審核此份盤點單？')) return;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const { error } = await supabase
+        .from('stocktakes')
+        .update({
+          status: 'reviewed',
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: session.user.id
+        })
+        .eq('id', currentStocktake.id);
+
+      if (error) { showToast('審核失敗：' + error.message, 'danger'); return; }
+      currentStocktake.status = 'reviewed';
+      showToast('審核完成！');
+      updateStatusUI();
+      await loadCostSummary(document.getElementById('period-select').value);
+    }
+
+    // ============================================================
+    // Admin：物料成本試算
+    // ============================================================
+    async function loadCostSummary(period) {
+      if (!currentStoreId) return;
+
+      const [year, month] = period.split('-').map(Number);
+      const startDate = `${period}-01`;
+      const lastDay   = new Date(year, month, 0).getDate();
+      const endDate   = `${period}-${String(lastDay).padStart(2, '0')}`;
+
+      // 本月進貨總額
+      const { data: purchases } = await supabase
+        .from('inventory_records')
+        .select('purchase_cost')
+        .eq('store_id', currentStoreId)
+        .gte('record_date', startDate)
+        .lte('record_date', endDate);
+      const totalPurchase = (purchases || []).reduce((s, r) => s + (r.purchase_cost || 0), 0);
+
+      // 期末盤點金額（本月）
+      let endingValue = 0;
+      if (currentStocktake) {
+        const { data: siList } = await supabase
+          .from('stocktake_items')
+          .select('counted_qty, unit_cost')
+          .eq('stocktake_id', currentStocktake.id);
+        endingValue = (siList || []).reduce((s, si) =>
+          s + ((si.counted_qty || 0) * (si.unit_cost || 0)), 0);
+      }
+
+      // 期初盤點金額（上月盤點）
+      const prevPeriod = getPrevPeriod(period);
+      const { data: prevSt } = await supabase
+        .from('stocktakes')
+        .select('id')
+        .eq('store_id', currentStoreId)
+        .eq('period', prevPeriod)
+        .maybeSingle();
+
+      let beginValue = 0;
+      if (prevSt) {
+        const { data: prevItems } = await supabase
+          .from('stocktake_items')
+          .select('counted_qty, unit_cost')
+          .eq('stocktake_id', prevSt.id);
+        beginValue = (prevItems || []).reduce((s, si) =>
+          s + ((si.counted_qty || 0) * (si.unit_cost || 0)), 0);
+      }
+
+      const estimatedCost = beginValue + totalPurchase - endingValue;
+
+      document.getElementById('cs-begin').textContent =
+        beginValue > 0 ? `$${formatNumber(beginValue)}` : '（無上月盤點）';
+      document.getElementById('cs-purchase').textContent = `$${formatNumber(totalPurchase)}`;
+      document.getElementById('cs-ending').textContent =
+        (currentStocktake && endingValue > 0) ? `$${formatNumber(endingValue)}` : '（尚未盤點）';
+      document.getElementById('cs-cost').textContent =
+        (beginValue > 0 || totalPurchase > 0) && endingValue > 0
+          ? `$${formatNumber(estimatedCost)}`
+          : '資料不足';
+    }
+
+    function getPrevPeriod(period) {
+      const [y, m] = period.split('-').map(Number);
+      return m === 1
+        ? `${y - 1}-12`
+        : `${y}-${String(m - 1).padStart(2, '0')}`;
+    }
+  </script>
+</body>
+</html>

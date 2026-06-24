@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>成本結構分析 — 成本物料管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <style>
+    /* ── Gauge 健檢卡片 ── */
+    .gauge-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 1.25rem 1.5rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-left 0.3s;
+    }
+    .gauge-card .gc-label  { font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .gauge-card .gc-value  { font-size: 2.4rem; font-weight: 800; line-height: 1.1; margin: 0.3rem 0; }
+    .gauge-card .gc-target { font-size: 0.78rem; color: #94a3b8; }
+    .gauge-card .gc-bar    { height: 8px; border-radius: 99px; background: #f1f5f9; margin-top: 0.75rem; overflow: hidden; }
+    .gauge-card .gc-fill   { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
+    .gauge-card .gc-status { position: absolute; top: 1rem; right: 1rem; font-size: 1.4rem; line-height: 1; }
+    .gauge-card .gc-detail { font-size: 0.78rem; color: #94a3b8; margin-top: 0.5rem; }
+
+    .text-ok    { color: #16a34a; }
+    .text-warn  { color: #d97706; }
+    .text-danger{ color: #dc2626; }
+    .fill-ok    { background: #22c55e; }
+    .fill-warn  { background: #f59e0b; }
+    .fill-danger{ background: #ef4444; }
+    .fill-none  { background: #e2e8f0; }
+    .border-ok     { border-left: 4px solid #22c55e !important; }
+    .border-warn   { border-left: 4px solid #f59e0b !important; }
+    .border-danger { border-left: 4px solid #ef4444 !important; }
+
+    /* ── 比率 pill ── */
+    .ratio-cell { display: inline-flex; align-items: center; gap: 0.45rem; white-space: nowrap; }
+    .ratio-pill {
+      display: inline-block; font-size: 0.82rem; font-weight: 700;
+      padding: 0.2rem 0.6rem; border-radius: 99px;
+    }
+    .pill-ok    { background: #dcfce7; color: #166534; }
+    .pill-warn  { background: #fef3c7; color: #92400e; }
+    .pill-danger{ background: #fee2e2; color: #991b1b; }
+    .pill-none  { background: #f1f5f9; color: #94a3b8; }
+
+    .mini-bar-wrap { width: 52px; height: 6px; background: #f1f5f9; border-radius: 99px; overflow: hidden; display: inline-block; vertical-align: middle; }
+    .mini-bar      { height: 100%; border-radius: 99px; }
+
+    /* ── 圖例 ── */
+    .chart-legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: #475569; }
+    .chart-legend-dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── 目標線文字 ── */
+    .target-tag {
+      display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem;
+      padding: 0.15rem 0.5rem; border-radius: 4px;
+    }
+    .target-tag.material { background: rgba(59,130,246,0.1); color: #2563eb; }
+    .target-tag.labor    { background: rgba(249,115,22,0.1);  color: #ea580c; }
+
+    .no-data { color: #94a3b8; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <div class="main-content">
+
+    <div class="top-header">
+      <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
+      <h6 class="mb-0 fw-bold">📊 成本結構分析</h6>
+      <div class="ms-auto d-flex gap-2 align-items-center flex-wrap">
+        <select id="store-filter" class="form-select form-select-sm d-none" style="width:auto;" onchange="loadAll()">
+          <option value="">請選擇門店</option>
+        </select>
+        <span id="dudoo-badge" class="badge bg-secondary" style="font-size:0.72rem;">🔄 連接肚肚中...</span>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- ① 本月健檢 -->
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <h6 class="fw-bold mb-0">本月健檢</h6>
+        <div class="d-flex align-items-center gap-2 text-muted small">
+          <span>📡 營業額由肚肚 POS 自動抓取</span>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <!-- 物料成本率 -->
+        <div class="col-12 col-md-4">
+          <div class="gauge-card" id="gauge-material">
+            <div class="gc-status" id="gc-m-icon">—</div>
+            <div class="gc-label">物料成本率</div>
+            <div class="gc-value" id="gc-m-val">—</div>
+            <div class="gc-target">安全區間：30% ～ 33%</div>
+            <div class="gc-bar"><div class="gc-fill fill-none" id="gc-m-bar" style="width:0%"></div></div>
+            <div class="gc-detail" id="gc-m-detail">請先輸入本月營業額</div>
+          </div>
+        </div>
+        <!-- 人事成本率 -->
+        <div class="col-12 col-md-4">
+          <div class="gauge-card" id="gauge-labor">
+            <div class="gc-status" id="gc-l-icon">—</div>
+            <div class="gc-label">人事成本率</div>
+            <div class="gc-value" id="gc-l-val">—</div>
+            <div class="gc-target">目標：28% 以下</div>
+            <div class="gc-bar"><div class="gc-fill fill-none" id="gc-l-bar" style="width:0%"></div></div>
+            <div class="gc-detail" id="gc-l-detail">請先輸入本月營業額</div>
+          </div>
+        </div>
+        <!-- 合計 -->
+        <div class="col-12 col-md-4">
+          <div class="gauge-card" id="gauge-total">
+            <div class="gc-status" id="gc-t-icon">—</div>
+            <div class="gc-label">物料 ＋ 人事 合計</div>
+            <div class="gc-value" id="gc-t-val">—</div>
+            <div class="gc-target">目標：61% 以下（28% ＋ 33%）</div>
+            <div class="gc-bar"><div class="gc-fill fill-none" id="gc-t-bar" style="width:0%"></div></div>
+            <div class="gc-detail" id="gc-t-detail">請先輸入本月營業額</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ② 趨勢圖 -->
+      <div class="table-card mb-4">
+        <div class="table-header">
+          <span class="fw-semibold">📈 近 6 個月成本率趨勢</span>
+          <div class="d-flex gap-3 flex-wrap align-items-center">
+            <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#3b82f6;"></div> 物料成本率</div>
+            <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#f97316;"></div> 人事成本率</div>
+            <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#a78bfa;"></div> 合計</div>
+            <div class="target-tag material">── 物料上限 33%</div>
+            <div class="target-tag labor">── 人事上限 28%</div>
+          </div>
+        </div>
+        <div class="p-3" style="position:relative; min-height:230px;">
+          <canvas id="trend-chart" height="190"></canvas>
+          <div id="chart-empty" class="d-none text-center text-muted py-5">
+            各月填入營業額後，圖表將自動顯示
+          </div>
+        </div>
+      </div>
+
+      <!-- ③ 月度明細表 -->
+      <div class="table-card">
+        <div class="table-header">
+          <span class="fw-semibold">🗓️ 月度明細（近 6 個月）</span>
+          <div class="d-flex gap-2 flex-wrap">
+            <span class="ratio-pill pill-ok" style="font-size:0.72rem;">✅ 達標</span>
+            <span class="ratio-pill pill-warn" style="font-size:0.72rem;">⚠️ 接近上限</span>
+            <span class="ratio-pill pill-danger" style="font-size:0.72rem;">🔴 超標</span>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>月份</th>
+                <th class="text-end">
+                  營業額<br><small class="fw-normal text-muted">肚肚自動</small>
+                </th>
+                <th class="text-end">
+                  物料成本<br><small class="fw-normal text-muted">盤點法 / 進貨加總</small>
+                </th>
+                <th style="min-width:150px;">
+                  物料成本率<br><small class="fw-normal text-muted">目標 30–33%</small>
+                </th>
+                <th class="text-end">
+                  人事成本<br><small class="fw-normal text-muted">薪資合計</small>
+                </th>
+                <th style="min-width:140px;">
+                  人事成本率<br><small class="fw-normal text-muted">目標 ≤28%</small>
+                </th>
+                <th style="min-width:120px;">
+                  合計成本率
+                </th>
+                <th>物料來源</th>
+              </tr>
+            </thead>
+            <tbody id="compare-tbody">
+              <tr><td colspan="8" class="text-center text-muted py-4">載入中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 先載入 annotation plugin，再載入 Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+    // ── 肚肚 POS API ──
+    const DUDOO_API  = 'https://pos-api.dudooeat.com';
+    const DUDOO_BODY = 'code=96769697&username=60659833&password=1234';
+    const DUDOO_HIERARCHY = '23885';
+    const DUDOO_COMPANY   = '17970';
+    let   dudooToken = null;
+
+    let currentProfile = null;
+    let storeId        = null;
+    let periodsData    = []; // [{ period, revenue, materialCost, laborCost, materialSource }]
+    let trendChart     = null;
+
+    const TARGET_M_LOW  = 30;
+    const TARGET_M_HIGH = 33;
+    const TARGET_L      = 28;
+
+    // ============================================================
+    // 初始化
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', async () => {
+      await requireAdmin();
+      injectNav();
+      const data = await renderUserInfo();
+      currentProfile = data.profile;
+      filterNavByRole(currentProfile.role);
+      await loadStores();
+      await loadAll();
+    });
+
+    function currentPeriod() {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function getPeriods(n = 6) {
+      const now = new Date();
+      return Array.from({ length: n }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      });
+    }
+
+    function getPrevPeriod(p) {
+      const [y, m] = p.split('-').map(Number);
+      return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+    }
+
+    // ============================================================
+    // 肚肚 POS API
+    // ============================================================
+    async function dudooEnsureToken() {
+      if (dudooToken) return dudooToken;
+      try {
+        const resp = await fetch(`${DUDOO_API}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: DUDOO_BODY
+        });
+        const data = await resp.json();
+        dudooToken = data.data?.access_token || data.access_token || null;
+      } catch (e) {
+        console.warn('肚肚登入失敗', e);
+        dudooToken = null;
+      }
+      return dudooToken;
+    }
+
+    async function fetchDudooRevenue(period) {
+      const token = await dudooEnsureToken();
+      if (!token) return null;
+      const [y, m] = period.split('-').map(Number);
+      const lastDay = new Date(y, m, 0).getDate();
+      const body = [
+        `start_date=${period}-01`,
+        `end_date=${period}-${String(lastDay).padStart(2, '0')}`,
+        `hierarchy_id=${DUDOO_HIERARCHY}`,
+        `company_id=${DUDOO_COMPANY}`
+      ].join('&');
+      try {
+        const resp = await fetch(`${DUDOO_API}/statistics/getDashboard?type=reports`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'access-token': token
+          },
+          body
+        });
+        const data = await resp.json();
+        return data.success ? (data.amount ?? 0) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // ============================================================
+    // 載入門店
+    // ============================================================
+    async function loadStores() {
+      const { data } = await supabase.from('stores').select('id, name').order('name');
+      const sel = document.getElementById('store-filter');
+      (data || []).forEach(s =>
+        sel.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.name}</option>`)
+      );
+      if (data && data.length) {
+        storeId = data[0].id;
+        sel.value = data[0].id;
+        sel.classList.remove('d-none');
+      }
+    }
+
+    async function loadAll() {
+      const selVal = document.getElementById('store-filter')?.value;
+      if (selVal) storeId = selVal;
+      if (!storeId) return;
+      await fetchAllData();
+      recalcGauges();
+      renderTable();
+      renderChart();
+    }
+
+    // ============================================================
+    // 抓資料（近 6 個月）
+    // ============================================================
+    async function fetchAllData() {
+      const periods = getPeriods(6);
+      const allPeriods = [getPrevPeriod(periods[periods.length - 1]), ...periods];
+
+      // 1. 從肚肚 POS 抓營業額（並行請求）
+      const badge = document.getElementById('dudoo-badge');
+      badge.className = 'badge bg-secondary';
+      badge.textContent = '🔄 同步肚肚中...';
+
+      const revResults = await Promise.all(periods.map(p => fetchDudooRevenue(p)));
+      const revMap = Object.fromEntries(periods.map((p, i) => [p, revResults[i]]));
+
+      const allNull = revResults.every(v => v === null);
+      badge.className = allNull ? 'badge bg-danger' : 'badge bg-success';
+      badge.textContent = allNull ? '❌ 肚肚連線失敗' : '✅ 肚肚已同步';
+
+      // 2. 進貨加總（每月）
+      const purchaseMap = {};
+      await Promise.all(periods.map(async p => {
+        const [y, m] = p.split('-').map(Number);
+        const start = `${p}-01`;
+        const end   = `${p}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+        const { data } = await supabase
+          .from('inventory_records').select('purchase_cost')
+          .eq('store_id', storeId).gte('record_date', start).lte('record_date', end);
+        purchaseMap[p] = (data || []).reduce((s, r) => s + (r.purchase_cost || 0), 0);
+      }));
+
+      // 3. 盤點單（需含上個月）
+      const { data: stRows } = await supabase
+        .from('stocktakes').select('id, period, status')
+        .eq('store_id', storeId).in('period', allPeriods);
+      const stMap = Object.fromEntries((stRows || []).map(s => [s.period, s]));
+
+      // 盤點金額（批量）
+      const stValueMap = {};
+      await Promise.all(Object.values(stMap).map(async st => {
+        const { data } = await supabase
+          .from('stocktake_items').select('counted_qty, unit_cost')
+          .eq('stocktake_id', st.id);
+        stValueMap[st.id] = (data || []).reduce(
+          (s, si) => s + (si.counted_qty || 0) * (si.unit_cost || 0), 0);
+      }));
+
+      // 4. 薪資（每月）
+      const laborMap = {};
+      await Promise.all(periods.map(async p => {
+        const [y, m] = p.split('-').map(Number);
+        const { data } = await supabase
+          .from('payroll_records')
+          .select('base_salary, position_allowance, attendance_bonus, performance_bonus, special_bonus, deductions')
+          .eq('store_id', storeId).eq('year', y).eq('month', m);
+        laborMap[p] = (data || []).reduce((s, r) =>
+          s + (r.base_salary||0) + (r.position_allowance||0) + (r.attendance_bonus||0)
+            + (r.performance_bonus||0) + (r.special_bonus||0) - (r.deductions||0), 0);
+      }));
+
+      // 5. 組合
+      periodsData = periods.map(p => {
+        const purchase   = purchaseMap[p] || 0;
+        const thisSt     = stMap[p];
+        const prevSt     = stMap[getPrevPeriod(p)];
+        let materialCost = purchase;
+        let materialSource = '進貨加總';
+
+        if (thisSt && thisSt.status !== 'draft') {
+          const endVal   = stValueMap[thisSt.id]   || 0;
+          const beginVal = prevSt ? (stValueMap[prevSt.id] || 0) : 0;
+          materialCost   = beginVal + purchase - endVal;
+          materialSource = prevSt ? '盤點法 ✓' : '盤點法（無期初）';
+        }
+
+        return {
+          period: p,
+          revenue: revMap[p] ?? null,
+          materialCost: Math.max(materialCost, 0),
+          laborCost: laborMap[p] || 0,
+          materialSource
+        };
+      });
+    }
+
+    // ============================================================
+    // Gauge 健檢卡片
+    // ============================================================
+    function recalcGauges() {
+      const period = currentPeriod();
+      const entry  = periodsData.find(d => d.period === period) || {};
+      const rev    = entry.revenue || 0;
+      const mCost  = entry.materialCost || 0;
+      const lCost  = entry.laborCost    || 0;
+
+      // 物料成本率
+      setGauge({
+        key: 'm', card: 'material',
+        cost: mCost, revenue: rev,
+        detail: entry.materialSource || '',
+        statusFn: r => r > TARGET_M_HIGH ? 'danger' : r >= TARGET_M_LOW ? 'warn' : 'ok'
+      });
+
+      // 人事成本率
+      setGauge({
+        key: 'l', card: 'labor',
+        cost: lCost, revenue: rev,
+        statusFn: r => r > TARGET_L ? 'danger' : r > TARGET_L * 0.9 ? 'warn' : 'ok'
+      });
+
+      // 合計
+      const tCost  = mCost + lCost;
+      const tTarget = TARGET_M_HIGH + TARGET_L;
+      setGauge({
+        key: 't', card: 'total',
+        cost: tCost, revenue: rev,
+        detail: `目標 ≤${tTarget}%`,
+        statusFn: r => r > tTarget ? 'danger' : r > tTarget * 0.95 ? 'warn' : 'ok'
+      });
+    }
+
+    function setGauge({ key, card, cost, revenue, detail, statusFn }) {
+      const ratio   = revenue > 0 ? cost / revenue * 100 : null;
+      const status  = ratio !== null ? statusFn(ratio) : null;
+      const valEl   = document.getElementById(`gc-${key}-val`);
+      const barEl   = document.getElementById(`gc-${key}-bar`);
+      const iconEl  = document.getElementById(`gc-${key}-icon`);
+      const detEl   = document.getElementById(`gc-${key}-detail`);
+      const cardEl  = document.getElementById(`gauge-${card}`);
+
+      if (ratio === null) {
+        valEl.textContent    = '—';
+        valEl.className      = 'gc-value';
+        barEl.style.width    = '0%';
+        barEl.className      = 'gc-fill fill-none';
+        iconEl.textContent   = '—';
+        cardEl.className     = 'gauge-card';
+        detEl.textContent    = '肚肚同步中，請稍候...';
+        return;
+      }
+
+      const iconMap = { ok: '✅', warn: '⚠️', danger: '🔴' };
+      valEl.textContent    = ratio.toFixed(1) + '%';
+      valEl.className      = `gc-value text-${status}`;
+      barEl.style.width    = Math.min(ratio, 100) + '%';
+      barEl.className      = `gc-fill fill-${status}`;
+      iconEl.textContent   = iconMap[status];
+      cardEl.className     = `gauge-card border-${status}`;
+      if (detail) {
+        detEl.textContent  = detail;
+      } else {
+        detEl.textContent  = `成本 $${formatNumber(cost)} ／ 營收 $${formatNumber(revenue)}`;
+      }
+    }
+
+    // ============================================================
+    // 歷史明細表
+    // ============================================================
+    function renderTable() {
+      document.getElementById('compare-tbody').innerHTML =
+        periodsData.map(d => buildRow(d)).join('');
+    }
+
+    function renderTableRow(period) {
+      const d  = periodsData.find(x => x.period === period);
+      if (!d) return;
+      const existing = document.querySelector(`tr[data-period="${period}"]`);
+      if (existing) {
+        existing.outerHTML = buildRow(d);
+      } else {
+        renderTable();
+      }
+    }
+
+    function buildRow(d) {
+      const isCurrent = d.period === currentPeriod();
+      const rev  = d.revenue !== null && d.revenue !== undefined ? d.revenue : null;
+      const mCost = d.materialCost || 0;
+      const lCost = d.laborCost    || 0;
+
+      const mRatio = rev ? mCost / rev * 100 : null;
+      const lRatio = rev ? lCost / rev * 100 : null;
+      const tRatio = (mRatio !== null && lRatio !== null) ? mRatio + lRatio : null;
+
+      const mStatus = mRatio === null ? 'none'
+        : mRatio > TARGET_M_HIGH ? 'danger'
+        : mRatio >= TARGET_M_LOW ? 'warn'
+        : 'ok';
+      const lStatus = lRatio === null ? 'none'
+        : lRatio > TARGET_L ? 'danger'
+        : lRatio > TARGET_L * 0.9 ? 'warn'
+        : 'ok';
+      const tStatus = tRatio === null ? 'none'
+        : tRatio > (TARGET_M_HIGH + TARGET_L) ? 'danger'
+        : tRatio > (TARGET_M_HIGH + TARGET_L) * 0.95 ? 'warn'
+        : 'ok';
+
+      const [y, m] = d.period.split('-');
+      const label  = `${y} / ${parseInt(m)}月`;
+
+      return `
+        <tr data-period="${d.period}" ${isCurrent ? 'class="table-primary"' : ''}>
+          <td>
+            <span class="fw-semibold">${label}</span>
+            ${isCurrent ? '<span class="badge bg-primary ms-1" style="font-size:0.65rem;">本月</span>' : ''}
+          </td>
+          <td class="text-end fw-semibold">
+            ${rev !== null
+              ? `$${formatNumber(rev)}<div class="text-muted fw-normal" style="font-size:0.7rem;">肚肚自動</div>`
+              : '<span class="no-data">—</span>'}
+          </td>
+          <td class="text-end fw-semibold">
+            ${mCost > 0 ? '$' + formatNumber(mCost) : '<span class="no-data">—</span>'}
+          </td>
+          <td>${pillBar(mRatio, mStatus, TARGET_M_HIGH)}</td>
+          <td class="text-end fw-semibold">
+            ${lCost > 0 ? '$' + formatNumber(lCost) : '<span class="no-data">—</span>'}
+          </td>
+          <td>${pillBar(lRatio, lStatus, TARGET_L)}</td>
+          <td>${pillBar(tRatio, tStatus, TARGET_M_HIGH + TARGET_L)}</td>
+          <td><span class="text-muted small">${d.materialSource}</span></td>
+        </tr>`;
+    }
+
+    function pillBar(ratio, status, target) {
+      if (ratio === null) return '<span class="no-data">輸入營業額後顯示</span>';
+      const pct = Math.min(ratio / target * 100, 115);
+      const icons = { ok: '✅', warn: '⚠️', danger: '🔴', none: '' };
+      return `
+        <div class="ratio-cell">
+          <span class="ratio-pill pill-${status}">${ratio.toFixed(1)}%</span>
+          <div class="mini-bar-wrap">
+            <div class="mini-bar fill-${status}" style="width:${Math.min(pct, 100)}%;"></div>
+          </div>
+          ${icons[status] || ''}
+        </div>`;
+    }
+
+    // ============================================================
+    // 趨勢折線圖（Chart.js + annotation）
+    // ============================================================
+    function renderChart() {
+      const hasData = periodsData.some(d => d.revenue && d.revenue > 0);
+
+      document.getElementById('trend-chart').style.display = hasData ? '' : 'none';
+      document.getElementById('chart-empty').classList.toggle('d-none', hasData);
+      if (!hasData) return;
+
+      const sorted = [...periodsData].reverse();
+      const labels  = sorted.map(d => {
+        const [, mm] = d.period.split('-');
+        return `${parseInt(mm)}月`;
+      });
+      const mRatios = sorted.map(d => d.revenue ? +(d.materialCost / d.revenue * 100).toFixed(1) : null);
+      const lRatios = sorted.map(d => d.revenue ? +(d.laborCost    / d.revenue * 100).toFixed(1) : null);
+      const tRatios = sorted.map((d, i) =>
+        mRatios[i] !== null && lRatios[i] !== null ? +(mRatios[i] + lRatios[i]).toFixed(1) : null);
+
+      if (trendChart) trendChart.destroy();
+
+      trendChart = new Chart(document.getElementById('trend-chart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: '物料成本率 %',
+              data: mRatios,
+              borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.06)',
+              fill: false, tension: 0.35, pointRadius: 5, borderWidth: 2.5
+            },
+            {
+              label: '人事成本率 %',
+              data: lRatios,
+              borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.06)',
+              fill: false, tension: 0.35, pointRadius: 5, borderWidth: 2.5
+            },
+            {
+              label: '合計 %',
+              data: tRatios,
+              borderColor: '#a78bfa', backgroundColor: 'transparent',
+              fill: false, tension: 0.35, pointRadius: 4, borderWidth: 2,
+              borderDash: [5, 4]
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => `${ctx.dataset.label}：${ctx.parsed.y !== null ? ctx.parsed.y + '%' : '—'}`
+              }
+            },
+            annotation: {
+              annotations: {
+                lineM: {
+                  type: 'line', yMin: TARGET_M_HIGH, yMax: TARGET_M_HIGH,
+                  borderColor: 'rgba(59,130,246,0.5)', borderWidth: 1.5, borderDash: [6, 4]
+                },
+                lineL: {
+                  type: 'line', yMin: TARGET_L, yMax: TARGET_L,
+                  borderColor: 'rgba(249,115,22,0.5)', borderWidth: 1.5, borderDash: [6, 4]
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true, max: 75,
+              ticks: { callback: v => v + '%' },
+              grid: { color: '#f1f5f9' }
+            },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>

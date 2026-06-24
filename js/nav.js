@@ -22,6 +22,9 @@ function injectNav() {
         <a href="inventory.html">
           <span class="nav-icon">🏪</span> 庫存總覽
         </a>
+        <a href="stocktake.html">
+          <span class="nav-icon">📋</span> 月底盤點
+        </a>
         <a href="items.html">
           <span class="nav-icon">📦</span> 品項管理
         </a>
@@ -37,6 +40,9 @@ function injectNav() {
         </a>
         <a href="reports.html" class="nav-admin-only">
           <span class="nav-icon">📈</span> 報表導出
+        </a>
+        <a href="cost_compare.html" class="nav-admin-only">
+          <span class="nav-icon">📊</span> 成本結構分析
         </a>
         <div style="height:1px;background:rgba(255,255,255,0.08);margin:0.4rem 1.25rem;"></div>
         <!-- 薪資區：admin（查看）+ store_manager（編輯）均可見 -->
