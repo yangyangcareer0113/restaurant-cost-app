@@ -115,7 +115,7 @@
           <div class="rev-card h-100">
             <div class="rc-label">📊 本月累積營業額</div>
             <div class="rc-value" id="rev-month">—</div>
-            <div class="rc-sub">目標：$2,500,000 ／ <span id="rev-month-date">截至今日</span></div>
+            <div class="rc-sub">低標 $200 萬 ／ 高標 $250 萬 ／ <span id="rev-month-date">截至今日</span></div>
             <div class="rc-bar"><div class="rc-fill" id="rev-month-bar" style="width:0%"></div></div>
             <div class="rc-pct" id="rev-month-pct">目標達成率計算中…</div>
           </div>
@@ -150,7 +150,7 @@
             <div class="gc-status" id="gm-icon">—</div>
             <div class="gc-label">物料成本率</div>
             <div class="gc-value" id="gm-val">—</div>
-            <div class="gc-sub">目標：30%～33%</div>
+            <div class="gc-sub">目標：低於 33%（理想 30%～33%）</div>
             <div class="gc-bar"><div class="gc-fill fill-none" id="gm-bar" style="width:0%"></div></div>
             <div class="gc-detail" id="gm-detail">等待肚肚營業額同步…</div>
           </div>
@@ -254,7 +254,8 @@
     let dudooToken = null;
 
     // ── 目標值 ──
-    const TARGET_REVENUE   = 2500000;
+    const TARGET_REVENUE_LOW  = 2000000;
+    const TARGET_REVENUE_HIGH = 2500000;
     const TARGET_M_LOW     = 30;
     const TARGET_M_HIGH    = 33;
     const TARGET_L         = 28;
@@ -446,32 +447,39 @@
     // 渲染：營業額
     // ============================================================
     function renderRevenue(revMonth, revToday) {
-      // 今日
       const todayFmt = `${month}/${dayOfMonth}`;
       document.getElementById('rev-today-date').textContent = `${year}/${todayFmt}`;
       document.getElementById('rev-today').textContent =
         revToday !== null ? `$${formatNumber(revToday)}` : '—（連線失敗）';
 
-      // 本月累積
       document.getElementById('rev-month-date').textContent = `截至 ${todayFmt}`;
       document.getElementById('rev-month').textContent =
         revMonth !== null ? `$${formatNumber(revMonth)}` : '—';
 
-      // 目標進度
       if (revMonth !== null) {
-        const pct = Math.min(revMonth / TARGET_REVENUE * 100, 100);
-        document.getElementById('rev-month-bar').style.width = `${pct}%`;
-        document.getElementById('rev-month-pct').textContent =
-          `${pct.toFixed(1)}% ／ 尚差 $${formatNumber(Math.max(TARGET_REVENUE - revMonth, 0))}`;
+        // 進度條對高標（250萬）
+        const pctHigh = Math.min(revMonth / TARGET_REVENUE_HIGH * 100, 100);
+        document.getElementById('rev-month-bar').style.width = `${pctHigh}%`;
 
-        // 月均節奏
-        const expectedByNow = TARGET_REVENUE * (dayOfMonth / daysInMonth);
+        // 達成狀態文字
+        let pctLabel = '';
+        if (revMonth >= TARGET_REVENUE_HIGH) {
+          pctLabel = `✅ 高標達成 ${(revMonth/TARGET_REVENUE_HIGH*100).toFixed(1)}%`;
+        } else if (revMonth >= TARGET_REVENUE_LOW) {
+          pctLabel = `🟡 低標達成，距高標差 $${formatNumber(TARGET_REVENUE_HIGH - revMonth)}`;
+        } else {
+          pctLabel = `🔴 ${(revMonth/TARGET_REVENUE_LOW*100).toFixed(1)}%（低標 200萬），差 $${formatNumber(TARGET_REVENUE_LOW - revMonth)}`;
+        }
+        document.getElementById('rev-month-pct').textContent = pctLabel;
+
+        // 月均節奏（對低標）
+        const expectedByNow = TARGET_REVENUE_LOW * (dayOfMonth / daysInMonth);
         const pacePct = (revMonth / expectedByNow * 100).toFixed(1);
         const paceClass = pacePct >= 100 ? 'text-success' : pacePct >= 90 ? 'text-warning' : 'text-danger';
         document.getElementById('rev-pace-pct').className = `tc-value ${paceClass}`;
         document.getElementById('rev-pace-pct').textContent = `${pacePct}%`;
         document.getElementById('rev-pace-sub').textContent =
-          `${pacePct >= 100 ? '超前進度' : pacePct >= 90 ? '略落後，仍可追' : '落後，需加速'} ／預期節奏 $${formatNumber(Math.round(expectedByNow))}`;
+          `${pacePct >= 100 ? '超前低標節奏' : pacePct >= 90 ? '略落後，仍可追' : '落後，需加速'} ／預期節奏 $${formatNumber(Math.round(expectedByNow))}`;
       } else {
         document.getElementById('rev-pace-pct').textContent = '—';
         document.getElementById('rev-pace-sub').textContent = '肚肚連線失敗';
@@ -551,20 +559,23 @@
       const mRatio = materialCost / revenue * 100;
       const lRatio = laborCost    / revenue * 100;
       const tRatio = mRatio + lRatio;
-      const expectedByNow = TARGET_REVENUE * (dayOfMonth / daysInMonth);
-      const pacePct = revenue / expectedByNow * 100;
+      const expectedByNow = TARGET_REVENUE_LOW * (dayOfMonth / daysInMonth);
 
       const advices = [];
 
-      // ── 營業額進度 ──
-      if (pacePct >= 100) {
-        advices.push({ icon: '🟢', title: '營業額超前進度，持續維持！', body: `本月目標 $250 萬，累積已達 ${(revenue/TARGET_REVENUE*100).toFixed(1)}%，按此節奏可望達標。` });
-      } else if (pacePct >= 90) {
-        const gap = Math.round(TARGET_REVENUE - revenue);
-        advices.push({ icon: '🟡', title: '營業額略落後，仍在可追範圍', body: `距目標尚差 $${formatNumber(gap)}，剩 ${daysInMonth - dayOfMonth} 天，每日平均需達 $${formatNumber(Math.ceil(gap / (daysInMonth - dayOfMonth)))} 才能達標。` });
+      // ── 營業額進度（對低標節奏） ──
+      if (revenue >= TARGET_REVENUE_HIGH) {
+        advices.push({ icon: '🟢', title: `營業額已達高標 $250 萬！`, body: `本月累積 $${formatNumber(revenue)}，已超過高標目標，繼續維持！` });
+      } else if (revenue >= TARGET_REVENUE_LOW) {
+        const gapHigh = Math.round(TARGET_REVENUE_HIGH - revenue);
+        const daysLeft = daysInMonth - dayOfMonth;
+        advices.push({ icon: '🟡', title: '低標已達成，衝刺高標 $250 萬', body: `累積 $${formatNumber(revenue)}（低標達成 ✅），距高標差 $${formatNumber(gapHigh)}，剩 ${daysLeft} 天，日均需 $${formatNumber(Math.ceil(gapHigh / Math.max(daysLeft,1)))} 才能衝上高標。` });
+      } else if (revenue >= expectedByNow * 0.9) {
+        const gapLow = Math.round(TARGET_REVENUE_LOW - revenue);
+        advices.push({ icon: '🟡', title: '營業額略落後低標，仍可追', body: `距低標 $200 萬尚差 $${formatNumber(gapLow)}，按現有節奏調整即可追回。` });
       } else {
-        const gap = Math.round(TARGET_REVENUE - revenue);
-        advices.push({ icon: '🔴', title: '營業額明顯落後，建議採取行動', body: `距目標尚差 $${formatNumber(gap)}，建議：① 加強外送平台促銷 ② 推出套餐組合提高客單價 ③ 檢視尖峰時段翻桌率。` });
+        const gapLow = Math.round(TARGET_REVENUE_LOW - revenue);
+        advices.push({ icon: '🔴', title: '營業額明顯落後低標，建議採取行動', body: `距低標 $200 萬差 $${formatNumber(gapLow)}，建議：① 加強外送平台促銷 ② 套餐組合提高客單價 ③ 檢視尖峰時段翻桌率。` });
       }
 
       // ── 物料成本 ──
