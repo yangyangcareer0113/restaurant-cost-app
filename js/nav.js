@@ -8,7 +8,7 @@ function injectNav() {
 
     <div class="sidebar" id="sidebar">
       <div class="sidebar-brand">
-        <h5>🍜 成本物料管理</h5>
+        <h5>🍜 烽味營運管理</h5>
         <div id="user-info" style="font-size:0.78rem;margin-top:0.25rem;"></div>
       </div>
 
