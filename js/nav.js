@@ -25,10 +25,11 @@ function injectNav() {
         <a href="stocktake.html">
           <span class="nav-icon">📋</span> 月底盤點
         </a>
-        <a href="items.html">
+        <!-- 品項管理 / BOM：store_manager 可見；accountant 不顯示 -->
+        <a href="items.html" class="nav-not-accountant">
           <span class="nav-icon">📦</span> 品項管理
         </a>
-        <a href="bom.html">
+        <a href="bom.html" class="nav-not-accountant">
           <span class="nav-icon">🧾</span> 成本 BOM
         </a>
         <!-- 以下僅 admin 可見 -->
@@ -45,14 +46,15 @@ function injectNav() {
           <span class="nav-icon">📊</span> 成本結構分析
         </a>
         <div style="height:1px;background:rgba(255,255,255,0.08);margin:0.4rem 1.25rem;"></div>
-        <!-- 薪資區：admin（查看）+ store_manager（編輯）均可見 -->
+        <!-- 薪資區：admin（查看）+ accountant（編輯）可見；store_manager 不顯示 -->
         <a href="staff.html" class="nav-payroll">
           <span class="nav-icon">👥</span> 員工管理
         </a>
         <a href="payroll.html" class="nav-payroll">
           <span class="nav-icon">💰</span> 薪資計算
         </a>
-        <a href="punch-card.html" class="nav-payroll">
+        <!-- 打卡判讀：僅 accountant 可見 -->
+        <a href="punch-card.html" class="nav-accountant-only">
           <span class="nav-icon">🕐</span> 打卡判讀
         </a>
         <a href="import_payroll.html" class="nav-admin-only">
@@ -78,16 +80,25 @@ function injectNav() {
 
 // 依角色過濾 nav（在 renderUserInfo 取得 profile 後呼叫）
 function filterNavByRole(role) {
-  // nav-admin-only：僅 admin 可見（老闆查看用的進階功能）
-  const adminItems = document.querySelectorAll('.nav-admin-only');
-  if (role !== 'admin') {
-    adminItems.forEach(el => el.style.display = 'none');
-  }
-  // nav-payroll：admin（查看）+ store_manager（編輯）+ accountant（會計）均顯示；其他角色隱藏
-  const payrollItems = document.querySelectorAll('.nav-payroll');
-  if (role !== 'admin' && role !== 'store_manager' && role !== 'accountant') {
-    payrollItems.forEach(el => el.style.display = 'none');
-  }
+  // nav-admin-only：僅 admin 可見
+  document.querySelectorAll('.nav-admin-only').forEach(el => {
+    if (role !== 'admin') el.style.display = 'none';
+  });
+
+  // nav-payroll：admin + accountant 可見；store_manager 不顯示
+  document.querySelectorAll('.nav-payroll').forEach(el => {
+    if (role !== 'admin' && role !== 'accountant') el.style.display = 'none';
+  });
+
+  // nav-accountant-only：僅 accountant 可見（打卡判讀）
+  document.querySelectorAll('.nav-accountant-only').forEach(el => {
+    if (role !== 'accountant') el.style.display = 'none';
+  });
+
+  // nav-not-accountant：accountant 不顯示（品項管理、成本BOM）
+  document.querySelectorAll('.nav-not-accountant').forEach(el => {
+    if (role === 'accountant') el.style.display = 'none';
+  });
 }
 
 function toggleSidebar() {
