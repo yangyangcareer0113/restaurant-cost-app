@@ -7,22 +7,87 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="css/style.css" rel="stylesheet">
   <style>
-    .bom-badge { font-size: 0.72rem; padding: 0.18rem 0.55rem; border-radius: 20px; font-weight: 600; white-space: nowrap; }
-    .bom-crit   { background: #dc2626; color: #fff; }
-    .bom-danger { background: #fee2e2; color: #991b1b; }
-    .bom-warn   { background: #fef3c7; color: #92400e; }
-    .bom-unk    { background: #f3f4f6; color: #6b7280; }
+    /* ── 健檢 Gauge 卡片 ── */
+    .gauge-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 1.2rem 1.4rem 1rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-left 0.3s;
+    }
+    .gauge-card .gc-label  { font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
+    .gauge-card .gc-value  { font-size: 2.2rem; font-weight: 800; line-height: 1.15; margin: 0.25rem 0 0.1rem; }
+    .gauge-card .gc-sub    { font-size: 0.78rem; color: #94a3b8; }
+    .gauge-card .gc-bar    { height: 7px; border-radius: 99px; background: #f1f5f9; margin-top: 0.7rem; overflow: hidden; }
+    .gauge-card .gc-fill   { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
+    .gauge-card .gc-status { position: absolute; top: 1rem; right: 1rem; font-size: 1.3rem; line-height: 1; }
+    .gauge-card .gc-detail { font-size: 0.76rem; color: #94a3b8; margin-top: 0.45rem; }
 
+    .border-ok     { border-left: 4px solid #22c55e !important; }
+    .border-warn   { border-left: 4px solid #f59e0b !important; }
+    .border-danger { border-left: 4px solid #ef4444 !important; }
+    .border-none   { border-left: 4px solid #e2e8f0 !important; }
+
+    .text-ok    { color: #16a34a; }
+    .text-warn  { color: #d97706; }
+    .text-danger{ color: #dc2626; }
+    .fill-ok    { background: #22c55e; }
+    .fill-warn  { background: #f59e0b; }
+    .fill-danger{ background: #ef4444; }
+    .fill-none  { background: #cbd5e1; }
+
+    /* ── 目標進度卡 ── */
+    .rev-card {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+      color: #fff;
+      border-radius: 14px;
+      padding: 1.2rem 1.4rem;
+    }
+    .rev-card .rc-label { font-size: 0.72rem; font-weight: 700; color: #7db3d0; text-transform: uppercase; letter-spacing: 0.06em; }
+    .rev-card .rc-value { font-size: 2rem; font-weight: 800; line-height: 1.2; margin: 0.2rem 0 0; }
+    .rev-card .rc-sub   { font-size: 0.78rem; color: #94a3b8; }
+    .rev-card .rc-bar   { height: 6px; border-radius: 99px; background: rgba(255,255,255,0.15); margin-top: 0.7rem; overflow: hidden; }
+    .rev-card .rc-fill  { height: 100%; border-radius: 99px; background: #7db3d0; transition: width 0.6s ease; }
+    .rev-card .rc-pct   { font-size: 0.78rem; color: #bfdbfe; margin-top: 0.3rem; }
+
+    /* ── 今日卡 ── */
+    .today-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 1.2rem 1.4rem;
+    }
+    .today-card .tc-label { font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
+    .today-card .tc-value { font-size: 2rem; font-weight: 800; line-height: 1.2; margin: 0.2rem 0 0; color: #0f172a; }
+    .today-card .tc-sub   { font-size: 0.78rem; color: #94a3b8; }
+
+    /* ── 警示建議 ── */
+    .advice-item {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 10px 0; border-bottom: 1px solid #f1f5f9;
+    }
+    .advice-item:last-child { border-bottom: none; }
+    .advice-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+    .advice-title { font-size: 0.88rem; font-weight: 700; }
+    .advice-body  { font-size: 0.8rem; color: #475569; margin-top: 2px; line-height: 1.5; }
+
+    /* ── 舊有樣式 ── */
+    .bom-badge { font-size: 0.72rem; padding: 0.18rem 0.55rem; border-radius: 20px; font-weight: 600; white-space: nowrap; }
+    .bom-unk   { background: #f3f4f6; color: #6b7280; }
     .alert-row { display: flex; justify-content: space-between; align-items: center;
                  padding: 9px 0; border-bottom: 1px solid #f1f5f9; gap: 8px; }
     .alert-row:last-child { border-bottom: none; }
     .alert-name { font-weight: 600; font-size: 0.9rem; }
     .alert-meta { font-size: 0.78rem; color: #64748b; margin-top: 1px; }
-
     .section-divider { font-size: 0.72rem; font-weight: 700; color: #94a3b8;
                        letter-spacing: 0.08em; text-transform: uppercase;
                        padding: 6px 0 4px; border-top: 1px solid #e2e8f0; margin-top: 8px; }
     .empty-state { text-align: center; color: #94a3b8; padding: 28px 0; font-size: 0.88rem; }
+
+    /* ── 肚肚連線狀態 ── */
+    .dudoo-sync { font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -30,50 +95,112 @@
     <div class="top-header">
       <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
       <h6 class="mb-0 fw-bold">儀表板</h6>
-      <div class="ms-auto" id="store-selector-wrap" style="display:none;">
-        <select id="store-selector" class="form-select form-select-sm" style="width:auto;" onchange="loadDashboard()">
-          <option value="">所有門店</option>
-        </select>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <span id="dudoo-badge" class="dudoo-sync bg-light text-secondary">🔄 同步中...</span>
+        <div id="store-selector-wrap" style="display:none;">
+          <select id="store-selector" class="form-select form-select-sm" style="width:auto;" onchange="loadDashboard()">
+            <option value="">所有門店</option>
+          </select>
+        </div>
       </div>
     </div>
 
     <div class="page-body">
 
-      <!-- KPI 卡片 -->
+      <!-- ① 營業額區塊 -->
       <div class="row g-3 mb-3">
-        <div class="col-6 col-md-3">
-          <div class="stat-card">
-            <div class="stat-value text-primary" id="stat-items">—</div>
-            <div class="stat-label">管理品項數</div>
+
+        <!-- 本月累積 -->
+        <div class="col-12 col-md-5">
+          <div class="rev-card h-100">
+            <div class="rc-label">📊 本月累積營業額</div>
+            <div class="rc-value" id="rev-month">—</div>
+            <div class="rc-sub">目標：$2,500,000 ／ <span id="rev-month-date">截至今日</span></div>
+            <div class="rc-bar"><div class="rc-fill" id="rev-month-bar" style="width:0%"></div></div>
+            <div class="rc-pct" id="rev-month-pct">目標達成率計算中…</div>
           </div>
         </div>
+
+        <!-- 當日營業額 -->
         <div class="col-6 col-md-3">
-          <div class="stat-card">
-            <div class="stat-value text-danger" id="stat-crit">—</div>
-            <div class="stat-label">✅ 已填成本品項</div>
+          <div class="today-card h-100">
+            <div class="tc-label">📅 今日營業額</div>
+            <div class="tc-value" id="rev-today">—</div>
+            <div class="tc-sub" id="rev-today-date">—</div>
           </div>
         </div>
-        <div class="col-6 col-md-3">
-          <div class="stat-card">
-            <div class="stat-value text-warning" id="stat-unk">—</div>
-            <div class="stat-label">⚑ 待補成本品項</div>
+
+        <!-- 進度 / 預估完成 -->
+        <div class="col-6 col-md-4">
+          <div class="today-card h-100">
+            <div class="tc-label">🎯 月目標進度</div>
+            <div class="tc-value text-primary" id="rev-pace-pct">—</div>
+            <div class="tc-sub" id="rev-pace-sub">進度計算中</div>
           </div>
         </div>
-        <div class="col-6 col-md-3">
-          <div class="stat-card">
-            <div class="stat-value text-success" id="stat-cost">—</div>
-            <div class="stat-label">本月進貨成本（元）</div>
+
+      </div>
+
+      <!-- ② 成本健檢 Gauge -->
+      <div class="row g-3 mb-3">
+
+        <!-- 物料成本率 -->
+        <div class="col-12 col-md-4">
+          <div class="gauge-card border-none h-100" id="gauge-material">
+            <div class="gc-status" id="gm-icon">—</div>
+            <div class="gc-label">物料成本率</div>
+            <div class="gc-value" id="gm-val">—</div>
+            <div class="gc-sub">目標：30%～33%</div>
+            <div class="gc-bar"><div class="gc-fill fill-none" id="gm-bar" style="width:0%"></div></div>
+            <div class="gc-detail" id="gm-detail">等待肚肚營業額同步…</div>
           </div>
+        </div>
+
+        <!-- 人事成本率 -->
+        <div class="col-12 col-md-4">
+          <div class="gauge-card border-none h-100" id="gauge-labor">
+            <div class="gc-status" id="gl-icon">—</div>
+            <div class="gc-label">人事成本率</div>
+            <div class="gc-value" id="gl-val">—</div>
+            <div class="gc-sub">目標：低於 28%</div>
+            <div class="gc-bar"><div class="gc-fill fill-none" id="gl-bar" style="width:0%"></div></div>
+            <div class="gc-detail" id="gl-detail">等待薪資資料載入…</div>
+          </div>
+        </div>
+
+        <!-- 合計 -->
+        <div class="col-12 col-md-4">
+          <div class="gauge-card border-none h-100" id="gauge-total">
+            <div class="gc-status" id="gt-icon">—</div>
+            <div class="gc-label">物料 ＋ 人事 合計</div>
+            <div class="gc-value" id="gt-val">—</div>
+            <div class="gc-sub">目標：低於 61%</div>
+            <div class="gc-bar"><div class="gc-fill fill-none" id="gt-bar" style="width:0%"></div></div>
+            <div class="gc-detail" id="gt-detail">—</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ③ 警示 & 優化建議 -->
+      <div class="table-card mb-3" id="advice-card">
+        <div class="table-header">
+          <span class="fw-semibold">💡 本月營運建議</span>
+          <span class="badge bg-light text-secondary border" style="font-size:0.72rem;" id="advice-date-label">—</span>
+        </div>
+        <div class="p-3" id="advice-list">
+          <div class="empty-state">數據載入後自動產生建議…</div>
         </div>
       </div>
 
+      <!-- ④ 下方：BOM 警示 + 庫存 + 趨勢 -->
       <div class="row g-3">
 
-        <!-- 左欄：成本警示（僅 admin） -->
+        <!-- BOM 警示（僅 admin 可見） -->
         <div class="col-12 col-md-5" id="bom-section">
           <div class="table-card h-100">
             <div class="table-header">
-              <span class="fw-semibold">⚠️ 成本警示品項</span>
+              <span class="fw-semibold">⚠️ 成本待補品項</span>
               <a href="bom.html" class="btn btn-sm btn-outline-primary">完整 BOM</a>
             </div>
             <div class="p-3" id="bom-alert-list">
@@ -82,10 +209,8 @@
           </div>
         </div>
 
-        <!-- 右欄：庫存預警 + 本月趨勢 -->
+        <!-- 庫存預警 + 趨勢圖 -->
         <div class="col-12 col-md-7 d-flex flex-column gap-3">
-
-          <!-- 庫存預警 -->
           <div class="table-card">
             <div class="table-header">
               <span class="fw-semibold">🏪 庫存預警</span>
@@ -96,21 +221,20 @@
             </div>
           </div>
 
-          <!-- 本月成本趨勢 -->
           <div class="table-card">
             <div class="table-header">
               <span class="fw-semibold">📈 本月進貨成本趨勢</span>
             </div>
             <div class="p-3">
-              <canvas id="cost-chart" height="160"></canvas>
+              <canvas id="cost-chart" height="150"></canvas>
               <div id="chart-empty" class="empty-state d-none">
                 尚無本月進貨記錄<br>
-                <a href="records.html" class="btn btn-sm btn-primary mt-2">前往填寫每日記錄</a>
+                <a href="records.html" class="btn btn-sm btn-primary mt-2">前往填寫</a>
               </div>
             </div>
           </div>
-
         </div>
+
       </div>
     </div>
   </div>
@@ -122,12 +246,31 @@
   <script src="js/auth.js"></script>
   <script src="js/nav.js"></script>
   <script>
+    // ── 肚肚 POS ──
+    const DUDOO_API       = 'https://pos-api.dudooeat.com';
+    const DUDOO_BODY      = 'code=96769697&username=60659833&password=1234';
+    const DUDOO_HIERARCHY = '23885';
+    const DUDOO_COMPANY   = '17970';
+    let dudooToken = null;
+
+    // ── 目標值 ──
+    const TARGET_REVENUE   = 2500000;
+    const TARGET_M_LOW     = 30;
+    const TARGET_M_HIGH    = 33;
+    const TARGET_L         = 28;
+
     let currentProfile = null;
     let costChart = null;
 
-    function isTodo(item) {
-      return !item.unit_cost || item.unit_cost === 0;
-    }
+    // ── 日期工具 ──
+    const now        = new Date();
+    const todayStr   = now.toISOString().slice(0, 10);
+    const year       = now.getFullYear();
+    const month      = now.getMonth() + 1;
+    const monthStr   = `${year}-${String(month).padStart(2, '0')}`;
+    const monthStart = `${monthStr}-01`;
+    const daysInMonth  = new Date(year, month, 0).getDate();
+    const dayOfMonth   = now.getDate();
 
     document.addEventListener('DOMContentLoaded', async () => {
       await requireAuth();
@@ -135,9 +278,9 @@
       const data = await renderUserInfo();
       if (!data) return;
       currentProfile = data.profile;
-
       filterNavByRole(currentProfile.role);
 
+      // admin 顯示門店選擇器
       if (currentProfile.role === 'admin') {
         const { data: stores } = await supabase.from('stores').select('id,name').order('name');
         const sel = document.getElementById('store-selector');
@@ -145,56 +288,365 @@
         document.getElementById('store-selector-wrap').style.display = '';
       }
 
+      // 非 admin 隱藏 BOM section
+      if (currentProfile.role !== 'admin') {
+        document.getElementById('bom-section').style.display = 'none';
+      }
+
       await loadDashboard();
     });
 
+    // ============================================================
+    // 主載入
+    // ============================================================
     async function loadDashboard() {
       const storeId = currentProfile.role === 'admin'
         ? document.getElementById('store-selector')?.value || null
         : currentProfile.store_id;
 
-      // ── 品項 & BOM ──
-      let iq = supabase.from('items').select('*').eq('is_active', true);
-      if (storeId) iq = iq.eq('store_id', storeId);
-      const { data: items } = await iq;
-      const allItems = items || [];
+      // 並行：肚肚 + Supabase 資料
+      const [revMonth, revToday, recs, payrollData, overheadData, items, invRecs] = await Promise.all([
+        fetchDudooRange(monthStart, todayStr),
+        fetchDudooRange(todayStr, todayStr),
+        loadMonthRecords(storeId),
+        loadPayroll(storeId),
+        loadOverhead(storeId),
+        loadItems(storeId),
+        loadLatestInventory(storeId),
+      ]);
 
-      document.getElementById('stat-items').textContent = allItems.length;
+      // ── 肚肚 badge ──
+      const badge = document.getElementById('dudoo-badge');
+      if (revMonth !== null) {
+        badge.className = 'dudoo-sync bg-success text-white';
+        badge.textContent = '✅ 肚肚已同步';
+      } else {
+        badge.className = 'dudoo-sync bg-warning text-dark';
+        badge.textContent = '⚠ 肚肚連線失敗';
+      }
 
-      const filledItems = allItems.filter(i => !isTodo(i));
-      const todoItems   = allItems.filter(i => isTodo(i));
-      document.getElementById('stat-crit').textContent = filledItems.length;
-      document.getElementById('stat-unk').textContent  = todoItems.length;
+      // ── 1. 營業額 ──
+      renderRevenue(revMonth, revToday);
 
-      renderBOMAlerts(todoItems);
+      // ── 2. 物料成本 ──
+      const materialCost = recs.reduce((s, r) => s + (r.purchase_cost || 0), 0);
 
-      // ── 本月記錄 ──
-      const now = new Date();
-      const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
-      let rq = supabase.from('inventory_records')
-        .select('purchase_cost, waste_qty, current_stock, item_id, record_date, items(name,min_stock_qty)')
+      // ── 3. 人事成本 ──
+      const payroll = (payrollData || []).reduce((s, r) =>
+        s + (r.base_salary||0) + (r.position_allowance||0) + (r.attendance_bonus||0)
+          + (r.performance_bonus||0) + (r.special_bonus||0)
+          - (r.deductions||0) - (r.leave_deductions||0), 0);
+      const overhead = (overheadData?.meal_allowance || 0) + (overheadData?.employer_insurance || 0);
+      const laborCost = payroll + overhead;
+
+      // ── 4. Gauge ──
+      renderGauges(revMonth, materialCost, laborCost);
+
+      // ── 5. 建議 ──
+      renderAdvice(revMonth, materialCost, laborCost);
+
+      // ── 6. BOM & 庫存 ──
+      if (currentProfile.role === 'admin') {
+        renderBOMAlerts((items || []).filter(i => !i.unit_cost || i.unit_cost === 0));
+      }
+      renderStockAlerts(invRecs || []);
+
+      // ── 7. 趨勢圖 ──
+      renderCostChart(recs);
+    }
+
+    // ============================================================
+    // 肚肚 API
+    // ============================================================
+    async function dudooEnsureToken() {
+      if (dudooToken) return dudooToken;
+      try {
+        const resp = await fetch(`${DUDOO_API}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: DUDOO_BODY
+        });
+        const data = await resp.json();
+        dudooToken = data.data?.access_token || data.access_token || null;
+      } catch (e) { dudooToken = null; }
+      return dudooToken;
+    }
+
+    async function fetchDudooRange(startDate, endDate) {
+      const token = await dudooEnsureToken();
+      if (!token) return null;
+      const body = [
+        `start_date=${startDate}`,
+        `end_date=${endDate}`,
+        `hierarchy_id=${DUDOO_HIERARCHY}`,
+        `company_id=${DUDOO_COMPANY}`
+      ].join('&');
+      try {
+        const resp = await fetch(`${DUDOO_API}/statistics/getDashboard?type=reports`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'access-token': token },
+          body
+        });
+        const data = await resp.json();
+        return data.success ? (data.amount ?? 0) : null;
+      } catch (e) { return null; }
+    }
+
+    // ============================================================
+    // Supabase 資料載入
+    // ============================================================
+    async function loadMonthRecords(storeId) {
+      let q = supabase.from('inventory_records')
+        .select('purchase_cost, record_date')
         .gte('record_date', monthStart);
-      if (storeId) rq = rq.eq('store_id', storeId);
-      const { data: records } = await rq;
-      const recs = records || [];
+      if (storeId) q = q.eq('store_id', storeId);
+      const { data } = await q;
+      return data || [];
+    }
 
-      const totalCost = recs.reduce((s, r) => s + (r.purchase_cost || 0), 0);
-      document.getElementById('stat-cost').textContent = formatNumber(totalCost);
+    async function loadPayroll(storeId) {
+      let q = supabase.from('payroll_records')
+        .select('base_salary,position_allowance,attendance_bonus,performance_bonus,special_bonus,deductions,leave_deductions')
+        .eq('year', year).eq('month', month);
+      if (storeId) q = q.eq('store_id', storeId);
+      const { data } = await q;
+      return data || [];
+    }
 
-      // ── 庫存預警 ──
-      let invQ = supabase.from('inventory_records')
+    async function loadOverhead(storeId) {
+      if (!storeId) return null;
+      const { data } = await supabase.from('monthly_overhead')
+        .select('meal_allowance,employer_insurance')
+        .eq('store_id', storeId).eq('year', year).eq('month', month)
+        .maybeSingle();
+      return data;
+    }
+
+    async function loadItems(storeId) {
+      let q = supabase.from('items').select('unit_cost').eq('is_active', true);
+      if (storeId) q = q.eq('store_id', storeId);
+      const { data } = await q;
+      return data || [];
+    }
+
+    async function loadLatestInventory(storeId) {
+      let q = supabase.from('inventory_records')
         .select('current_stock, item_id, items(name,min_stock_qty)')
         .order('record_date', { ascending: false });
-      if (storeId) invQ = invQ.eq('store_id', storeId);
-      const { data: invRecs } = await invQ;
+      if (storeId) q = q.eq('store_id', storeId);
+      const { data } = await q;
       const latestMap = {};
-      (invRecs || []).forEach(r => { if (!latestMap[r.item_id]) latestMap[r.item_id] = r; });
-      const stockAlerts = Object.values(latestMap).filter(r =>
+      (data || []).forEach(r => { if (!latestMap[r.item_id]) latestMap[r.item_id] = r; });
+      return Object.values(latestMap).filter(r =>
         stockAlertLevel(r.current_stock, r.items?.min_stock_qty) !== 'ok'
       );
-      renderStockAlerts(stockAlerts);
+    }
 
-      // ── 趨勢圖 ──
+    // ============================================================
+    // 渲染：營業額
+    // ============================================================
+    function renderRevenue(revMonth, revToday) {
+      // 今日
+      const todayFmt = `${month}/${dayOfMonth}`;
+      document.getElementById('rev-today-date').textContent = `${year}/${todayFmt}`;
+      document.getElementById('rev-today').textContent =
+        revToday !== null ? `$${formatNumber(revToday)}` : '—（連線失敗）';
+
+      // 本月累積
+      document.getElementById('rev-month-date').textContent = `截至 ${todayFmt}`;
+      document.getElementById('rev-month').textContent =
+        revMonth !== null ? `$${formatNumber(revMonth)}` : '—';
+
+      // 目標進度
+      if (revMonth !== null) {
+        const pct = Math.min(revMonth / TARGET_REVENUE * 100, 100);
+        document.getElementById('rev-month-bar').style.width = `${pct}%`;
+        document.getElementById('rev-month-pct').textContent =
+          `${pct.toFixed(1)}% ／ 尚差 $${formatNumber(Math.max(TARGET_REVENUE - revMonth, 0))}`;
+
+        // 月均節奏
+        const expectedByNow = TARGET_REVENUE * (dayOfMonth / daysInMonth);
+        const pacePct = (revMonth / expectedByNow * 100).toFixed(1);
+        const paceClass = pacePct >= 100 ? 'text-success' : pacePct >= 90 ? 'text-warning' : 'text-danger';
+        document.getElementById('rev-pace-pct').className = `tc-value ${paceClass}`;
+        document.getElementById('rev-pace-pct').textContent = `${pacePct}%`;
+        document.getElementById('rev-pace-sub').textContent =
+          `${pacePct >= 100 ? '超前進度' : pacePct >= 90 ? '略落後，仍可追' : '落後，需加速'} ／預期節奏 $${formatNumber(Math.round(expectedByNow))}`;
+      } else {
+        document.getElementById('rev-pace-pct').textContent = '—';
+        document.getElementById('rev-pace-sub').textContent = '肚肚連線失敗';
+      }
+    }
+
+    // ============================================================
+    // 渲染：Gauge
+    // ============================================================
+    function renderGauges(revenue, materialCost, laborCost) {
+      if (!revenue || revenue <= 0) return;
+
+      const mRatio = materialCost / revenue * 100;
+      const lRatio = laborCost   / revenue * 100;
+      const tRatio = mRatio + lRatio;
+
+      setGauge({
+        cardId: 'gauge-material', iconId: 'gm-icon', valId: 'gm-val', barId: 'gm-bar', detailId: 'gm-detail',
+        ratio: mRatio, cost: materialCost, revenue,
+        status: mRatio <= TARGET_M_HIGH
+          ? (mRatio >= TARGET_M_LOW ? 'ok' : 'warn')
+          : mRatio <= 36 ? 'warn' : 'danger',
+        target: `目標 ${TARGET_M_LOW}%～${TARGET_M_HIGH}%`
+      });
+
+      setGauge({
+        cardId: 'gauge-labor', iconId: 'gl-icon', valId: 'gl-val', barId: 'gl-bar', detailId: 'gl-detail',
+        ratio: lRatio, cost: laborCost, revenue,
+        status: lRatio <= TARGET_L ? 'ok' : lRatio <= 30 ? 'warn' : 'danger',
+        target: `目標 < ${TARGET_L}%`
+      });
+
+      setGauge({
+        cardId: 'gauge-total', iconId: 'gt-icon', valId: 'gt-val', barId: 'gt-bar', detailId: 'gt-detail',
+        ratio: tRatio, cost: materialCost + laborCost, revenue,
+        status: tRatio <= 61 ? 'ok' : tRatio <= 65 ? 'warn' : 'danger',
+        target: '目標 < 61%'
+      });
+    }
+
+    function setGauge({ cardId, iconId, valId, barId, detailId, ratio, cost, revenue, status, target }) {
+      const card   = document.getElementById(cardId);
+      const iconEl = document.getElementById(iconId);
+      const valEl  = document.getElementById(valId);
+      const barEl  = document.getElementById(barId);
+      const detEl  = document.getElementById(detailId);
+
+      card.className = card.className.replace(/border-\w+/g, '').trim();
+
+      const icons   = { ok: '✅', warn: '⚠️', danger: '🔴' };
+      const classes = { ok: 'ok', warn: 'warn', danger: 'danger' };
+      const cls = classes[status];
+
+      card.classList.add(`border-${cls}`);
+      iconEl.textContent   = icons[status];
+      valEl.textContent    = `${ratio.toFixed(1)}%`;
+      valEl.className      = `gc-value text-${cls}`;
+      barEl.style.width    = `${Math.min(ratio / 70 * 100, 100)}%`;
+      barEl.className      = `gc-fill fill-${cls}`;
+      detEl.textContent    = `成本 $${formatNumber(cost)} ／ 營收 $${formatNumber(revenue)} ／ ${target}`;
+    }
+
+    // ============================================================
+    // 渲染：建議
+    // ============================================================
+    function renderAdvice(revenue, materialCost, laborCost) {
+      const now2 = new Date();
+      document.getElementById('advice-date-label').textContent =
+        `${now2.getFullYear()}/${now2.getMonth()+1}/${now2.getDate()} 更新`;
+
+      if (!revenue || revenue <= 0) {
+        document.getElementById('advice-list').innerHTML =
+          '<div class="empty-state">取得肚肚營業額後自動產生建議</div>';
+        return;
+      }
+
+      const mRatio = materialCost / revenue * 100;
+      const lRatio = laborCost    / revenue * 100;
+      const tRatio = mRatio + lRatio;
+      const expectedByNow = TARGET_REVENUE * (dayOfMonth / daysInMonth);
+      const pacePct = revenue / expectedByNow * 100;
+
+      const advices = [];
+
+      // ── 營業額進度 ──
+      if (pacePct >= 100) {
+        advices.push({ icon: '🟢', title: '營業額超前進度，持續維持！', body: `本月目標 $250 萬，累積已達 ${(revenue/TARGET_REVENUE*100).toFixed(1)}%，按此節奏可望達標。` });
+      } else if (pacePct >= 90) {
+        const gap = Math.round(TARGET_REVENUE - revenue);
+        advices.push({ icon: '🟡', title: '營業額略落後，仍在可追範圍', body: `距目標尚差 $${formatNumber(gap)}，剩 ${daysInMonth - dayOfMonth} 天，每日平均需達 $${formatNumber(Math.ceil(gap / (daysInMonth - dayOfMonth)))} 才能達標。` });
+      } else {
+        const gap = Math.round(TARGET_REVENUE - revenue);
+        advices.push({ icon: '🔴', title: '營業額明顯落後，建議採取行動', body: `距目標尚差 $${formatNumber(gap)}，建議：① 加強外送平台促銷 ② 推出套餐組合提高客單價 ③ 檢視尖峰時段翻桌率。` });
+      }
+
+      // ── 物料成本 ──
+      if (mRatio > TARGET_M_HIGH) {
+        advices.push({ icon: '🔴', title: `物料成本率 ${mRatio.toFixed(1)}%，超標（目標 ${TARGET_M_LOW}～${TARGET_M_HIGH}%）`, body: '建議：① 立即進行月中盤點確認耗損 ② 檢查高成本菜品的食材用量是否超規 ③ 與供應商重新議價或更換替代食材 ④ 加強員工食材取用管控。' });
+      } else if (mRatio < TARGET_M_LOW) {
+        advices.push({ icon: '🟡', title: `物料成本率 ${mRatio.toFixed(1)}%，低於目標區間`, body: '低於 30% 可能是進貨尚未完整記錄，或月底盤點後數字會調整。請確認進貨記錄是否齊全。' });
+      } else {
+        advices.push({ icon: '✅', title: `物料成本率 ${mRatio.toFixed(1)}%，在目標區間內`, body: `維持良好！成本 $${formatNumber(materialCost)}，目標範圍 ${TARGET_M_LOW}%～${TARGET_M_HIGH}%，繼續監控。` });
+      }
+
+      // ── 人事成本 ──
+      if (lRatio > 30) {
+        advices.push({ icon: '🔴', title: `人事成本率 ${lRatio.toFixed(1)}%，嚴重超標（目標 < ${TARGET_L}%）`, body: '建議：① 檢視排班是否有過多閒置時段 ② 尖峰以外時段改用兼職人力 ③ 確認本月加班時數是否異常 ④ 評估人員結構是否與業績規模匹配。' });
+      } else if (lRatio > TARGET_L) {
+        advices.push({ icon: '🟡', title: `人事成本率 ${lRatio.toFixed(1)}%，略超標（目標 < ${TARGET_L}%）`, body: '建議：① 下月排班前重新計算人事成本 ② 若業績能再提升，比率會自動改善 ③ 確認伙食津貼與勞健保數字是否正確填入。' });
+      } else {
+        advices.push({ icon: '✅', title: `人事成本率 ${lRatio.toFixed(1)}%，達標`, body: `人事成本 $${formatNumber(laborCost)}（含薪資＋伙食＋勞健保），目標 < ${TARGET_L}%，管控良好。` });
+      }
+
+      // ── 合計 ──
+      if (tRatio > 65) {
+        advices.push({ icon: '🔴', title: `物料 ＋ 人事合計 ${tRatio.toFixed(1)}%，壓縮利潤空間`, body: '兩項成本合計過高，建議優先處理超標項目，同時衝高營業額以攤薄固定成本。' });
+      } else if (tRatio > 61) {
+        advices.push({ icon: '🟡', title: `合計成本率 ${tRatio.toFixed(1)}%，接近上限`, body: '整體成本尚在可控範圍，本月請持續追蹤，避免月底結算後超標。' });
+      }
+
+      const html = advices.map(a => `
+        <div class="advice-item">
+          <span class="advice-icon">${a.icon}</span>
+          <div>
+            <div class="advice-title">${a.title}</div>
+            <div class="advice-body">${a.body}</div>
+          </div>
+        </div>`).join('');
+      document.getElementById('advice-list').innerHTML = html || '<div class="empty-state">✅ 各項指標正常，繼續保持！</div>';
+    }
+
+    // ============================================================
+    // 渲染：BOM 警示
+    // ============================================================
+    function renderBOMAlerts(todoItems) {
+      const box = document.getElementById('bom-alert-list');
+      if (!todoItems.length) {
+        box.innerHTML = '<div class="empty-state">✅ 所有品項成本已完整</div>';
+        return;
+      }
+      let html = `<div class="section-divider">待補單位成本（${todoItems.length} 項）</div>`;
+      html += todoItems.slice(0, 6).map(item => `
+        <div class="alert-row">
+          <span class="alert-name">${item.name || '—'}</span>
+          <span class="bom-badge bom-unk">⚑ 待補</span>
+        </div>`).join('');
+      if (todoItems.length > 6) {
+        html += `<div style="font-size:0.78rem;color:#94a3b8;text-align:center;padding-top:6px;">另有 ${todoItems.length - 6} 項 <a href="bom.html">查看全部</a></div>`;
+      }
+      box.innerHTML = html;
+    }
+
+    // ============================================================
+    // 渲染：庫存預警
+    // ============================================================
+    function renderStockAlerts(alerts) {
+      const box = document.getElementById('stock-alert-list');
+      if (!alerts.length) {
+        box.innerHTML = '<div class="empty-state">✅ 庫存正常</div>';
+        return;
+      }
+      box.innerHTML = alerts.slice(0, 6).map(r => {
+        const level = stockAlertLevel(r.current_stock, r.items?.min_stock_qty);
+        const cls   = level === 'danger' ? 'badge-stock-danger' : 'badge-stock-warning';
+        return `<div class="alert-row">
+          <span class="alert-name">${r.items?.name || '—'}</span>
+          <span class="badge ${cls}">庫存 ${r.current_stock} / 安全 ${r.items?.min_stock_qty}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // ============================================================
+    // 渲染：趨勢圖
+    // ============================================================
+    function renderCostChart(recs) {
       const dailyCost = {};
       recs.forEach(r => { const d = r.record_date; dailyCost[d] = (dailyCost[d]||0) + (r.purchase_cost||0); });
       const labels = Object.keys(dailyCost).sort();
@@ -202,58 +654,22 @@
       if (!labels.length) {
         document.getElementById('cost-chart').style.display = 'none';
         document.getElementById('chart-empty').classList.remove('d-none');
-      } else {
-        document.getElementById('cost-chart').style.display = '';
-        document.getElementById('chart-empty').classList.add('d-none');
-        if (costChart) costChart.destroy();
-        costChart = new Chart(document.getElementById('cost-chart'), {
-          type: 'line',
-          data: {
-            labels: labels.map(d => d.slice(5)),
-            datasets: [{ label: '進貨成本（元）', data: labels.map(d => dailyCost[d]),
-              borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)',
-              fill: true, tension: 0.3, pointRadius: 4 }]
-          },
-          options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-        });
-      }
-    }
-
-    function renderBOMAlerts(todoItems) {
-      const box = document.getElementById('bom-alert-list');
-      if (!todoItems.length) {
-        box.innerHTML = '<div class="empty-state">✅ 所有品項成本資料已完整</div>';
         return;
       }
-      let html = `<div class="section-divider">待補單位成本（${todoItems.length} 項）</div>`;
-      html += todoItems.slice(0, 6).map(item => `
-        <div class="alert-row">
-          <div>
-            <div class="alert-name">${item.name}</div>
-            <div class="alert-meta">${item.supplier || '廠商未填'} ／ ${item.category||''} ／ ${item.unit}</div>
-          </div>
-          <span class="bom-badge bom-unk">⚑ 待補</span>
-        </div>`).join('');
-      if (todoItems.length > 6) {
-        html += `<div style="font-size:0.78rem;color:#94a3b8;text-align:center;padding-top:6px;">另有 ${todoItems.length - 6} 項待補⋯ <a href="bom.html">查看全部</a></div>`;
-      }
-      box.innerHTML = html;
-    }
-
-    function renderStockAlerts(alerts) {
-      const box = document.getElementById('stock-alert-list');
-      if (!alerts.length) {
-        box.innerHTML = '<div class="empty-state">✅ 庫存正常（尚無每日記錄）</div>';
-        return;
-      }
-      box.innerHTML = alerts.slice(0, 6).map(r => {
-        const level = stockAlertLevel(r.current_stock, r.items?.min_stock_qty);
-        const cls = level === 'danger' ? 'badge-stock-danger' : 'badge-stock-warning';
-        return `<div class="alert-row">
-          <span class="alert-name">${r.items?.name || '—'}</span>
-          <span class="badge ${cls}">庫存 ${r.current_stock} / 安全 ${r.items?.min_stock_qty}</span>
-        </div>`;
-      }).join('');
+      document.getElementById('cost-chart').style.display = '';
+      document.getElementById('chart-empty').classList.add('d-none');
+      if (costChart) costChart.destroy();
+      costChart = new Chart(document.getElementById('cost-chart'), {
+        type: 'line',
+        data: {
+          labels: labels.map(d => d.slice(5)),
+          datasets: [{ label: '進貨成本（元）', data: labels.map(d => dailyCost[d]),
+            borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)',
+            fill: true, tension: 0.3, pointRadius: 3 }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } } }
+      });
     }
   </script>
 </body>
