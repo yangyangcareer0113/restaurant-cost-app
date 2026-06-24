@@ -271,13 +271,13 @@
     const { data: ohData } = await ohq;
     overheadRow = ohData?.[0] || null;
 
-    // 5. 填入 overhead 輸入框
-    if (userRole === 'store_manager') {
+    // 5. 填入 overhead 輸入框（只有會計可編輯；admin 有資料時唯讀顯示）
+    if (userRole === 'accountant') {
       document.getElementById('overhead-card').style.display = '';
       document.getElementById('oh-meal').value = overheadRow?.meal_allowance || '';
       document.getElementById('oh-insurance').value = overheadRow?.employer_insurance || '';
       document.getElementById('oh-notes').value = overheadRow?.notes || '';
-    } else if (overheadRow) {
+    } else if (userRole === 'admin' && overheadRow) {
       document.getElementById('overhead-card').style.display = '';
     }
 
@@ -369,7 +369,7 @@
   // ── 渲染 ─────────────────────────────────────────────────
   function render() {
     const hasRecords = payrollRows.length > 0;
-    const canEdit = userRole === 'store_manager';
+    const canEdit = userRole === 'store_manager' || userRole === 'accountant';
     document.getElementById('empty-state').style.display = hasRecords ? 'none' : '';
     document.getElementById('payroll-table-wrap').style.display = hasRecords ? '' : 'none';
     // init/save 按鈕：只有 store_manager 且符合條件才顯示

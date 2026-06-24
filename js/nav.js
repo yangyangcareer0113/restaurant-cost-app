@@ -83,9 +83,9 @@ function filterNavByRole(role) {
   if (role !== 'admin') {
     adminItems.forEach(el => el.style.display = 'none');
   }
-  // nav-payroll：admin（查看）+ store_manager（編輯）均顯示；其他角色隱藏
+  // nav-payroll：admin（查看）+ store_manager（編輯）+ accountant（會計）均顯示；其他角色隱藏
   const payrollItems = document.querySelectorAll('.nav-payroll');
-  if (role !== 'admin' && role !== 'store_manager') {
+  if (role !== 'admin' && role !== 'store_manager' && role !== 'accountant') {
     payrollItems.forEach(el => el.style.display = 'none');
   }
 }

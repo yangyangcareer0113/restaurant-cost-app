@@ -53,6 +53,8 @@ async function renderUserInfo() {
   const storeName = profile?.stores?.name || '（未分配門店）';
   const roleBadge = profile?.role === 'admin'
     ? '<span class="badge bg-warning text-dark">總部管理</span>'
+    : profile?.role === 'accountant'
+    ? '<span class="badge bg-purple" style="background:#7c3aed;">會計</span>'
     : '<span class="badge bg-info">門店</span>';
 
   const el = document.getElementById('user-info');
