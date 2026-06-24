@@ -41,6 +41,7 @@
                 <th>標準單位成本</th>
                 <th>規格說明</th>
                 <th>安全庫存</th>
+                <th>ABC</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -121,6 +122,24 @@
           <div class="mb-3">
             <label class="form-label fw-semibold">安全庫存量（最低備量）</label>
             <input type="number" id="item-minstk" class="form-control" min="0" step="0.01" value="0">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">ABC 盤點分級</label>
+            <div class="d-flex gap-3 mt-1">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="abc-class" id="abc-A" value="A">
+                <label class="form-check-label fw-bold text-danger" for="abc-A">A 級｜必盤</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="abc-class" id="abc-B" value="B" checked>
+                <label class="form-check-label fw-bold text-warning" for="abc-B">B 級｜建議盤</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="abc-class" id="abc-C" value="C">
+                <label class="form-check-label text-secondary" for="abc-C">C 級｜選填</label>
+              </div>
+            </div>
+            <div class="form-text">A＝高單價/高風險，每月強制盤點；B＝中等，建議每月；C＝低單價，選填</div>
           </div>
           <div class="mb-3 d-none" id="store-field">
             <label class="form-label fw-semibold">所屬門店</label>
@@ -214,6 +233,9 @@
           <td data-label="標準單位成本">${item.unit_cost > 0 ? `<span class="fw-semibold">$${formatNumber(item.unit_cost, 0)} / ${item.unit}</span>` : '<span class="text-muted">—</span>'}</td>
           <td data-label="規格說明" class="text-muted" style="font-size:0.85rem;">${item.spec_note || '—'}</td>
           <td data-label="安全庫存">${formatNumber(item.min_stock_qty, 0)} ${item.unit}</td>
+          <td data-label="ABC">
+            <span class="badge ${item.abc_class === 'A' ? 'bg-danger' : item.abc_class === 'C' ? 'bg-secondary' : 'bg-warning text-dark'}">${item.abc_class || 'B'}</span>
+          </td>
           <td data-label="操作">
             <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal(${JSON.stringify(item).replace(/"/g, '&quot;')})">編輯</button>
             <button class="btn btn-sm btn-outline-danger" onclick="toggleActive('${item.id}', false)">移除</button>
@@ -244,6 +266,7 @@
       document.getElementById('item-minstk').value = '0';
       document.getElementById('item-bom-unit').value = 'g';
       document.getElementById('item-bom-conversion').value = '1';
+      document.getElementById('abc-B').checked = true;
       updateBomHint();
     }
 
@@ -259,6 +282,9 @@
       document.getElementById('item-minstk').value = item.min_stock_qty;
       document.getElementById('item-bom-unit').value = item.bom_unit || 'g';
       document.getElementById('item-bom-conversion').value = item.bom_conversion || 1;
+      const abcVal = item.abc_class || 'B';
+      const abcRadio = document.getElementById(`abc-${abcVal}`);
+      if (abcRadio) abcRadio.checked = true;
       if (currentProfile.role === 'admin') {
         document.getElementById('item-store').value = item.store_id;
       }
@@ -283,6 +309,7 @@
         min_stock_qty: parseFloat(document.getElementById('item-minstk').value) || 0,
         bom_unit: document.getElementById('item-bom-unit').value || 'g',
         bom_conversion: parseFloat(document.getElementById('item-bom-conversion').value) || 1,
+        abc_class: document.querySelector('input[name="abc-class"]:checked')?.value || 'B',
       };
 
       if (!payload.name) { showToast('請填寫品項名稱', 'danger'); return; }

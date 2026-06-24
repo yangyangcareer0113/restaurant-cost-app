@@ -138,11 +138,18 @@
 
       <!-- Progress bar -->
       <div class="progress-card">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <span class="fw-semibold small">盤點進度</span>
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <span class="fw-semibold small">🔴 A 級必盤進度</span>
+          <span id="progress-text-a" class="text-muted small">—</span>
+        </div>
+        <div class="progress mb-2" style="height: 8px;">
+          <div class="progress-bar bg-danger" id="progress-bar-a" role="progressbar" style="width: 0%"></div>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <span class="fw-semibold small" style="color:#94a3b8;">全部品項進度</span>
           <span id="progress-text" class="text-muted small">—</span>
         </div>
-        <div class="progress" style="height: 8px;">
+        <div class="progress" style="height: 5px;">
           <div class="progress-bar bg-success" id="progress-bar" role="progressbar" style="width: 0%"></div>
         </div>
       </div>
@@ -285,7 +292,7 @@
       // 載入品項
       const { data: items } = await supabase
         .from('items')
-        .select('id, name, unit, category, min_stock_qty, cost_low')
+        .select('id, name, unit, category, min_stock_qty, unit_cost, abc_class')
         .eq('store_id', currentStoreId)
         .eq('is_active', true)
         .order('category')
@@ -410,83 +417,105 @@
         return;
       }
 
-      // 依分類分組
-      const categories = [...new Set(filtered.map(i => i.category || '其他'))];
-
       const hasPrev = Object.keys(prevCountMap).length > 0;
+      const cols = 6 + (hasPrev ? 1 : 0);
 
-      let html = `
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead>
-              <tr>
-                <th>品項</th>
-                <th>單位</th>
-                <th class="text-end">安全庫存</th>
-                ${hasPrev ? '<th class="text-end" style="color:#94a3b8;font-size:0.75rem;">上月</th>' : ''}
-                <th class="text-end">盤點數量</th>
-                <th class="text-end" style="font-size:0.75rem;">金額</th>
-                <th>備註</th>
-              </tr>
-            </thead>
-            <tbody>`;
+      const buildItemRow = (item) => {
+        const entry    = countMap[item.id];
+        const qty      = (entry?.counted_qty !== null && entry?.counted_qty !== undefined) ? entry.counted_qty : '';
+        const notes    = entry?.notes || '';
+        const filledCls = qty !== '' ? 'filled' : '';
+        const unitCost = item.unit_cost || 0;
+        const lineAmt  = qty !== '' ? (parseFloat(qty) * unitCost) : 0;
+        const prevQty  = prevCountMap[item.id];
+        const prevDisplay = prevQty !== undefined ? prevQty : '—';
+        const warnCls = (qty !== '' && parseFloat(qty) < (item.min_stock_qty || 0)) ? 'style="color:#dc2626;font-weight:700;"' : '';
+        return `
+          <tr>
+            <td><strong>${item.name}</strong></td>
+            <td class="text-muted">${item.unit}</td>
+            <td class="text-end text-muted small">${item.min_stock_qty} ${item.unit}</td>
+            ${hasPrev ? `<td class="text-end text-muted small">${prevDisplay}</td>` : ''}
+            <td class="text-end">
+              <input type="number" class="count-input ${filledCls}" id="qty-${item.id}"
+                value="${qty}" data-unit-cost="${unitCost}"
+                min="0" step="0.01" placeholder="—"
+                ${isLocked ? 'disabled' : ''}
+                oninput="onInputChange('${item.id}', this)"
+                onchange="scheduleAutoSave('${item.id}')">
+            </td>
+            <td class="text-end text-muted small" id="amt-${item.id}" ${warnCls}>
+              ${qty !== '' && unitCost > 0 ? '$' + formatNumber(lineAmt) : '—'}
+            </td>
+            <td>
+              <input type="text" class="note-input" id="note-${item.id}"
+                value="${notes}" placeholder="${isLocked ? '—' : '備註（可留空）'}"
+                ${isLocked ? 'disabled' : ''}
+                onchange="scheduleAutoSave('${item.id}')">
+            </td>
+          </tr>`;
+      };
 
-      for (const cat of categories) {
-        const catItems = filtered.filter(i => (i.category || '其他') === cat);
-        const cols = 6 + (hasPrev ? 1 : 0);
-        html += `<tr class="category-row"><td colspan="${cols}">📁 ${cat}（${catItems.length} 項）</td></tr>`;
-
-        for (const item of catItems) {
-          const entry    = countMap[item.id];
-          const qty      = (entry?.counted_qty !== null && entry?.counted_qty !== undefined) ? entry.counted_qty : '';
-          const notes    = entry?.notes || '';
-          const filledCls = qty !== '' ? 'filled' : '';
-          const unitCost = item.cost_low || 0;
-          const lineAmt  = qty !== '' ? (parseFloat(qty) * unitCost) : 0;
-          const prevQty  = prevCountMap[item.id];
-          const prevDisplay = prevQty !== undefined ? prevQty : '—';
-
-          // 警示：庫存低於安全庫存
-          const warnCls = (qty !== '' && parseFloat(qty) < (item.min_stock_qty || 0)) ? 'style="color:#dc2626;font-weight:700;"' : '';
-
-          html += `
-            <tr>
-              <td><strong>${item.name}</strong></td>
-              <td class="text-muted">${item.unit}</td>
-              <td class="text-end text-muted small">${item.min_stock_qty} ${item.unit}</td>
-              ${hasPrev ? `<td class="text-end text-muted small">${prevDisplay}</td>` : ''}
-              <td class="text-end">
-                <input type="number"
-                  class="count-input ${filledCls}"
-                  id="qty-${item.id}"
-                  value="${qty}"
-                  data-unit-cost="${unitCost}"
-                  min="0" step="0.01"
-                  placeholder="—"
-                  ${isLocked ? 'disabled' : ''}
-                  oninput="onInputChange('${item.id}', this)"
-                  onchange="scheduleAutoSave('${item.id}')">
-              </td>
-              <td class="text-end text-muted small" id="amt-${item.id}" ${warnCls}>
-                ${qty !== '' && unitCost > 0 ? '$' + formatNumber(lineAmt) : '—'}
-              </td>
-              <td>
-                <input type="text"
-                  class="note-input"
-                  id="note-${item.id}"
-                  value="${notes}"
-                  placeholder="${isLocked ? '—' : '備註（可留空）'}"
-                  ${isLocked ? 'disabled' : ''}
-                  onchange="scheduleAutoSave('${item.id}')">
-              </td>
-            </tr>`;
+      const buildSection = (abcLabel, badgeCls, badgeText, items, defaultCollapsed) => {
+        if (!items.length) return '';
+        const sectionId = `abc-section-${abcLabel}`;
+        const filled = items.filter(i => {
+          const e = countMap[i.id]; return e && e.counted_qty !== null && e.counted_qty !== '';
+        }).length;
+        const cats = [...new Set(items.map(i => i.category || '其他'))];
+        let rows = '';
+        for (const cat of cats) {
+          const catItems = items.filter(i => (i.category || '其他') === cat);
+          rows += `<tr class="category-row"><td colspan="${cols}">📁 ${cat}（${catItems.length} 項）</td></tr>`;
+          catItems.forEach(item => { rows += buildItemRow(item); });
         }
-      }
+        return `
+          <div class="mb-3">
+            <div class="d-flex align-items-center gap-2 mb-2" style="cursor:pointer;" onclick="toggleSection('${sectionId}')">
+              <span class="badge ${badgeCls} px-2 py-1" style="font-size:0.8rem;">${badgeText}</span>
+              <span class="fw-semibold" style="font-size:0.9rem;">${abcLabel === 'A' ? '必盤項目' : abcLabel === 'B' ? '建議盤點' : '選填項目'}</span>
+              <span class="text-muted small">（${items.length} 項，已填 ${filled}）</span>
+              <span class="ms-auto text-muted small" id="toggle-icon-${sectionId}">${defaultCollapsed ? '▶ 展開' : '▼ 收合'}</span>
+            </div>
+            <div id="${sectionId}" ${defaultCollapsed ? 'style="display:none;"' : ''}>
+              <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                  <thead><tr>
+                    <th>品項</th><th>單位</th>
+                    <th class="text-end">安全庫存</th>
+                    ${hasPrev ? '<th class="text-end" style="color:#94a3b8;font-size:0.75rem;">上月</th>' : ''}
+                    <th class="text-end">盤點數量</th>
+                    <th class="text-end" style="font-size:0.75rem;">金額</th>
+                    <th>備註</th>
+                  </tr></thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>
+            </div>
+          </div>`;
+      };
 
-      html += '</tbody></table></div>';
+      const aItems = filtered.filter(i => (i.abc_class || 'B') === 'A');
+      const bItems = filtered.filter(i => (i.abc_class || 'B') === 'B');
+      const cItems = filtered.filter(i => (i.abc_class || 'B') === 'C');
+
+      const html =
+        buildSection('A', 'bg-danger', 'A 級', aItems, false) +
+        buildSection('B', 'bg-warning text-dark', 'B 級', bItems, false) +
+        buildSection('C', 'bg-secondary', 'C 級', cItems, true);
+
       updateLiveTotal();
-      document.getElementById('item-list').innerHTML = html;
+      document.getElementById('item-list').innerHTML = html || '<div class="empty-state">沒有符合條件的品項</div>';
       updateProgress();
+    }
+
+    function toggleSection(id) {
+      const el = document.getElementById(id);
+      const icon = document.getElementById('toggle-icon-' + id);
+      if (!el) return;
+      const hidden = el.style.display === 'none';
+      el.style.display = hidden ? '' : 'none';
+      if (icon) icon.textContent = hidden ? '▼ 收合' : '▶ 展開';
     }
 
     function showEmptyState(msg) {
@@ -501,11 +530,20 @@
     // 進度更新
     // ============================================================
     function updateProgress() {
-      const total   = allItems.length;
-      const counted = allItems.filter(i => {
+      const isFilled = i => {
         const e = countMap[i.id];
         return e && e.counted_qty !== null && e.counted_qty !== undefined && e.counted_qty !== '';
-      }).length;
+      };
+      // A 級必盤
+      const aItems   = allItems.filter(i => (i.abc_class || 'B') === 'A');
+      const aFilled  = aItems.filter(isFilled).length;
+      const aPct     = aItems.length ? Math.round(aFilled / aItems.length * 100) : 0;
+      document.getElementById('progress-text-a').textContent = `${aFilled} / ${aItems.length} 項`;
+      document.getElementById('progress-bar-a').style.width = aPct + '%';
+
+      // 全部
+      const total   = allItems.length;
+      const counted = allItems.filter(isFilled).length;
       const pct = total ? Math.round(counted / total * 100) : 0;
       document.getElementById('progress-text').textContent = `已盤 ${counted} / ${total} 品項`;
       document.getElementById('progress-bar').style.width = pct + '%';
@@ -574,7 +612,7 @@
       const qty   = qtyEl.value !== '' ? parseFloat(qtyEl.value) : null;
       const notes = noteEl?.value?.trim() || null;
       const item  = allItems.find(i => i.id === itemId);
-      const unitCost = item?.cost_low || 0;
+      const unitCost = item?.unit_cost || 0;
 
       const existing = countMap[itemId];
 
