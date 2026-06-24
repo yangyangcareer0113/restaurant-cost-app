@@ -469,11 +469,15 @@
           rows += `<tr class="category-row"><td colspan="${cols}">📁 ${cat}（${catItems.length} 項）</td></tr>`;
           catItems.forEach(item => { rows += buildItemRow(item); });
         }
+        const sectionDesc = abcLabel === 'A'
+          ? '每月強制盤點'
+          : abcLabel === 'B' ? '每季盤點' : '目視估量';
         return `
           <div class="mb-3">
             <div class="d-flex align-items-center gap-2 mb-2" style="cursor:pointer;" onclick="toggleSection('${sectionId}')">
               <span class="badge ${badgeCls} px-2 py-1" style="font-size:0.8rem;">${badgeText}</span>
-              <span class="fw-semibold" style="font-size:0.9rem;">${abcLabel === 'A' ? '必盤項目' : abcLabel === 'B' ? '建議盤點' : '選填項目'}</span>
+              <span class="fw-semibold" style="font-size:0.9rem;">${abcLabel === 'A' ? '必盤項目' : abcLabel === 'B' ? '季盤項目' : '目視估量項目'}</span>
+              <span class="text-muted small" style="font-size:0.75rem;">｜${sectionDesc}</span>
               <span class="text-muted small">（${items.length} 項，已填 ${filled}）</span>
               <span class="ms-auto text-muted small" id="toggle-icon-${sectionId}">${defaultCollapsed ? '▶ 展開' : '▼ 收合'}</span>
             </div>
