@@ -480,9 +480,7 @@
     // ============================================================
     function renderTable() {
       const q        = document.getElementById('search').value.toLowerCase();
-      const isLocked = !currentStocktake
-                    || currentStocktake.status !== 'draft'
-                    || currentProfile.role === 'admin';
+      const isLocked = !currentStocktake || currentStocktake.status !== 'draft';
 
       let filtered = allItems.filter(i =>
         i.name.toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q)
@@ -516,14 +514,15 @@
         const refLabel = isC && refQty > 0
           ? (prevQty > 0 ? `基準：上月 ${refQty}${item.unit}` : `基準：安庫 ×3 ${refQty}${item.unit}`)
           : '';
-        const qfHtml = (isC && !isLocked && refQty > 0) ? `
+        const qfHtml = !isC || isLocked ? '' : refQty > 0 ? `
           <div class="qf-wrap">
             <button type="button" class="qf-btn" onclick="quickFill('${item.id}',1.0,${refQty})">滿</button>
             <button type="button" class="qf-btn" onclick="quickFill('${item.id}',0.75,${refQty})">七成</button>
             <button type="button" class="qf-btn" onclick="quickFill('${item.id}',0.5,${refQty})">半</button>
             <button type="button" class="qf-btn" onclick="quickFill('${item.id}',0.1,${refQty})">快空</button>
           </div>
-          <div class="qf-ref">${refLabel}</div>` : '';
+          <div class="qf-ref">${refLabel}</div>`
+          : `<div class="qf-ref" style="color:#f59e0b;">首次盤點，請手動填入↑，下月自動啟用快填</div>`;
 
         return `
           <tr>
