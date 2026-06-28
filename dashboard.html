@@ -151,7 +151,7 @@
             <div class="gc-status" id="gm-icon">—</div>
             <div class="gc-label">物料成本率</div>
             <div class="gc-value" id="gm-val">—</div>
-            <div class="gc-sub">目標：低於 33%（理想 30%～33%）</div>
+            <div class="gc-sub">目標：低於 30%（上限 33%）</div>
             <div class="gc-bar"><div class="gc-fill fill-none" id="gm-bar" style="width:0%"></div></div>
             <div class="gc-detail" id="gm-detail">等待肚肚營業額同步…</div>
           </div>
@@ -500,10 +500,10 @@
       setGauge({
         cardId: 'gauge-material', iconId: 'gm-icon', valId: 'gm-val', barId: 'gm-bar', detailId: 'gm-detail',
         ratio: mRatio, cost: materialCost, revenue,
-        status: mRatio <= TARGET_M_HIGH
-          ? (mRatio >= TARGET_M_LOW ? 'ok' : 'warn')
-          : mRatio <= 36 ? 'warn' : 'danger',
-        target: `目標 ${TARGET_M_LOW}%～${TARGET_M_HIGH}%`
+        status: mRatio < TARGET_M_LOW ? 'ok'
+          : mRatio <= TARGET_M_HIGH ? 'warn'
+          : 'danger',
+        target: `目標 < ${TARGET_M_LOW}%，上限 ${TARGET_M_HIGH}%`
       });
 
       setGauge({
@@ -581,11 +581,11 @@
 
       // ── 物料成本 ──
       if (mRatio > TARGET_M_HIGH) {
-        advices.push({ icon: '🔴', title: `物料成本率 ${mRatio.toFixed(1)}%，超標（目標 ${TARGET_M_LOW}～${TARGET_M_HIGH}%）`, body: '建議：① 立即進行月中盤點確認耗損 ② 檢查高成本菜品的食材用量是否超規 ③ 與供應商重新議價或更換替代食材 ④ 加強員工食材取用管控。' });
-      } else if (mRatio < TARGET_M_LOW) {
-        advices.push({ icon: '🟡', title: `物料成本率 ${mRatio.toFixed(1)}%，低於目標區間`, body: '低於 30% 可能是進貨尚未完整記錄，或月底盤點後數字會調整。請確認進貨記錄是否齊全。' });
+        advices.push({ icon: '🔴', title: `物料成本率 ${mRatio.toFixed(1)}%，超標（上限 ${TARGET_M_HIGH}%）`, body: '建議：① 立即進行月中盤點確認耗損 ② 檢查高成本菜品的食材用量是否超規 ③ 與供應商重新議價或更換替代食材 ④ 加強員工食材取用管控。' });
+      } else if (mRatio >= TARGET_M_LOW) {
+        advices.push({ icon: '🟡', title: `物料成本率 ${mRatio.toFixed(1)}%，接近上限（目標 < ${TARGET_M_LOW}%）`, body: `目前在 ${TARGET_M_LOW}%～${TARGET_M_HIGH}% 之間，建議積極控制食材耗損與採購成本，力求壓低至 30% 以下。` });
       } else {
-        advices.push({ icon: '✅', title: `物料成本率 ${mRatio.toFixed(1)}%，在目標區間內`, body: `維持良好！成本 $${formatNumber(materialCost)}，目標範圍 ${TARGET_M_LOW}%～${TARGET_M_HIGH}%，繼續監控。` });
+        advices.push({ icon: '✅', title: `物料成本率 ${mRatio.toFixed(1)}%，達標`, body: `低於目標 ${TARGET_M_LOW}%，管控良好！成本 $${formatNumber(materialCost)}，繼續維持。` });
       }
 
       // ── 人事成本 ──

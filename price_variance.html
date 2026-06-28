@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>進價波動分析 — 烽味營運管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <style>
+    .summary-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 1.1rem 1.4rem;
+    }
+    .summary-card .sc-label { font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .summary-card .sc-value { font-size: 2rem; font-weight: 800; line-height: 1.15; margin: 0.25rem 0; }
+    .summary-card .sc-sub   { font-size: 0.78rem; color: #94a3b8; }
+
+    .pill {
+      display: inline-block; font-size: 0.82rem; font-weight: 700;
+      padding: 0.2rem 0.65rem; border-radius: 99px; white-space: nowrap;
+    }
+    .pill-stable  { background: #dcfce7; color: #166534; }
+    .pill-low     { background: #fef9c3; color: #854d0e; }
+    .pill-mid     { background: #fef3c7; color: #92400e; }
+    .pill-high    { background: #fee2e2; color: #991b1b; }
+    .pill-na      { background: #f1f5f9; color: #94a3b8; }
+
+    .trend-up   { color: #dc2626; font-weight: 700; }
+    .trend-down { color: #16a34a; font-weight: 700; }
+    .trend-flat { color: #94a3b8; }
+
+    .detail-row td { background: #f8fafc !important; font-size: 0.83rem; }
+    .detail-table { width: 100%; border-collapse: collapse; }
+    .detail-table th { font-size: 0.72rem; color: #94a3b8; text-transform: uppercase; padding: 0.3rem 0.6rem; }
+    .detail-table td { padding: 0.3rem 0.6rem; border-top: 1px solid #f1f5f9; }
+
+    .clickable-row { cursor: pointer; }
+    .clickable-row:hover td { background: #f0f9ff !important; }
+
+    .range-btn { font-size: 0.8rem; }
+    .range-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+
+    .no-data { color: #94a3b8; font-size: 0.82rem; }
+    .empty-state { text-align: center; padding: 3rem 1rem; color: #94a3b8; }
+
+    .diff-badge {
+      font-size: 0.75rem; font-weight: 600;
+      padding: 0.1rem 0.45rem; border-radius: 4px;
+    }
+    .diff-up   { background: #fee2e2; color: #991b1b; }
+    .diff-down { background: #dcfce7; color: #166534; }
+    .diff-ok   { background: #f1f5f9; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="main-content">
+
+    <div class="top-header">
+      <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
+      <h6 class="mb-0 fw-bold">📉 進價波動分析</h6>
+      <div class="ms-auto d-flex gap-2 align-items-center flex-wrap">
+        <select id="store-filter" class="form-select form-select-sm d-none" style="width:auto;" onchange="loadAll()">
+          <option value="">請選擇門店</option>
+        </select>
+        <div class="btn-group" id="range-buttons">
+          <button class="btn btn-sm btn-outline-secondary range-btn active" data-days="30"  onclick="setRange(this)">近 30 天</button>
+          <button class="btn btn-sm btn-outline-secondary range-btn"        data-days="90"  onclick="setRange(this)">近 90 天</button>
+          <button class="btn btn-sm btn-outline-secondary range-btn"        data-days="180" onclick="setRange(this)">近 180 天</button>
+          <button class="btn btn-sm btn-outline-secondary range-btn"        data-days="0"   onclick="setRange(this)">全部</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- 摘要卡片 -->
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+          <div class="summary-card">
+            <div class="sc-label">追蹤品項數</div>
+            <div class="sc-value" id="sc-total">—</div>
+            <div class="sc-sub">本期有進貨記錄</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="summary-card" style="border-left:4px solid #f59e0b;">
+            <div class="sc-label">有波動品項</div>
+            <div class="sc-value" style="color:#d97706;" id="sc-volatile">—</div>
+            <div class="sc-sub">波動幅度 &gt; 10%</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="summary-card" style="border-left:4px solid #ef4444;">
+            <div class="sc-label">最大波動品項</div>
+            <div class="sc-value" style="font-size:1.1rem;padding-top:0.3rem;" id="sc-top-item">—</div>
+            <div class="sc-sub" id="sc-top-pct">—</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="summary-card">
+            <div class="sc-label">平均波動幅度</div>
+            <div class="sc-value" id="sc-avg-var">—</div>
+            <div class="sc-sub">所有有進貨品項均值</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 說明列 -->
+      <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+        <span class="fw-semibold small">波動幅度</span>
+        <span class="pill pill-stable">穩定 ≤5%</span>
+        <span class="pill pill-low">微幅 5–10%</span>
+        <span class="pill pill-mid">中幅 10–20%</span>
+        <span class="pill pill-high">高幅 &gt;20%</span>
+        <span class="text-muted small ms-auto">波動幅度 = (最高－最低) ÷ 平均 × 100%</span>
+      </div>
+
+      <!-- 主表 -->
+      <div class="table-card">
+        <div class="table-header">
+          <span class="fw-semibold">品項進價明細</span>
+          <div class="d-flex gap-2">
+            <input type="text" id="search" class="form-control form-control-sm"
+              placeholder="搜尋品項或分類..." style="width:180px;" oninput="renderTable()">
+            <select id="sort-by" class="form-select form-select-sm" style="width:auto;" onchange="renderTable()">
+              <option value="variance">按波動幅度排序</option>
+              <option value="name">按品項名稱排序</option>
+              <option value="category">按分類排序</option>
+              <option value="last_price">按最近進價排序</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>品項 / 分類</th>
+                <th class="text-center">進貨次數</th>
+                <th class="text-end">最低進價</th>
+                <th class="text-end">最高進價</th>
+                <th class="text-end">平均進價</th>
+                <th style="min-width:130px;">波動幅度</th>
+                <th class="text-end">標準成本</th>
+                <th class="text-end">最近進價</th>
+                <th class="text-end">最近日期</th>
+              </tr>
+            </thead>
+            <tbody id="main-tbody">
+              <tr><td colspan="9" class="text-center text-muted py-4">載入中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+    let currentProfile = null;
+    let storeId = null;
+    let rangeDays = 30;
+    let itemStats = []; // computed per-item stats
+
+    // ============================================================
+    // 初始化
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', async () => {
+      await requireAuth();
+      injectNav();
+      const data = await requireAdmin ? await renderUserInfo() : await renderUserInfo();
+      currentProfile = data.profile;
+      filterNavByRole(currentProfile.role);
+
+      if (currentProfile.role === 'admin') {
+        await loadStores();
+        document.getElementById('store-filter').classList.remove('d-none');
+      } else {
+        storeId = currentProfile.store_id;
+        await loadAll();
+      }
+    });
+
+    // ============================================================
+    // 門店載入
+    // ============================================================
+    async function loadStores() {
+      const { data } = await supabase.from('stores').select('id, name').order('name');
+      const sel = document.getElementById('store-filter');
+      (data || []).forEach(s =>
+        sel.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.name}</option>`)
+      );
+      if (data && data.length) {
+        storeId = data[0].id;
+        sel.value = data[0].id;
+        await loadAll();
+      }
+    }
+
+    // ============================================================
+    // 日期範圍切換
+    // ============================================================
+    function setRange(btn) {
+      document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      rangeDays = parseInt(btn.dataset.days);
+      loadAll();
+    }
+
+    function getDateRange() {
+      if (rangeDays === 0) return null; // 全部
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - rangeDays);
+      return {
+        start: start.toISOString().slice(0, 10),
+        end: end.toISOString().slice(0, 10)
+      };
+    }
+
+    // ============================================================
+    // 主流程：載入進貨記錄，計算每品項統計
+    // ============================================================
+    async function loadAll() {
+      const selVal = document.getElementById('store-filter')?.value;
+      if (selVal) storeId = selVal;
+      if (!storeId) return;
+
+      document.getElementById('main-tbody').innerHTML =
+        '<tr><td colspan="9" class="text-center text-muted py-4">載入中...</td></tr>';
+
+      const range = getDateRange();
+
+      // 1. 抓所有品項（含標準成本）
+      const { data: items } = await supabase
+        .from('items')
+        .select('id, name, unit, category, unit_cost, supplier')
+        .eq('store_id', storeId)
+        .eq('is_active', true);
+      const itemsMap = Object.fromEntries((items || []).map(i => [i.id, i]));
+
+      // 2. 抓進貨記錄（只取有效進貨：qty > 0 且 cost > 0）
+      let q = supabase
+        .from('inventory_records')
+        .select('item_id, record_date, purchase_qty, purchase_cost')
+        .eq('store_id', storeId)
+        .gt('purchase_qty', 0)
+        .gt('purchase_cost', 0)
+        .order('record_date', { ascending: true });
+
+      if (range) {
+        q = q.gte('record_date', range.start).lte('record_date', range.end);
+      }
+
+      const { data: records } = await q;
+
+      // 3. 計算每品項統計
+      const grouped = {};
+      (records || []).forEach(r => {
+        const unitPrice = r.purchase_cost / r.purchase_qty;
+        if (!grouped[r.item_id]) grouped[r.item_id] = [];
+        grouped[r.item_id].push({ date: r.record_date, unitPrice });
+      });
+
+      itemStats = Object.entries(grouped).map(([itemId, entries]) => {
+        const prices = entries.map(e => e.unitPrice);
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        const avg = prices.reduce((s, v) => s + v, 0) / prices.length;
+        const variance = avg > 0 ? (max - min) / avg * 100 : 0;
+        const last = entries[entries.length - 1];
+        const item = itemsMap[itemId] || {};
+
+        // 與標準成本差異
+        const stdCost = item.unit_cost || 0;
+        const diffPct = stdCost > 0 ? (last.unitPrice - stdCost) / stdCost * 100 : null;
+
+        return {
+          itemId,
+          name: item.name || '（已刪除）',
+          unit: item.unit || '',
+          category: item.category || '其他',
+          stdCost,
+          count: entries.length,
+          min, max, avg, variance,
+          lastPrice: last.unitPrice,
+          lastDate: last.date,
+          diffPct,
+          history: entries
+        };
+      });
+
+      updateSummary();
+      renderTable();
+    }
+
+    // ============================================================
+    // 摘要卡片
+    // ============================================================
+    function updateSummary() {
+      const total = itemStats.length;
+      const volatile = itemStats.filter(s => s.variance > 10).length;
+      const avgVar = total > 0
+        ? itemStats.reduce((s, i) => s + i.variance, 0) / total : 0;
+
+      const sorted = [...itemStats].sort((a, b) => b.variance - a.variance);
+      const top = sorted[0];
+
+      document.getElementById('sc-total').textContent = total;
+      document.getElementById('sc-volatile').textContent = volatile;
+      document.getElementById('sc-avg-var').textContent = avgVar.toFixed(1) + '%';
+
+      if (top) {
+        document.getElementById('sc-top-item').textContent = top.name;
+        document.getElementById('sc-top-pct').textContent = `波動 ${top.variance.toFixed(1)}%（${top.count} 次進貨）`;
+      } else {
+        document.getElementById('sc-top-item').textContent = '—';
+        document.getElementById('sc-top-pct').textContent = '無資料';
+      }
+    }
+
+    // ============================================================
+    // 渲染主表
+    // ============================================================
+    function renderTable() {
+      const q = document.getElementById('search').value.toLowerCase();
+      const sortBy = document.getElementById('sort-by').value;
+
+      let filtered = itemStats.filter(s =>
+        s.name.toLowerCase().includes(q) || s.category.toLowerCase().includes(q)
+      );
+
+      filtered.sort((a, b) => {
+        if (sortBy === 'name')       return a.name.localeCompare(b.name);
+        if (sortBy === 'category')   return a.category.localeCompare(b.category) || b.variance - a.variance;
+        if (sortBy === 'last_price') return b.lastPrice - a.lastPrice;
+        return b.variance - a.variance; // default
+      });
+
+      if (!filtered.length) {
+        document.getElementById('main-tbody').innerHTML =
+          '<tr><td colspan="9"><div class="empty-state"><div style="font-size:2rem;">📦</div><div>此期間無進貨記錄</div></div></td></tr>';
+        return;
+      }
+
+      const rows = filtered.map(s => buildRow(s)).join('');
+      document.getElementById('main-tbody').innerHTML = rows;
+    }
+
+    function varPillClass(v) {
+      if (v <= 5)  return 'pill-stable';
+      if (v <= 10) return 'pill-low';
+      if (v <= 20) return 'pill-mid';
+      return 'pill-high';
+    }
+
+    function buildRow(s) {
+      const pillCls = varPillClass(s.variance);
+      const pct = s.variance.toFixed(1) + '%';
+
+      // 最近進價與平均差異
+      let diffHtml = '';
+      if (s.count > 1) {
+        const diff = s.lastPrice - s.avg;
+        if (Math.abs(diff) > 0.01) {
+          const sign = diff > 0 ? '+' : '';
+          const cls  = diff > 0 ? 'trend-up' : 'trend-down';
+          const arrow = diff > 0 ? '▲' : '▼';
+          diffHtml = `<span class="${cls}" style="font-size:0.75rem;"> ${arrow}${sign}${diff.toFixed(1)}</span>`;
+        }
+      }
+
+      // 與標準成本差異
+      let stdHtml = '<span class="no-data">—</span>';
+      if (s.stdCost > 0) {
+        stdHtml = `<span class="fw-semibold">$${s.stdCost.toFixed(1)}</span>`;
+      }
+
+      let diffBadge = '';
+      if (s.diffPct !== null) {
+        const cls = Math.abs(s.diffPct) < 5 ? 'diff-ok' : s.diffPct > 0 ? 'diff-up' : 'diff-down';
+        const sign = s.diffPct > 0 ? '+' : '';
+        diffBadge = `<span class="diff-badge ${cls}">${sign}${s.diffPct.toFixed(1)}%</span>`;
+      }
+
+      return `
+        <tr class="clickable-row" onclick="toggleDetail('${s.itemId}')">
+          <td>
+            <strong>${s.name}</strong>
+            <div class="text-muted small">${s.category} · ${s.unit}</div>
+          </td>
+          <td class="text-center">
+            <span class="fw-semibold">${s.count}</span>
+            <div class="text-muted small">筆</div>
+          </td>
+          <td class="text-end fw-semibold text-success">$${s.min.toFixed(1)}</td>
+          <td class="text-end fw-semibold text-danger">$${s.max.toFixed(1)}</td>
+          <td class="text-end fw-semibold">$${s.avg.toFixed(1)}</td>
+          <td>
+            <span class="pill ${pillCls}">${pct}</span>
+          </td>
+          <td class="text-end">${stdHtml} ${diffBadge}</td>
+          <td class="text-end fw-semibold">$${s.lastPrice.toFixed(1)} ${diffHtml}</td>
+          <td class="text-end text-muted small">${s.lastDate}</td>
+        </tr>
+        <tr class="detail-row d-none" id="detail-${s.itemId}">
+          <td colspan="9" class="p-3">
+            ${buildDetailPanel(s)}
+          </td>
+        </tr>`;
+    }
+
+    function buildDetailPanel(s) {
+      const rows = [...s.history].reverse().map(h => {
+        const diff = h.unitPrice - s.avg;
+        const cls  = Math.abs(diff) < 0.01 ? '' : diff > 0 ? 'trend-up' : 'trend-down';
+        const sign = diff > 0 ? '+' : '';
+        return `
+          <tr>
+            <td>${h.date}</td>
+            <td class="text-end fw-semibold">$${h.unitPrice.toFixed(2)}</td>
+            <td class="text-end ${cls}" style="font-size:0.8rem;">${sign}${diff.toFixed(2)}</td>
+            <td class="text-end text-muted small">${diff > 0.01 ? '▲ 高於均價' : diff < -0.01 ? '▼ 低於均價' : '≈ 均價'}</td>
+          </tr>`;
+      }).join('');
+
+      return `
+        <div style="max-width:480px;">
+          <div class="fw-semibold mb-2" style="font-size:0.85rem;">📋 ${s.name} 歷史進價明細（最新在前）</div>
+          <table class="detail-table">
+            <thead><tr>
+              <th>日期</th>
+              <th class="text-end">單位進價</th>
+              <th class="text-end">vs 均價</th>
+              <th class="text-end">狀態</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div class="mt-2 text-muted" style="font-size:0.75rem;">
+            均價 $${s.avg.toFixed(2)} ／ 最低 $${s.min.toFixed(2)} ／ 最高 $${s.max.toFixed(2)}
+            ${s.stdCost > 0 ? `／ 系統標準成本 $${s.stdCost.toFixed(2)}` : ''}
+          </div>
+        </div>`;
+    }
+
+    // ============================================================
+    // 展開 / 收合詳細
+    // ============================================================
+    function toggleDetail(itemId) {
+      const row = document.getElementById('detail-' + itemId);
+      if (!row) return;
+      row.classList.toggle('d-none');
+    }
+  </script>
+</body>
+</html>
