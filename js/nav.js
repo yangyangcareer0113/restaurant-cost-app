@@ -45,6 +45,9 @@ function injectNav() {
         <a href="cost_compare.html" class="nav-admin-only">
           <span class="nav-icon">📊</span> 成本結構分析
         </a>
+        <a href="price_variance.html" class="nav-admin-only">
+          <span class="nav-icon">📉</span> 進價波動分析
+        </a>
         <div style="height:1px;background:rgba(255,255,255,0.08);margin:0.4rem 1.25rem;"></div>
         <!-- 薪資區：admin（查看）+ accountant（編輯）可見；store_manager 不顯示 -->
         <a href="staff.html" class="nav-payroll">
