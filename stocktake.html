@@ -107,6 +107,17 @@
       .note-input  { min-width: 60px; }
       .cost-summary .cs-arrow { display: none; }
     }
+
+    /* ── C 級快填按鈕 ── */
+    .qf-wrap { display: flex; gap: 3px; justify-content: flex-end; margin-top: 4px; flex-wrap: wrap; }
+    .qf-btn {
+      font-size: 0.68rem; padding: 2px 6px; border-radius: 4px;
+      border: 1px solid #e2e8f0; background: #f8fafc; color: #64748b;
+      cursor: pointer; white-space: nowrap; line-height: 1.4;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .qf-btn:hover { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+    .qf-ref { font-size: 0.62rem; color: #cbd5e1; text-align: right; margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -193,8 +204,12 @@
       <div class="table-card">
         <div class="table-header">
           <span class="fw-semibold">品項清單</span>
-          <input type="text" id="search" class="form-control form-control-sm"
-            placeholder="搜尋品項或分類..." style="width:180px;" oninput="renderTable()">
+          <div class="d-flex gap-2 align-items-center">
+            <input type="text" id="search" class="form-control form-control-sm"
+              placeholder="搜尋品項或分類..." style="width:180px;" oninput="renderTable()">
+            <button class="btn btn-sm btn-outline-primary d-none" id="btn-add-item"
+              onclick="openAddItemModal()" style="white-space:nowrap;">＋ 新增品項</button>
+          </div>
         </div>
         <div id="item-list">
           <div class="empty-state">
@@ -204,6 +219,58 @@
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- 新增品項 Modal -->
+  <div class="modal fade" id="addItemModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold">＋ 新增品項</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">品項名稱 <span class="text-danger">*</span></label>
+            <input type="text" id="new-item-name" class="form-control" placeholder="例：紅棗、雞骨架">
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-semibold">分類 <span class="text-danger">*</span></label>
+              <input type="text" id="new-item-category" class="form-control" placeholder="例：中藥材、蔬菜類"
+                list="category-suggestions">
+              <datalist id="category-suggestions"></datalist>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold">單位 <span class="text-danger">*</span></label>
+              <input type="text" id="new-item-unit" class="form-control" placeholder="例：kg、包、箱">
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-semibold">ABC 等級</label>
+              <select id="new-item-abc" class="form-select">
+                <option value="B">B 級（建議盤點）</option>
+                <option value="A">A 級（每月必盤）</option>
+                <option value="C">C 級（目視估量）</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold">安全庫存</label>
+              <input type="number" id="new-item-min-stock" class="form-control" placeholder="0" min="0" step="0.01">
+            </div>
+          </div>
+          <div class="mb-1">
+            <label class="form-label fw-semibold">本次盤點數量（選填）</label>
+            <input type="number" id="new-item-qty" class="form-control" placeholder="留空可稍後填寫" min="0" step="0.01">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary" onclick="submitAddItem()">新增</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -396,6 +463,16 @@
         html += `<span class="text-muted small">審核完成於 ${d}</span>`;
       }
       actions.innerHTML = html;
+
+      // 新增品項按鈕：僅 draft 且非 admin 顯示
+      const btnAdd = document.getElementById('btn-add-item');
+      if (btnAdd) {
+        if (currentStocktake.status === 'draft' && currentProfile.role !== 'admin') {
+          btnAdd.classList.remove('d-none');
+        } else {
+          btnAdd.classList.add('d-none');
+        }
+      }
     }
 
     // ============================================================
@@ -430,6 +507,24 @@
         const prevQty  = prevCountMap[item.id];
         const prevDisplay = prevQty !== undefined ? prevQty : '—';
         const warnCls = (qty !== '' && parseFloat(qty) < (item.min_stock_qty || 0)) ? 'style="color:#dc2626;font-weight:700;"' : '';
+
+        // C 級快填按鈕：以上月盤點量為基準，無上月資料則用安全庫存 × 3
+        const isC = (item.abc_class || 'B') === 'C';
+        const refQty = isC
+          ? (prevQty > 0 ? prevQty : (item.min_stock_qty > 0 ? item.min_stock_qty * 3 : 0))
+          : 0;
+        const refLabel = isC && refQty > 0
+          ? (prevQty > 0 ? `基準：上月 ${refQty}${item.unit}` : `基準：安庫 ×3 ${refQty}${item.unit}`)
+          : '';
+        const qfHtml = (isC && !isLocked && refQty > 0) ? `
+          <div class="qf-wrap">
+            <button type="button" class="qf-btn" onclick="quickFill('${item.id}',1.0,${refQty})">滿</button>
+            <button type="button" class="qf-btn" onclick="quickFill('${item.id}',0.75,${refQty})">七成</button>
+            <button type="button" class="qf-btn" onclick="quickFill('${item.id}',0.5,${refQty})">半</button>
+            <button type="button" class="qf-btn" onclick="quickFill('${item.id}',0.1,${refQty})">快空</button>
+          </div>
+          <div class="qf-ref">${refLabel}</div>` : '';
+
         return `
           <tr>
             <td><strong>${item.name}</strong></td>
@@ -443,6 +538,7 @@
                 ${isLocked ? 'disabled' : ''}
                 oninput="onInputChange('${item.id}', this)"
                 onchange="scheduleAutoSave('${item.id}')">
+              ${qfHtml}
             </td>
             <td class="text-end text-muted small" id="amt-${item.id}" ${warnCls}>
               ${qty !== '' && unitCost > 0 ? '$' + formatNumber(lineAmt) : '—'}
@@ -511,6 +607,15 @@
       updateLiveTotal();
       document.getElementById('item-list').innerHTML = html || '<div class="empty-state">沒有符合條件的品項</div>';
       updateProgress();
+    }
+
+    function quickFill(itemId, pct, refQty) {
+      const input = document.getElementById(`qty-${itemId}`);
+      if (!input || input.disabled) return;
+      const val = Math.round(refQty * pct * 100) / 100;
+      input.value = val;
+      onInputChange(itemId, input);
+      scheduleAutoSave(itemId);
     }
 
     function toggleSection(id) {
@@ -702,6 +807,72 @@
       showToast('審核完成！');
       updateStatusUI();
       await loadCostSummary(document.getElementById('period-select').value);
+    }
+
+    // ============================================================
+    // 新增品項
+    // ============================================================
+    function openAddItemModal() {
+      // 填充分類建議
+      const cats = [...new Set(allItems.map(i => i.category).filter(Boolean))].sort();
+      const dl = document.getElementById('category-suggestions');
+      dl.innerHTML = cats.map(c => `<option value="${c}">`).join('');
+      // 清空欄位
+      ['new-item-name','new-item-category','new-item-unit','new-item-min-stock','new-item-qty'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      document.getElementById('new-item-abc').value = 'B';
+      new bootstrap.Modal(document.getElementById('addItemModal')).show();
+    }
+
+    async function submitAddItem() {
+      const name     = document.getElementById('new-item-name').value.trim();
+      const category = document.getElementById('new-item-category').value.trim();
+      const unit     = document.getElementById('new-item-unit').value.trim();
+      const abc      = document.getElementById('new-item-abc').value;
+      const minStock = parseFloat(document.getElementById('new-item-min-stock').value) || 0;
+      const qtyVal   = document.getElementById('new-item-qty').value;
+      const qty      = qtyVal !== '' ? parseFloat(qtyVal) : null;
+
+      if (!name || !category || !unit) {
+        showToast('請填寫品項名稱、分類和單位', 'warning'); return;
+      }
+
+      // 1. 建立品項
+      const { data: newItem, error: itemErr } = await supabase
+        .from('items')
+        .insert({
+          store_id: currentStoreId,
+          name, unit, category,
+          abc_class: abc,
+          min_stock_qty: minStock,
+          is_active: true,
+          unit_cost: 0
+        })
+        .select()
+        .single();
+
+      if (itemErr) { showToast('新增品項失敗：' + itemErr.message, 'danger'); return; }
+
+      // 2. 如有盤點數量，建立 stocktake_item
+      if (qty !== null) {
+        const { error: siErr } = await supabase
+          .from('stocktake_items')
+          .insert({
+            stocktake_id: currentStocktake.id,
+            item_id: newItem.id,
+            counted_qty: qty,
+            unit_cost: 0
+          });
+        if (siErr) { showToast('數量儲存失敗：' + siErr.message, 'danger'); }
+        else countMap[newItem.id] = { counted_qty: qty, notes: null };
+      }
+
+      // 3. 加入清單並重繪
+      allItems.push(newItem);
+      bootstrap.Modal.getInstance(document.getElementById('addItemModal')).hide();
+      renderTable();
+      showToast(`「${name}」已新增 ✅`);
     }
 
     // ============================================================
