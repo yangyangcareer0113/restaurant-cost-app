@@ -15,6 +15,11 @@
     .tab-wrap { border-bottom:1px solid #e2e8f0;margin-bottom:1rem; }
     .talent-badge { background:#fef3c7;color:#92400e;font-size:0.72rem;padding:0.18rem 0.5rem;border-radius:10px; }
     .section-title { font-size:0.72rem;font-weight:700;color:#94a3b8;letter-spacing:0.08em;text-transform:uppercase;padding:0.5rem 0 0.25rem; }
+    .leave-pill { display:inline-block;font-size:0.75rem;font-weight:700;padding:0.18rem 0.55rem;border-radius:20px;white-space:nowrap; }
+    .leave-0   { background:#f1f5f9;color:#94a3b8; }
+    .leave-low { background:#dcfce7;color:#166534; }
+    .leave-mid { background:#bbf7d0;color:#14532d; }
+    .leave-hi  { background:#4ade80;color:#14532d; }
   </style>
 </head>
 <body>
@@ -83,6 +88,7 @@
                 <th class="text-end">全勤基礎額</th>
                 <th>到職日</th>
                 <th>年資</th>
+                <th class="text-center" title="依勞基法第38條計算">特休天數</th>
                 <th>備註</th>
                 <th id="th-actions"></th>
               </tr>
@@ -370,7 +376,18 @@
       tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">目前沒有在職員工</td></tr>';
       return;
     }
-    tbody.innerHTML = rows.map(s => `
+    tbody.innerHTML = rows.map(s => {
+      const leave = calcAnnualLeave(s.hire_date);
+      const leavePillCls = leave === null || leave === 0 ? 'leave-0'
+        : leave <= 7  ? 'leave-low'
+        : leave <= 14 ? 'leave-mid'
+        : 'leave-hi';
+      const leaveHtml = leave === null
+        ? '<span class="text-muted">—</span>'
+        : leave === 0
+          ? '<span class="leave-pill leave-0">未達6個月</span>'
+          : `<span class="leave-pill ${leavePillCls}" title="依勞基法第38條">${leave} 天</span>`;
+      return `
       <tr>
         <td><strong>${esc(s.name)}</strong></td>
         <td>${esc(s.position)}</td>
@@ -379,6 +396,7 @@
         <td class="text-end">${formatNumber(s.attendance_bonus_amount)}</td>
         <td>${s.hire_date ? s.hire_date : '<span class="text-warning" title="尚未填寫到職日">⚠ 未填</span>'}</td>
         <td style="font-size:0.85rem;color:#475569;">${calcSeniority(s.hire_date)}</td>
+        <td class="text-center">${leaveHtml}</td>
         <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(s.notes||'')}">
           ${s.notes ? esc(s.notes) : '<span class="text-muted">—</span>'}
         </td>
@@ -388,8 +406,8 @@
             <button class="btn btn-sm btn-danger" onclick="openTermModal('${s.id}','${esc(s.name)}')" title="辦理離職">辦理離職</button>
           ` : '<span class="text-muted">—</span>'}
         </td>
-      </tr>
-    `).join('');
+      </tr>`;
+    }).join('');
   }
 
   // ── 人才庫表格 ────────────────────────────────────────────
@@ -589,6 +607,21 @@
     if (years === 0) return months + ' 個月';
     if (months === 0) return years + ' 年';
     return years + ' 年 ' + months + ' 個月';
+  }
+
+  // 依勞基法第 38 條計算特休天數
+  function calcAnnualLeave(hireDate) {
+    if (!hireDate) return null;
+    const hire = new Date(hireDate);
+    const now  = new Date();
+    const m = (now.getFullYear() - hire.getFullYear()) * 12 + (now.getMonth() - hire.getMonth());
+    if (m < 6)   return 0;
+    if (m < 12)  return 3;
+    if (m < 24)  return 7;
+    if (m < 36)  return 10;
+    if (m < 60)  return 14;
+    if (m < 120) return 15;
+    return Math.min(15 + Math.floor(m / 12) - 10, 30);
   }
 
   function esc(str) {
