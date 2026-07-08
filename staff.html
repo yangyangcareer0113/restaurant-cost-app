@@ -372,6 +372,14 @@
     document.getElementById('sel-month-staff').value = now.getMonth() + 1;
 
     await loadStaff();
+
+    // Realtime 同步：staff 表有任何變動（任何人操作），自動刷新所有裝置
+    supabase
+      .channel('staff-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff' }, () => {
+        loadStaff();
+      })
+      .subscribe();
   });
 
   async function loadStaff() {
