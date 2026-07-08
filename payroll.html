@@ -249,13 +249,15 @@
     let histStaff = [];
     if (missingIds.length) {
       const { data: hs } = await supabase.from('staff').select('*').in('id', missingIds);
-      // 離職員工只保留到「離職當月」（含）；離職隔月起自動從薪資表消失，
-      // 避免離職前尚未結清的薪水被漏掉，但也不會一直卡在後續月份
+      // 離職員工保留到「離職隔月」（含）；離職後第 2 個月起自動從薪資表消失
+      // 例：6/19 離職 → 7 月薪資單仍保留，8 月起才消失
       const viewedYM = year * 100 + month;
       histStaff = (hs || []).filter(s => {
         if (!s.termination_date) return true;
         const [ty, tm] = s.termination_date.split('-').map(Number);
-        return viewedYM <= (ty * 100 + tm);
+        let keepY = ty, keepM = tm + 1;
+        if (keepM > 12) { keepM = 1; keepY++; }
+        return viewedYM <= (keepY * 100 + keepM);
       });
     }
     staffList = [...histStaff, ...activeStaff];
