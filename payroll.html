@@ -138,6 +138,16 @@
             <input id="oh-insurance" type="number" min="0" step="100" class="form-control"
               placeholder="例：72560" oninput="updateOverheadKPI()">
           </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-semibold" style="font-size:0.85rem;">🎊 節慶禮金（元）</label>
+            <input id="oh-festival" type="number" min="0" step="100" class="form-control"
+              placeholder="例：5000" oninput="updateOverheadKPI()">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-semibold" style="font-size:0.85rem;">🎂 生日禮金（元）</label>
+            <input id="oh-birthday" type="number" min="0" step="100" class="form-control"
+              placeholder="例：1000" oninput="updateOverheadKPI()">
+          </div>
           <div class="col-12 col-md-2">
             <label class="form-label fw-semibold" style="font-size:0.85rem;">備註</label>
             <input id="oh-notes" type="text" class="form-control" placeholder="選填">
@@ -242,9 +252,11 @@
 
     if (userRole === 'accountant') {
       document.getElementById('overhead-card').style.display = '';
-      document.getElementById('oh-meal').value = overheadRow?.meal_allowance || '';
+      document.getElementById('oh-meal').value     = overheadRow?.meal_allowance || '';
       document.getElementById('oh-insurance').value = overheadRow?.employer_insurance || '';
-      document.getElementById('oh-notes').value = overheadRow?.notes || '';
+      document.getElementById('oh-festival').value  = overheadRow?.festival_bonus || '';
+      document.getElementById('oh-birthday').value  = overheadRow?.birthday_bonus || '';
+      document.getElementById('oh-notes').value     = overheadRow?.notes || '';
     } else if (userRole === 'admin' && overheadRow) {
       document.getElementById('overhead-card').style.display = '';
     }
@@ -427,7 +439,9 @@
     const payoutTotal = rows.reduce((a, r) => a + Number(r.payout_amount || 0), 0);
     const meal      = Number(overheadRow?.meal_allowance || 0);
     const insurance = Number(overheadRow?.employer_insurance || 0);
-    const grand     = payoutTotal + meal + insurance;
+    const festival  = Number(overheadRow?.festival_bonus || 0);
+    const birthday  = Number(overheadRow?.birthday_bonus || 0);
+    const grand     = payoutTotal + meal + insurance + festival + birthday;
 
     document.getElementById('kpi-payout').textContent    = payoutTotal > 0 ? formatNumber(payoutTotal) : '—（待填）';
     document.getElementById('kpi-meal').textContent      = meal > 0 ? formatNumber(meal) : '—（待填）';
@@ -438,22 +452,26 @@
   function updateOverheadKPI() {
     const meal      = Number(document.getElementById('oh-meal').value || 0);
     const insurance = Number(document.getElementById('oh-insurance').value || 0);
+    const festival  = Number(document.getElementById('oh-festival').value || 0);
+    const birthday  = Number(document.getElementById('oh-birthday').value || 0);
     const rows      = collectRows();
     const payoutTotal = rows.reduce((a, r) => a + Number(r.payout_amount || 0), 0);
     document.getElementById('kpi-meal').textContent      = meal > 0 ? formatNumber(meal) : '—（待填）';
     document.getElementById('kpi-insurance').textContent = insurance > 0 ? formatNumber(insurance) : '—（待填）';
-    document.getElementById('kpi-total').textContent     = formatNumber(payoutTotal + meal + insurance);
+    document.getElementById('kpi-total').textContent     = formatNumber(payoutTotal + meal + insurance + festival + birthday);
   }
 
   async function saveOverhead() {
     const { year, month } = getYM();
     const meal      = Number(document.getElementById('oh-meal').value || 0);
     const insurance = Number(document.getElementById('oh-insurance').value || 0);
+    const festival  = Number(document.getElementById('oh-festival').value || 0);
+    const birthday  = Number(document.getElementById('oh-birthday').value || 0);
     const notes     = document.getElementById('oh-notes').value.trim() || null;
     const storeId   = activeStaff[0]?.store_id || staffList[0]?.store_id;
     if (!storeId) { showToast('找不到店家資訊', 'danger'); return; }
 
-    const payload = { store_id: storeId, year, month, meal_allowance: meal, employer_insurance: insurance, notes };
+    const payload = { store_id: storeId, year, month, meal_allowance: meal, employer_insurance: insurance, festival_bonus: festival, birthday_bonus: birthday, notes };
 
     let err;
     if (overheadRow?.id) {
