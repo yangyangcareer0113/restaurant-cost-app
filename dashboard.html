@@ -96,6 +96,13 @@
       <button class="btn btn-sm btn-outline-secondary d-md-none me-2" onclick="toggleSidebar()">☰</button>
       <h6 class="mb-0 fw-bold">儀表板</h6>
       <div class="ms-auto d-flex align-items-center gap-2">
+        <select id="sel-year-dash" class="form-select form-select-sm" style="width:88px" onchange="loadDashboard()"></select>
+        <select id="sel-month-dash" class="form-select form-select-sm" style="width:75px" onchange="loadDashboard()">
+          <option value="1">1 月</option><option value="2">2 月</option><option value="3">3 月</option>
+          <option value="4">4 月</option><option value="5">5 月</option><option value="6">6 月</option>
+          <option value="7">7 月</option><option value="8">8 月</option><option value="9">9 月</option>
+          <option value="10">10 月</option><option value="11">11 月</option><option value="12">12 月</option>
+        </select>
         <span id="dudoo-badge" class="dudoo-sync bg-light text-secondary">🔄 同步中...</span>
         <div id="store-selector-wrap" style="display:none;">
           <select id="store-selector" class="form-select form-select-sm" style="width:auto;" onchange="loadDashboard()">
@@ -124,7 +131,7 @@
         <!-- 當日營業額 -->
         <div class="col-6 col-md-3">
           <div class="today-card h-100">
-            <div class="tc-label">📅 今日營業額</div>
+            <div class="tc-label" id="tc-today-label">📅 今日營業額</div>
             <div class="tc-value" id="rev-today">—</div>
             <div class="tc-sub" id="rev-today-date">—</div>
           </div>
@@ -133,10 +140,10 @@
         <!-- 節奏達成率 -->
         <div class="col-6 col-md-4">
           <div class="today-card h-100">
-            <div class="tc-label">🎯 今日節奏達成率</div>
+            <div class="tc-label" id="tc-pace-label">🎯 今日節奏達成率</div>
             <div class="tc-value text-primary" id="rev-pace-pct">—</div>
             <div class="tc-sub" id="rev-pace-sub">進度計算中</div>
-            <div style="font-size:0.7rem;color:#94a3b8;margin-top:4px;">※ 今日應達進度 ÷ 實際累積<br>（與左側總達成率不同）</div>
+            <div style="font-size:0.7rem;color:#94a3b8;margin-top:4px;" id="tc-pace-note">※ 今日應達進度 ÷ 實際累積<br>（與左側總達成率不同）</div>
           </div>
         </div>
 
@@ -264,15 +271,27 @@
     let currentProfile = null;
     let costChart = null;
 
-    // ── 日期工具 ──
-    const now        = new Date();
-    const todayStr   = now.toISOString().slice(0, 10);
-    const year       = now.getFullYear();
-    const month      = now.getMonth() + 1;
-    const monthStr   = `${year}-${String(month).padStart(2, '0')}`;
-    const monthStart = `${monthStr}-01`;
-    const daysInMonth  = new Date(year, month, 0).getDate();
-    const dayOfMonth   = now.getDate();
+    // ── 日期工具（依右上角選擇的年月重新計算，預設為當月/當日） ──
+    let todayStr, year, month, monthStr, monthStart, daysInMonth, dayOfMonth, isCurrentMonth;
+
+    function recalcDatesForSelection() {
+      const realNow   = new Date();
+      const realYear  = realNow.getFullYear();
+      const realMonth = realNow.getMonth() + 1;
+
+      year  = parseInt(document.getElementById('sel-year-dash').value);
+      month = parseInt(document.getElementById('sel-month-dash').value);
+      monthStr    = `${year}-${String(month).padStart(2, '0')}`;
+      monthStart  = `${monthStr}-01`;
+      daysInMonth = new Date(year, month, 0).getDate();
+
+      isCurrentMonth = (year === realYear && month === realMonth);
+      // 當月：用今天實際日期／已選過去月份：視為該月最後一天（已結算）
+      dayOfMonth = isCurrentMonth ? realNow.getDate() : daysInMonth;
+      todayStr   = isCurrentMonth
+        ? realNow.toISOString().slice(0, 10)
+        : `${monthStr}-${String(daysInMonth).padStart(2, '0')}`;
+    }
 
     document.addEventListener('DOMContentLoaded', async () => {
       await requireAuth();
@@ -295,6 +314,17 @@
         document.getElementById('bom-section').style.display = 'none';
       }
 
+      // 初始化年月選擇器：預設停留在當月/當日
+      const initNow = new Date();
+      const ySel = document.getElementById('sel-year-dash');
+      for (let y = initNow.getFullYear(); y >= initNow.getFullYear() - 2; y--) {
+        const o = document.createElement('option');
+        o.value = y; o.textContent = y + ' 年';
+        ySel.appendChild(o);
+      }
+      ySel.value = initNow.getFullYear();
+      document.getElementById('sel-month-dash').value = initNow.getMonth() + 1;
+
       await loadDashboard();
     });
 
@@ -302,6 +332,8 @@
     // 主載入
     // ============================================================
     async function loadDashboard() {
+      recalcDatesForSelection();
+
       const storeId = currentProfile.role === 'admin'
         ? document.getElementById('store-selector')?.value || null
         : currentProfile.store_id;
@@ -449,6 +481,9 @@
     // ============================================================
     function renderRevenue(revMonth, revToday) {
       const todayFmt = `${month}/${dayOfMonth}`;
+
+      // 「今日營業額」卡：當月顯示今日，過去月份顯示該月最後一天
+      document.getElementById('tc-today-label').textContent = isCurrentMonth ? '📅 今日營業額' : '📅 當月最後一天營業額';
       document.getElementById('rev-today-date').textContent = `${year}/${todayFmt}`;
       document.getElementById('rev-today').textContent =
         revToday !== null ? `$${formatNumber(revToday)}` : '—（連線失敗）';
@@ -473,14 +508,27 @@
         }
         document.getElementById('rev-month-pct').textContent = pctLabel;
 
-        // 月均節奏（對低標）
+        // 節奏／達成率卡：當月顯示「今日節奏達成率」，過去月份顯示「對高標達成率」（已結算）
         const expectedByNow = TARGET_REVENUE_LOW * (dayOfMonth / daysInMonth);
-        const pacePct = (revMonth / expectedByNow * 100).toFixed(1);
-        const paceClass = pacePct >= 100 ? 'text-success' : pacePct >= 90 ? 'text-warning' : 'text-danger';
-        document.getElementById('rev-pace-pct').className = `tc-value ${paceClass}`;
-        document.getElementById('rev-pace-pct').textContent = `${pacePct}%`;
-        document.getElementById('rev-pace-sub').textContent =
-          `${pacePct >= 100 ? '超前節奏' : pacePct >= 90 ? '略落後，仍可追' : '落後，需加速'} ／今日應達 $${formatNumber(Math.round(expectedByNow))}（低標日均）`;
+        if (isCurrentMonth) {
+          document.getElementById('tc-pace-label').textContent = '🎯 今日節奏達成率';
+          document.getElementById('tc-pace-note').innerHTML = '※ 今日應達進度 ÷ 實際累積<br>（與左側總達成率不同）';
+          const pacePct = (revMonth / expectedByNow * 100).toFixed(1);
+          const paceClass = pacePct >= 100 ? 'text-success' : pacePct >= 90 ? 'text-warning' : 'text-danger';
+          document.getElementById('rev-pace-pct').className = `tc-value ${paceClass}`;
+          document.getElementById('rev-pace-pct').textContent = `${pacePct}%`;
+          document.getElementById('rev-pace-sub').textContent =
+            `${pacePct >= 100 ? '超前節奏' : pacePct >= 90 ? '略落後，仍可追' : '落後，需加速'} ／今日應達 $${formatNumber(Math.round(expectedByNow))}（低標日均）`;
+        } else {
+          document.getElementById('tc-pace-label').textContent = '🏆 對高標達成率';
+          document.getElementById('tc-pace-note').innerHTML = '※ 該月已結束，實際累積 ÷ 高標 $250 萬';
+          const pctHigh2 = (revMonth / TARGET_REVENUE_HIGH * 100).toFixed(1);
+          const paceClass = pctHigh2 >= 100 ? 'text-success' : pctHigh2 >= 80 ? 'text-warning' : 'text-danger';
+          document.getElementById('rev-pace-pct').className = `tc-value ${paceClass}`;
+          document.getElementById('rev-pace-pct').textContent = `${pctHigh2}%`;
+          document.getElementById('rev-pace-sub').textContent =
+            pctHigh2 >= 100 ? '本月已達成高標 🎉' : `距高標差 $${formatNumber(TARGET_REVENUE_HIGH - revMonth)}`;
+        }
       } else {
         document.getElementById('rev-pace-pct').textContent = '—';
         document.getElementById('rev-pace-sub').textContent = '肚肚連線失敗';
@@ -565,18 +613,23 @@
       const advices = [];
 
       // ── 營業額進度（對低標節奏） ──
+      const monthLabel = isCurrentMonth ? '本月' : `${year}/${month}`;
       if (revenue >= TARGET_REVENUE_HIGH) {
-        advices.push({ icon: '🟢', title: `營業額已達高標 $250 萬！`, body: `本月累積 $${formatNumber(revenue)}，已超過高標目標，繼續維持！` });
+        advices.push({ icon: '🟢', title: `營業額已達高標 $250 萬！`, body: `${monthLabel}累積 $${formatNumber(revenue)}，已超過高標目標${isCurrentMonth ? '，繼續維持！' : '！'}` });
       } else if (revenue >= TARGET_REVENUE_LOW) {
         const gapHigh = Math.round(TARGET_REVENUE_HIGH - revenue);
-        const daysLeft = daysInMonth - dayOfMonth;
-        advices.push({ icon: '🟡', title: '低標已達成，衝刺高標 $250 萬', body: `累積 $${formatNumber(revenue)}（低標達成 ✅），距高標差 $${formatNumber(gapHigh)}，剩 ${daysLeft} 天，日均需 $${formatNumber(Math.ceil(gapHigh / Math.max(daysLeft,1)))} 才能衝上高標。` });
+        if (isCurrentMonth) {
+          const daysLeft = daysInMonth - dayOfMonth;
+          advices.push({ icon: '🟡', title: '低標已達成，衝刺高標 $250 萬', body: `累積 $${formatNumber(revenue)}（低標達成 ✅），距高標差 $${formatNumber(gapHigh)}，剩 ${daysLeft} 天，日均需 $${formatNumber(Math.ceil(gapHigh / Math.max(daysLeft,1)))} 才能衝上高標。` });
+        } else {
+          advices.push({ icon: '🟡', title: `${monthLabel} 已達成低標，未達高標`, body: `最終累積 $${formatNumber(revenue)}（低標達成 ✅），距高標差 $${formatNumber(gapHigh)}。` });
+        }
       } else if (revenue >= expectedByNow * 0.9) {
         const gapLow = Math.round(TARGET_REVENUE_LOW - revenue);
-        advices.push({ icon: '🟡', title: '營業額略落後低標，仍可追', body: `距低標 $200 萬尚差 $${formatNumber(gapLow)}，按現有節奏調整即可追回。` });
+        advices.push({ icon: '🟡', title: isCurrentMonth ? '營業額略落後低標，仍可追' : `${monthLabel} 營業額未達低標`, body: isCurrentMonth ? `距低標 $200 萬尚差 $${formatNumber(gapLow)}，按現有節奏調整即可追回。` : `最終距低標 $200 萬差 $${formatNumber(gapLow)}。` });
       } else {
         const gapLow = Math.round(TARGET_REVENUE_LOW - revenue);
-        advices.push({ icon: '🔴', title: '營業額明顯落後低標，建議採取行動', body: `距低標 $200 萬差 $${formatNumber(gapLow)}，建議：① 加強外送平台促銷 ② 套餐組合提高客單價 ③ 檢視尖峰時段翻桌率。` });
+        advices.push({ icon: '🔴', title: isCurrentMonth ? '營業額明顯落後低標，建議採取行動' : `${monthLabel} 營業額明顯未達低標`, body: isCurrentMonth ? `距低標 $200 萬差 $${formatNumber(gapLow)}，建議：① 加強外送平台促銷 ② 套餐組合提高客單價 ③ 檢視尖峰時段翻桌率。` : `最終距低標 $200 萬差 $${formatNumber(gapLow)}，建議檢討當月營運狀況。` });
       }
 
       // ── 物料成本 ──
