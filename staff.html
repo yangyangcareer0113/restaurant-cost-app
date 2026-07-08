@@ -83,6 +83,7 @@
         <button class="tab-btn" id="tab-btn-talent" onclick="switchTab('talent')">
           📋 人才庫（離職）<span class="badge bg-secondary ms-1" id="badge-talent">—</span>
         </button>
+        <button id="btn-toggle-sort" class="btn btn-sm btn-outline-secondary ms-3" style="display:none;" onclick="toggleSortLock()">🔒 解鎖排序</button>
         <span class="text-muted ms-auto" style="font-size:0.78rem;" id="last-update"></span>
       </div>
 
@@ -339,6 +340,7 @@
   let userRole = null;
   let deleteTargetId = null;
   let currentTab = 'active';
+  let sortUnlocked = false;
   let staffModal, deleteModal, terminationModal, restoreModal;
 
   document.addEventListener('DOMContentLoaded', async () => {
@@ -354,6 +356,8 @@
       document.getElementById('btn-add-staff').style.display = 'none';
       document.getElementById('view-only-badge').style.display = '';
     }
+
+    document.getElementById('btn-toggle-sort').style.display = userRole === 'accountant' ? '' : 'none';
 
     staffModal       = new bootstrap.Modal(document.getElementById('staff-modal'));
     deleteModal      = new bootstrap.Modal(document.getElementById('delete-modal'));
@@ -418,6 +422,25 @@
     document.getElementById('tab-talent').style.display  = tab === 'talent' ? '' : 'none';
     document.getElementById('tab-btn-active').classList.toggle('active', tab === 'active');
     document.getElementById('tab-btn-talent').classList.toggle('active', tab === 'talent');
+    const sortBtn = document.getElementById('btn-toggle-sort');
+    if (sortBtn) sortBtn.style.display = (tab === 'active' && userRole === 'accountant') ? '' : 'none';
+  }
+
+  // ── 排序鎖定／解鎖 ────────────────────────────────────────
+  async function toggleSortLock() {
+    const btn = document.getElementById('btn-toggle-sort');
+    if (!sortUnlocked) {
+      sortUnlocked = true;
+      btn.textContent = '💾 儲存並鎖定';
+      btn.className = 'btn btn-sm btn-success ms-3';
+      renderActive();
+    } else {
+      await persistOrder();
+      sortUnlocked = false;
+      btn.textContent = '🔒 解鎖排序';
+      btn.className = 'btn btn-sm btn-outline-secondary ms-3';
+      renderActive();
+    }
   }
 
   // ── 在職員工表格 ──────────────────────────────────────────
@@ -441,7 +464,9 @@
           : `<span class="leave-pill ${leavePillCls}" title="依勞基法第38條">${leave} 天</span>`;
       return `
       <tr data-id="${s.id}">
-        <td>${userRole === 'accountant' ? '<span class="drag-handle" title="拖曳調整順序">⠿</span>' : ''}</td>
+        <td>${userRole === 'accountant'
+          ? (sortUnlocked ? '<span class="drag-handle" title="拖曳調整順序">⠿</span>' : '<span style="color:#cbd5e1;padding:0 8px;" title="按上方「解鎖排序」才能拖曳">⠿</span>')
+          : ''}</td>
         <td><strong>${esc(s.name)}</strong></td>
         <td>${esc(s.position)}</td>
         <td class="text-end salary-cell">${formatNumber(s.base_salary)}</td>
@@ -463,7 +488,7 @@
         </td>
       </tr>`;
     }).join('');
-    if (userRole === 'accountant') wireDragHandles();
+    if (userRole === 'accountant' && sortUnlocked) wireDragHandles();
   }
 
   // ── 拖曳排序 ──────────────────────────────────────────────
@@ -502,13 +527,13 @@
     if (!inserted) tbody.appendChild(dragState.tr);
   }
 
-  async function onDragEnd() {
+  function onDragEnd() {
     if (!dragState) return;
     dragState.tr.classList.remove('dragging');
     document.removeEventListener('pointermove', onDragMove);
     document.removeEventListener('pointerup', onDragEnd);
     dragState = null;
-    await persistOrder();
+    // 拖放僅暫存畫面順序，實際寫入資料庫要等按「儲存並鎖定」
   }
 
   async function persistOrder() {
