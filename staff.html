@@ -20,6 +20,10 @@
     .leave-low { background:#dcfce7;color:#166534; }
     .leave-mid { background:#bbf7d0;color:#14532d; }
     .leave-hi  { background:#4ade80;color:#14532d; }
+    .drag-handle { cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; color:#94a3b8; font-size:1.1rem; padding:0 8px; display:inline-block; }
+    .drag-handle:active { cursor:grabbing; }
+    tr.dragging { opacity:0.5; background:#eff6ff; }
+    #active-tbody tr[data-id] { transition:background 0.1s; }
   </style>
 </head>
 <body>
@@ -88,6 +92,7 @@
           <table class="table table-hover mb-0">
             <thead>
               <tr>
+                <th style="width:28px;"></th>
                 <th>姓名</th>
                 <th>職位</th>
                 <th class="text-end">底薪</th>
@@ -103,7 +108,7 @@
               </tr>
             </thead>
             <tbody id="active-tbody">
-              <tr><td colspan="11" class="text-center text-muted py-4">載入中…</td></tr>
+              <tr><td colspan="13" class="text-center text-muted py-4">載入中…</td></tr>
             </tbody>
           </table>
         </div>
@@ -373,7 +378,7 @@
     const year  = parseInt(document.getElementById('sel-year-staff').value);
     const month = parseInt(document.getElementById('sel-month-staff').value);
 
-    let q = supabase.from('staff').select('*').order('name');
+    let q = supabase.from('staff').select('*').order('sort_order', { ascending: true, nullsFirst: false }).order('name');
     if (userRole !== 'admin') q = q.eq('store_id', currentProfile.store_id);
     const { data, error } = await q;
     if (error) { showToast('讀取員工資料失敗', 'danger'); return; }
@@ -412,7 +417,7 @@
     const rows = staffData.filter(s => s.status === 'active');
     const tbody = document.getElementById('active-tbody');
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">目前沒有在職員工</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted py-4">目前沒有在職員工</td></tr>';
       return;
     }
     tbody.innerHTML = rows.map(s => {
@@ -427,7 +432,8 @@
           ? '<span class="leave-pill leave-0">未達6個月</span>'
           : `<span class="leave-pill ${leavePillCls}" title="依勞基法第38條">${leave} 天</span>`;
       return `
-      <tr>
+      <tr data-id="${s.id}">
+        <td>${userRole === 'accountant' ? '<span class="drag-handle" title="拖曳調整順序">⠿</span>' : ''}</td>
         <td><strong>${esc(s.name)}</strong></td>
         <td>${esc(s.position)}</td>
         <td class="text-end salary-cell">${formatNumber(s.base_salary)}</td>
@@ -449,6 +455,68 @@
         </td>
       </tr>`;
     }).join('');
+    if (userRole === 'accountant') wireDragHandles();
+  }
+
+  // ── 拖曳排序 ──────────────────────────────────────────────
+  let dragState = null;
+
+  function wireDragHandles() {
+    document.querySelectorAll('#active-tbody .drag-handle').forEach(handle => {
+      handle.addEventListener('pointerdown', onDragStart);
+    });
+  }
+
+  function onDragStart(e) {
+    e.preventDefault();
+    const tr = e.target.closest('tr');
+    if (!tr) return;
+    dragState = { tr };
+    tr.classList.add('dragging');
+    document.addEventListener('pointermove', onDragMove);
+    document.addEventListener('pointerup', onDragEnd);
+  }
+
+  function onDragMove(e) {
+    if (!dragState) return;
+    const tbody = document.getElementById('active-tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr[data-id]')).filter(r => r !== dragState.tr);
+    const y = e.clientY;
+    let inserted = false;
+    for (const row of rows) {
+      const rect = row.getBoundingClientRect();
+      if (y < rect.top + rect.height / 2) {
+        tbody.insertBefore(dragState.tr, row);
+        inserted = true;
+        break;
+      }
+    }
+    if (!inserted) tbody.appendChild(dragState.tr);
+  }
+
+  async function onDragEnd() {
+    if (!dragState) return;
+    dragState.tr.classList.remove('dragging');
+    document.removeEventListener('pointermove', onDragMove);
+    document.removeEventListener('pointerup', onDragEnd);
+    dragState = null;
+    await persistOrder();
+  }
+
+  async function persistOrder() {
+    const tbody = document.getElementById('active-tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+    const updates = rows.map((row, idx) => ({ id: row.dataset.id, sort_order: idx + 1 }));
+    updates.forEach(u => {
+      const s = staffData.find(x => x.id === u.id);
+      if (s) s.sort_order = u.sort_order;
+    });
+    const results = await Promise.all(
+      updates.map(u => supabase.from('staff').update({ sort_order: u.sort_order }).eq('id', u.id))
+    );
+    const failed = results.find(r => r.error);
+    if (failed) { showToast('排序儲存失敗：' + failed.error.message, 'danger'); return; }
+    showToast('排序已更新');
   }
 
   // ── 人才庫表格 ────────────────────────────────────────────
@@ -621,8 +689,12 @@
     };
     if (newHireDate) payload.hire_date = newHireDate;
 
-    const { error } = await supabase.from('staff').update(payload).eq('id', id);
+    const { data: updatedRows, error } = await supabase
+      .from('staff').update(payload).eq('id', id).select();
     if (error) { showToast('操作失敗：' + error.message, 'danger'); return; }
+    if (!updatedRows || updatedRows.length === 0) {
+      showToast('更新失敗：請重試或聯絡管理員', 'danger'); return;
+    }
 
     showToast(`${s?.name || ''} 已恢復在職`);
     restoreModal.hide();
