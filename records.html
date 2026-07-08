@@ -31,7 +31,7 @@
     <div class="page-body">
       <div class="row g-3">
 
-        <!-- 左欄：新增進貨記錄（accountant 唯讀隱藏） -->
+        <!-- 左欄：新增進貨記錄 -->
         <div class="col-12 col-lg-4" id="entry-form-col">
           <div class="table-card">
             <div class="table-header">
@@ -163,13 +163,6 @@
       if (currentProfile.role === 'admin') {
         await loadStoresFilter();
         document.getElementById('store-filter').classList.remove('d-none');
-      }
-
-      // 會計帳號：隱藏新增表單與刪除按鈕（唯讀模式）
-      if (currentProfile.role === 'accountant') {
-        const formCol = document.getElementById('entry-form-col');
-        if (formCol) formCol.style.display = 'none';
-        document.documentElement.style.setProperty('--hide-delete', 'none');
       }
 
       await loadItemsDropdown();
@@ -347,7 +340,7 @@
             <td data-label="單位成本" class="text-muted">$${formatNumber(unitCost, 0)}</td>
             <td data-label="總金額"><strong class="text-success">$${formatNumber(r.purchase_cost, 0)}</strong></td>
             <td data-label="備註" class="text-muted" style="font-size:0.82rem;">${r.notes || '—'}</td>
-            <td>${currentProfile?.role === 'accountant' ? '' : `<button class="btn btn-sm btn-outline-danger" onclick="deleteRecord('${r.id}')">刪除</button>`}</td>
+            <td><button class="btn btn-sm btn-outline-danger" onclick="deleteRecord('${r.id}')">刪除</button></td>
           </tr>`;
       }).join('');
     }

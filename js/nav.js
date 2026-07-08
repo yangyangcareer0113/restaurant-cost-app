@@ -56,10 +56,6 @@ function injectNav() {
         <a href="payroll.html" class="nav-payroll">
           <span class="nav-icon">💰</span> 薪資計算
         </a>
-        <!-- 打卡判讀：僅 accountant 可見 -->
-        <a href="punch-card.html" class="nav-accountant-only">
-          <span class="nav-icon">🕐</span> 打卡判讀
-        </a>
         <a href="import_payroll.html" class="nav-admin-only">
           <span class="nav-icon">📥</span> 歷史薪資匯入
         </a>
@@ -91,11 +87,6 @@ function filterNavByRole(role) {
   // nav-payroll：admin + accountant 可見；store_manager 不顯示
   document.querySelectorAll('.nav-payroll').forEach(el => {
     if (role !== 'admin' && role !== 'accountant') el.style.display = 'none';
-  });
-
-  // nav-accountant-only：僅 accountant 可見（打卡判讀）
-  document.querySelectorAll('.nav-accountant-only').forEach(el => {
-    if (role !== 'accountant') el.style.display = 'none';
   });
 
   // nav-not-accountant：accountant 不顯示（品項管理、成本BOM）
