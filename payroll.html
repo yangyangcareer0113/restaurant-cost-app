@@ -244,22 +244,18 @@
     if (pe) { showToast('讀取薪資記錄失敗', 'danger'); return; }
     payrollRows = records || [];
 
-    const activeIds = new Set(activeStaff.map(s => s.id));
-    const missingIds = [...new Set(payrollRows.map(r => r.staff_id))].filter(id => !activeIds.has(id));
-    let histStaff = [];
-    if (missingIds.length) {
-      const { data: hs } = await supabase.from('staff').select('*').in('id', missingIds);
-      // 離職員工保留到「離職隔月」（含）；離職後第 2 個月起自動從薪資表消失
-      // 例：6/19 離職 → 7 月薪資單仍保留，8 月起才消失
-      const viewedYM = year * 100 + month;
-      histStaff = (hs || []).filter(s => {
-        if (!s.termination_date) return true;
-        const [ty, tm] = s.termination_date.split('-').map(Number);
-        let keepY = ty, keepM = tm + 1;
-        if (keepM > 12) { keepM = 1; keepY++; }
-        return viewedYM <= (keepY * 100 + keepM);
-      });
-    }
+    // 離職員工保留到「離職隔月」（含）；離職後第 2 個月起自動從薪資表消失
+    // 例：6/19 離職 → 7 月薪資單仍保留（不論當時是否已建立薪資記錄，都能手動補填），8 月起才消失
+    let iq = supabase.from('staff').select('*').eq('status', 'inactive').not('termination_date', 'is', null);
+    if (currentProfile?.role !== 'admin') iq = iq.eq('store_id', currentProfile.store_id);
+    const { data: inactiveStaff } = await iq;
+    const viewedYM = year * 100 + month;
+    const histStaff = (inactiveStaff || []).filter(s => {
+      const [ty, tm] = s.termination_date.split('-').map(Number);
+      let keepY = ty, keepM = tm + 1;
+      if (keepM > 12) { keepM = 1; keepY++; }
+      return viewedYM <= (keepY * 100 + keepM);
+    });
     staffList = [...histStaff, ...activeStaff];
 
     let ohq = supabase.from('monthly_overhead').select('*').eq('year', year).eq('month', month);
