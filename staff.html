@@ -52,13 +52,13 @@
       <div class="col-6 col-md-3">
         <div class="stat-card">
           <div class="stat-value text-info" id="stat-allowance-total">—</div>
-          <div class="stat-label">職位加給總額（元）</div>
+          <div class="stat-label">職務加給總額（元）</div>
         </div>
       </div>
       <div class="col-6 col-md-3">
         <div class="stat-card">
           <div class="stat-value text-warning" id="stat-fixed-total">—</div>
-          <div class="stat-label">固定薪資總額（元）</div>
+          <div class="stat-label">實領總額（元）</div>
         </div>
       </div>
     </div>
@@ -84,8 +84,10 @@
                 <th>姓名</th>
                 <th>職位</th>
                 <th class="text-end">底薪</th>
-                <th class="text-end">職位加給</th>
-                <th class="text-end">全勤基礎額</th>
+                <th class="text-end">全勤</th>
+                <th class="text-end">職務加給</th>
+                <th class="text-end">加班費</th>
+                <th class="text-end">實領金額</th>
                 <th>到職日</th>
                 <th>年資</th>
                 <th class="text-center" title="依勞基法第38條計算">特休天數</th>
@@ -94,7 +96,7 @@
               </tr>
             </thead>
             <tbody id="active-tbody">
-              <tr><td colspan="9" class="text-center text-muted py-4">載入中…</td></tr>
+              <tr><td colspan="11" class="text-center text-muted py-4">載入中…</td></tr>
             </tbody>
           </table>
         </div>
@@ -162,13 +164,20 @@
             <input type="number" class="form-control" id="f-base" min="0" step="100" placeholder="0">
           </div>
           <div class="col-6">
-            <label class="form-label fw-semibold">職位加給（元）</label>
-            <input type="number" class="form-control" id="f-allowance" min="0" step="100" placeholder="0">
-            <div class="form-text">固定職位補貼，每月必發</div>
+            <label class="form-label fw-semibold">全勤（元）</label>
+            <input type="number" class="form-control" id="f-attendance" min="0" step="100" placeholder="0">
           </div>
           <div class="col-6">
-            <label class="form-label fw-semibold">全勤獎金基礎額（元）</label>
-            <input type="number" class="form-control" id="f-attendance" min="0" step="100" placeholder="0">
+            <label class="form-label fw-semibold">職務加給（元）</label>
+            <input type="number" class="form-control" id="f-allowance" min="0" step="100" placeholder="0">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">加班費（元）</label>
+            <input type="number" class="form-control" id="f-overtime" min="0" step="100" placeholder="手動輸入">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">實領金額（元）</label>
+            <input type="number" class="form-control" id="f-net-salary" min="0" step="100" placeholder="手動輸入">
           </div>
           <div class="col-6">
             <label class="form-label fw-semibold">到職日 <span class="text-danger">*</span></label>
@@ -392,8 +401,10 @@
         <td><strong>${esc(s.name)}</strong></td>
         <td>${esc(s.position)}</td>
         <td class="text-end salary-cell">${formatNumber(s.base_salary)}</td>
+        <td class="text-end salary-cell">${formatNumber(s.attendance_bonus_amount)}</td>
         <td class="text-end salary-cell">${formatNumber(s.position_allowance)}</td>
-        <td class="text-end">${formatNumber(s.attendance_bonus_amount)}</td>
+        <td class="text-end">${s.overtime_pay > 0 ? formatNumber(s.overtime_pay) : '<span class="text-muted">—</span>'}</td>
+        <td class="text-end salary-cell">${s.net_salary > 0 ? formatNumber(s.net_salary) : '<span class="text-muted">—</span>'}</td>
         <td>${s.hire_date ? s.hire_date : '<span class="text-warning" title="尚未填寫到職日">⚠ 未填</span>'}</td>
         <td style="font-size:0.85rem;color:#475569;">${calcSeniority(s.hire_date)}</td>
         <td class="text-center">${leaveHtml}</td>
@@ -450,7 +461,7 @@
     document.getElementById('stat-base-total').textContent = formatNumber(total(active, 'base_salary'));
     document.getElementById('stat-allowance-total').textContent = formatNumber(total(active, 'position_allowance'));
     document.getElementById('stat-fixed-total').textContent = formatNumber(
-      total(active, 'base_salary') + total(active, 'position_allowance')
+      total(active, 'net_salary')
     );
   }
 
@@ -462,8 +473,10 @@
     document.getElementById('f-name').value = s?.name || '';
     document.getElementById('f-position').value = s?.position || '';
     document.getElementById('f-base').value = s?.base_salary || '';
-    document.getElementById('f-allowance').value = s?.position_allowance || '';
     document.getElementById('f-attendance').value = s?.attendance_bonus_amount || '';
+    document.getElementById('f-allowance').value = s?.position_allowance || '';
+    document.getElementById('f-overtime').value = s?.overtime_pay || '';
+    document.getElementById('f-net-salary').value = s?.net_salary || '';
     document.getElementById('f-hire-date').value = s?.hire_date || '';
     document.getElementById('f-notes').value = s?.notes || '';
     document.getElementById('f-term-date').value = s?.termination_date || '';
@@ -490,8 +503,10 @@
       name,
       position,
       base_salary:             Number(document.getElementById('f-base').value) || 0,
-      position_allowance:      Number(document.getElementById('f-allowance').value) || 0,
       attendance_bonus_amount: Number(document.getElementById('f-attendance').value) || 0,
+      position_allowance:      Number(document.getElementById('f-allowance').value) || 0,
+      overtime_pay:            Number(document.getElementById('f-overtime').value) || 0,
+      net_salary:              Number(document.getElementById('f-net-salary').value) || 0,
       hire_date:               document.getElementById('f-hire-date').value || null,
       notes:                   document.getElementById('f-notes').value.trim() || null,
       status:                  isTerminating ? 'inactive' : 'active',
