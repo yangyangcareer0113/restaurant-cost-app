@@ -442,7 +442,7 @@
           ${s.notes ? esc(s.notes) : '<span class="text-muted">—</span>'}
         </td>
         <td class="text-end" style="white-space:nowrap;">
-          ${userRole === 'store_manager' ? `
+          ${userRole === 'accountant' ? `
             <button class="btn btn-sm btn-outline-primary me-1" onclick="openModal('${s.id}')">編輯</button>
             <button class="btn btn-sm btn-danger" onclick="openTermModal('${s.id}','${esc(s.name)}')" title="辦理離職">辦理離職</button>
           ` : '<span class="text-muted">—</span>'}
@@ -475,7 +475,7 @@
           ${s.termination_notes ? esc(s.termination_notes) : '<span class="text-muted">—</span>'}
         </td>
         <td class="text-end" style="white-space:nowrap;">
-          ${userRole === 'store_manager' ? `
+          ${userRole === 'accountant' ? `
             <button class="btn btn-sm btn-success me-1" onclick="openRestoreModal('${s.id}','${esc(s.name)}')">恢復在職</button>
             <button class="btn btn-sm btn-outline-secondary" onclick="openModal('${s.id}')">編輯</button>
           ` : ''}
