@@ -233,7 +233,7 @@
     const { year, month } = getYM();
     document.getElementById('month-label').textContent = `${year} 年 ${month} 月`;
 
-    let aq = supabase.from('staff').select('*').eq('status', 'active').order('name');
+    let aq = supabase.from('staff').select('*').eq('status', 'active').order('sort_order', { ascending: true, nullsFirst: false }).order('name');
     if (currentProfile?.role !== 'admin') aq = aq.eq('store_id', currentProfile.store_id);
     const { data: aStaff } = await aq;
     activeStaff = aStaff || [];
