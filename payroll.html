@@ -8,8 +8,8 @@
   <link href="css/style.css" rel="stylesheet">
   <style>
     .payroll-input {
-      width: 100px;
-      min-width: 80px;
+      width: 110px;
+      min-width: 90px;
       text-align: right;
       font-variant-numeric: tabular-nums;
       border: 1px solid #e2e8f0;
@@ -21,15 +21,9 @@
     .payroll-input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
     .payroll-input::-webkit-outer-spin-button,
     .payroll-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .payroll-input::placeholder { color: #cbd5e1; }
+    .payroll-input.manual-input { background: #f8fafc; }
     .total-cell { font-weight: 700; color: #2563eb; font-variant-numeric: tabular-nums; }
-    .row-total { font-size: 1rem; }
-    .locked-badge { background: #fef3c7; color: #92400e; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 12px; }
-    .section-label { font-size: 0.72rem; font-weight: 600; color: #94a3b8; letter-spacing: 0.06em; text-transform: uppercase; }
-    th.group-header { background: #f8fafc; text-align: center; font-size: 0.72rem; color: #64748b; border-bottom: 2px solid #e2e8f0; }
-    .ot-warn  { display:inline-block; padding:0.15rem 0.45rem; border-radius:10px; font-size:0.72rem; font-weight:700; white-space:nowrap; }
-    .ot-warn-yellow { background:#fef3c7; color:#92400e; }
-    .ot-warn-red    { background:#fee2e2; color:#b91c1c; }
-    .deduction-select { font-size:0.8rem; border:1px solid #e2e8f0; border-radius:6px; padding:0.25rem 0.4rem; min-width:90px; }
     @media print {
       .sidebar, .top-header, .btn, .no-print { display: none !important; }
       .main-content { margin-left: 0 !important; }
@@ -45,7 +39,6 @@
     <h6 class="mb-0 fw-bold">薪資計算</h6>
     <span id="view-only-badge" style="display:none;" class="badge bg-secondary ms-2">查看模式</span>
     <div class="ms-auto d-flex gap-2 align-items-center no-print">
-      <!-- 年月選擇 -->
       <select id="sel-year" class="form-select form-select-sm" style="width:90px" onchange="loadPayroll()">
       </select>
       <select id="sel-month" class="form-select form-select-sm" style="width:75px" onchange="loadPayroll()">
@@ -67,7 +60,7 @@
       <div class="col-6 col-md-3">
         <div class="stat-card">
           <div class="stat-value" style="color:#2563eb;" id="kpi-payout">—</div>
-          <div class="stat-label">實發薪資小計（元）</div>
+          <div class="stat-label">實領總額（元）</div>
         </div>
       </div>
       <div class="col-6 col-md-3">
@@ -104,34 +97,20 @@
       <div id="empty-state" class="text-center text-muted py-5" style="display:none;">
         <p class="mb-2">本月尚未建立薪資記錄</p>
         <button class="btn btn-primary" onclick="initMonth()">初始化本月薪資</button>
-        <p class="mt-2" style="font-size:0.82rem;">會自動帶入所有在職員工</p>
+        <p class="mt-2" style="font-size:0.82rem;">會自動帶入所有在職員工的底薪、全勤、職務加給</p>
       </div>
       <div id="payroll-table-wrap" style="display:none;">
         <div class="table-responsive">
           <table class="table mb-0" id="payroll-table">
             <thead>
               <tr>
-                <th rowspan="2" style="vertical-align:middle;">員工</th>
-                <th rowspan="2" style="vertical-align:middle;">職位</th>
-                <th colspan="2" class="group-header text-center">固定薪資</th>
-                <th colspan="2" class="group-header text-center">加班 <span style="font-size:0.65rem;color:#94a3b8;">法定上限 46h/月</span></th>
-                <th colspan="2" class="group-header text-center">其他獎金</th>
-                <th colspan="5" class="group-header text-center">扣項明細 <span style="font-size:0.62rem;color:#94a3b8;font-weight:400;">應扣小計含勞健保</span></th>
-                <th rowspan="2" style="vertical-align:middle;min-width:120px;">備註</th>
-                <th rowspan="2" class="text-end" style="vertical-align:middle;">實領</th>
-              </tr>
-              <tr>
-                <th class="text-end" style="font-size:0.75rem;color:#64748b;">底薪</th>
-                <th class="text-end" style="font-size:0.75rem;color:#64748b;">職位加給</th>
-                <th class="text-end" style="font-size:0.75rem;color:#64748b;">時數</th>
-                <th class="text-end" style="font-size:0.75rem;color:#64748b;">加班費</th>
-                <th class="text-end" style="font-size:0.75rem;color:#64748b;">全勤</th>
-                <th class="text-end" style="font-size:0.75rem;color:#64748b;">特別</th>
-                <th class="text-end" style="font-size:0.75rem;color:#94a3b8;">勞保</th>
-                <th class="text-end" style="font-size:0.75rem;color:#94a3b8;">健保</th>
-                <th class="text-end" style="font-size:0.75rem;color:#64748b;">應扣小計</th>
-                <th class="text-end" style="font-size:0.75rem;color:#64748b;">假扣</th>
-                <th style="font-size:0.75rem;color:#64748b;">原因</th>
+                <th>員工</th>
+                <th>職位</th>
+                <th class="text-end">底薪</th>
+                <th class="text-end">全勤</th>
+                <th class="text-end">職務加給</th>
+                <th class="text-end">加班費 <span style="font-size:0.7rem;color:#94a3b8;">手動</span></th>
+                <th class="text-end">實領金額 <span style="font-size:0.7rem;color:#94a3b8;">手動</span></th>
               </tr>
             </thead>
             <tbody id="payroll-tbody"></tbody>
@@ -141,7 +120,7 @@
       </div>
     </div>
 
-    <!-- 月度費用補充（只有 store_manager 可編輯） -->
+    <!-- 月度費用補充 -->
     <div class="table-card mt-3" id="overhead-card" style="display:none;">
       <div class="table-header">
         <span class="fw-semibold">📊 月度費用補充</span>
@@ -175,11 +154,10 @@
     <div class="table-card mt-3 no-print">
       <div class="p-3" style="font-size:0.83rem;color:#64748b;line-height:1.8;">
         <strong>使用說明</strong><br>
-        1. 選好年月後點「初始化本月」，系統會自動帶入所有在職員工的底薪與加給。<br>
-        2. 每格均可直接編輯；全勤獎金預設帶入員工設定值，缺勤可改為 0。<br>
-        3. 實領欄自動計算：底薪 ＋ 職位加給 ＋ 加班費 ＋ 全勤 ＋ 特別 － 應扣小計（含勞健保）－ 假扣（加班時數僅供顯示，不計入合計）。<br>
-        4. 點「儲存全部」將所有資料存入資料庫；可重複修改並再次儲存。<br>
-        5. 「列印」按鈕會輸出乾淨版本，可存成 PDF。
+        1. 選好年月後點「初始化本月」，系統自動帶入所有在職員工的底薪、全勤、職務加給。<br>
+        2. 底薪、全勤、職務加給可直接修改；加班費、實領金額由會計手動填入。<br>
+        3. 點「儲存全部」將所有資料存入資料庫，可重複修改並再次儲存。<br>
+        4. 「列印」按鈕會輸出乾淨版本，可存成 PDF。
       </div>
     </div>
 
@@ -194,13 +172,12 @@
 <script>
   let currentProfile = null;
   let userRole = null;
-  let staffList = [];       // 本月發薪員工（含歷史離職）
-  let activeStaff = [];     // 在職員工（用於 initMonth）
-  let payrollRows = [];     // 目前月份的 payroll_records
-  let overheadRow = null;   // monthly_overhead 記錄
+  let staffList = [];
+  let activeStaff = [];
+  let payrollRows = [];
+  let overheadRow = null;
   let dirty = false;
 
-  // ── 初始化 ──────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', async () => {
     injectNav();
     const session = await requireAuth();
@@ -210,12 +187,10 @@
     userRole = profile.role;
     filterNavByRole(profile.role);
 
-    // admin = 查看模式（不顯示 init/save 按鈕）
     if (userRole === 'admin') {
       document.getElementById('view-only-badge').style.display = '';
     }
 
-    // 填入年份下拉
     const now = new Date();
     const ySel = document.getElementById('sel-year');
     for (let y = now.getFullYear(); y >= now.getFullYear() - 2; y--) {
@@ -236,25 +211,21 @@
     };
   }
 
-  // ── 載入資料 ─────────────────────────────────────────────
   async function loadPayroll() {
     const { year, month } = getYM();
     document.getElementById('month-label').textContent = `${year} 年 ${month} 月`;
 
-    // 1. 在職員工（initMonth 用）
     let aq = supabase.from('staff').select('*').eq('status', 'active').order('name');
     if (currentProfile?.role !== 'admin') aq = aq.eq('store_id', currentProfile.store_id);
     const { data: aStaff } = await aq;
     activeStaff = aStaff || [];
 
-    // 2. 本月所有薪資記錄（不限在職狀態）
     let prq = supabase.from('payroll_records').select('*').eq('year', year).eq('month', month);
     if (currentProfile?.role !== 'admin') prq = prq.eq('store_id', currentProfile.store_id);
     const { data: records, error: pe } = await prq;
     if (pe) { showToast('讀取薪資記錄失敗', 'danger'); return; }
     payrollRows = records || [];
 
-    // 3. 補讀「有記錄但已離職」的員工資訊
     const activeIds = new Set(activeStaff.map(s => s.id));
     const missingIds = [...new Set(payrollRows.map(r => r.staff_id))].filter(id => !activeIds.has(id));
     let histStaff = [];
@@ -262,16 +233,13 @@
       const { data: hs } = await supabase.from('staff').select('*').in('id', missingIds);
       histStaff = hs || [];
     }
-    // 離職員工（有歷史記錄）排前面，在職員工排後
     staffList = [...histStaff, ...activeStaff];
 
-    // 4. 讀月度費用 overhead
     let ohq = supabase.from('monthly_overhead').select('*').eq('year', year).eq('month', month);
     if (currentProfile?.role !== 'admin') ohq = ohq.eq('store_id', currentProfile.store_id);
     const { data: ohData } = await ohq;
     overheadRow = ohData?.[0] || null;
 
-    // 5. 填入 overhead 輸入框（只有會計可編輯；admin 有資料時唯讀顯示）
     if (userRole === 'accountant') {
       document.getElementById('overhead-card').style.display = '';
       document.getElementById('oh-meal').value = overheadRow?.meal_allowance || '';
@@ -285,7 +253,6 @@
     render();
   }
 
-  // ── 初始化本月（建立 payroll_records） ───────────────────
   async function initMonth() {
     if (!activeStaff.length) { showToast('目前沒有在職員工', 'warning'); return; }
     const { year, month } = getYM();
@@ -296,11 +263,11 @@
         store_id: s.store_id,
         staff_id: s.id,
         year, month,
-        base_salary: s.base_salary,
-        position_allowance: s.position_allowance,
-        attendance_bonus: s.attendance_bonus_amount,
-        overtime_hours: 0,
+        base_salary: s.base_salary || 0,
+        position_allowance: s.position_allowance || 0,
+        attendance_bonus: s.attendance_bonus_amount || 0,
         performance_bonus: 0,
+        payout_amount: 0,
         special_bonus: 0,
         deductions: 0,
         notes: null,
@@ -313,7 +280,6 @@
     await loadPayroll();
   }
 
-  // ── 儲存全部 ─────────────────────────────────────────────
   async function saveAll() {
     const rows = collectRows();
     if (!rows.length) { showToast('沒有資料可儲存', 'warning'); return; }
@@ -334,45 +300,35 @@
     await loadPayroll();
   }
 
-  // ── 從 DOM 收集資料 ───────────────────────────────────────
   function collectRows() {
     return staffList.map(s => {
       const existing = payrollRows.find(r => r.staff_id === s.id);
       const row = document.querySelector(`tr[data-staff-id="${s.id}"]`);
       if (!row) return null;
       const g = field => Number(row.querySelector(`[data-field="${field}"]`)?.value) || 0;
-      const notes = row.querySelector('[data-field="notes"]')?.value?.trim() || null;
-      const deduction_reason = row.querySelector('[data-field="deduction_reason"]')?.value || null;
       return {
         id: existing?.id || undefined,
         store_id: s.store_id,
-        overtime_hours: g('overtime_hours'),
         staff_id: s.id,
         year:  getYM().year,
         month: getYM().month,
-        base_salary:          g('base_salary'),
-        position_allowance:   g('position_allowance'),
-        attendance_bonus:     g('attendance_bonus'),
-        performance_bonus:    g('performance_bonus'),
-        special_bonus:        g('special_bonus'),
-        labor_insurance:      g('labor_insurance'),
-        health_insurance:     g('health_insurance'),
-        deductions:           g('deductions'),
-        leave_deductions:     g('leave_deductions'),
-        payout_amount:        existing?.payout_amount || 0,  // 從 DB 帶出，不在 DOM
-        deduction_reason,
-        notes,
+        base_salary:        g('base_salary'),
+        attendance_bonus:   g('attendance_bonus'),
+        position_allowance: g('position_allowance'),
+        performance_bonus:  g('performance_bonus'),
+        payout_amount:      g('payout_amount'),
+        special_bonus: 0,
+        deductions: 0,
+        notes: null,
       };
     }).filter(Boolean);
   }
 
-  // ── 渲染 ─────────────────────────────────────────────────
   function render() {
     const hasRecords = payrollRows.length > 0;
     const canEdit = userRole === 'store_manager' || userRole === 'accountant';
     document.getElementById('empty-state').style.display = hasRecords ? 'none' : '';
     document.getElementById('payroll-table-wrap').style.display = hasRecords ? '' : 'none';
-    // init/save 按鈕：只有 store_manager 且符合條件才顯示
     document.getElementById('btn-init').style.display = (canEdit && !hasRecords) ? '' : 'none';
     document.getElementById('btn-save').style.display = (canEdit && hasRecords) ? '' : 'none';
 
@@ -381,23 +337,17 @@
     const tbody = document.getElementById('payroll-tbody');
     tbody.innerHTML = staffList.map(s => {
       const rec = payrollRows.find(r => r.staff_id === s.id) || {
-        base_salary: s.base_salary,
-        position_allowance: s.position_allowance,
-        attendance_bonus: s.attendance_bonus_amount,
+        base_salary: s.base_salary || 0,
+        position_allowance: s.position_allowance || 0,
+        attendance_bonus: s.attendance_bonus_amount || 0,
         performance_bonus: 0,
-        special_bonus: 0,
-        labor_insurance: 0,
-        health_insurance: 0,
-        deductions: 0,
-        leave_deductions: 0,
-        notes: '',
+        payout_amount: 0,
       };
-      const total = calcTotal(rec);
-      const isPT = (s.hourly_rate || 0) > 0 && (s.base_salary || 0) === 0;
-      const hrBadge = isPT ? `<span style="font-size:0.7rem;color:#94a3b8;display:block;">時薪 ${s.hourly_rate} 元</span>` : '';
+      const overtimePay  = Number(rec.performance_bonus) || 0;
+      const netSalary    = Number(rec.payout_amount) || 0;
       return `
-        <tr data-staff-id="${s.id}" data-hourly-rate="${s.hourly_rate||0}" data-is-pt="${isPT?1:0}">
-          <td><strong>${esc(s.name)}</strong>${hrBadge}</td>
+        <tr data-staff-id="${s.id}">
+          <td><strong>${esc(s.name)}</strong></td>
           <td style="white-space:nowrap;">${esc(s.position)}</td>
           <td class="text-end">
             <input class="payroll-input" type="number" min="0" step="100"
@@ -405,61 +355,22 @@
           </td>
           <td class="text-end">
             <input class="payroll-input" type="number" min="0" step="100"
-              data-field="position_allowance" value="${rec.position_allowance}" onchange="onRowChange(this)">
-          </td>
-          <td class="text-end">
-            <div class="d-flex align-items-center justify-content-end gap-1">
-              <input class="payroll-input" type="number" min="0" step="0.01" style="width:72px;"
-                data-field="overtime_hours" value="${rec.overtime_hours || 0}" onchange="onRowChange(this)">
-              <span class="ot-alert" id="ot-${s.id}">${getOtBadge(rec.overtime_hours || 0)}</span>
-            </div>
-          </td>
-          <td class="text-end">
-            <input class="payroll-input" type="number" min="0" step="100"
-              data-field="performance_bonus" value="${rec.performance_bonus}" onchange="onRowChange(this)">
-          </td>
-          <td class="text-end">
-            <input class="payroll-input" type="number" min="0" step="100"
               data-field="attendance_bonus" value="${rec.attendance_bonus}" onchange="onRowChange(this)">
           </td>
           <td class="text-end">
             <input class="payroll-input" type="number" min="0" step="100"
-              data-field="special_bonus" value="${rec.special_bonus}" onchange="onRowChange(this)">
-          </td>
-          <td class="text-end" style="background:#fafafe;">
-            <input class="payroll-input" type="number" min="0" step="1" style="width:80px;background:#f8f8fd;color:#94a3b8;"
-              data-field="labor_insurance" value="${rec.labor_insurance||0}" onchange="onRowChange(this)">
-          </td>
-          <td class="text-end" style="background:#fafafe;">
-            <input class="payroll-input" type="number" min="0" step="1" style="width:80px;background:#f8f8fd;color:#94a3b8;"
-              data-field="health_insurance" value="${rec.health_insurance||0}" onchange="onRowChange(this)">
+              data-field="position_allowance" value="${rec.position_allowance}" onchange="onRowChange(this)">
           </td>
           <td class="text-end">
-            <input class="payroll-input" type="number" min="0" step="100"
-              data-field="deductions" value="${rec.deductions}" onchange="onRowChange(this)">
+            <input class="payroll-input manual-input" type="number" min="0" step="100"
+              data-field="performance_bonus" value="${overtimePay > 0 ? overtimePay : ''}"
+              placeholder="手動輸入" onchange="onRowChange(this)">
           </td>
           <td class="text-end">
-            <input class="payroll-input" type="number" min="0" step="100" style="width:80px;"
-              data-field="leave_deductions" value="${rec.leave_deductions||0}" onchange="onRowChange(this)">
+            <input class="payroll-input manual-input" type="number" min="0" step="100"
+              data-field="payout_amount" value="${netSalary > 0 ? netSalary : ''}"
+              placeholder="手動輸入" onchange="onRowChange(this)">
           </td>
-          <td>
-            <select class="deduction-select" data-field="deduction_reason" onchange="onRowChange(this)">
-              <option value="">—</option>
-              <option value="事假扣薪" ${rec.deduction_reason==='事假扣薪'?'selected':''}>事假扣薪</option>
-              <option value="病假扣薪" ${rec.deduction_reason==='病假扣薪'?'selected':''}>病假扣薪</option>
-              <option value="曠職扣薪" ${rec.deduction_reason==='曠職扣薪'?'selected':''}>曠職扣薪</option>
-              <option value="遲到/早退" ${rec.deduction_reason==='遲到/早退'?'selected':''}>遲到/早退</option>
-              <option value="保險代扣" ${rec.deduction_reason==='保險代扣'?'selected':''}>保險代扣</option>
-              <option value="全勤未達標" ${rec.deduction_reason==='全勤未達標'?'selected':''}>全勤未達標</option>
-              <option value="其他" ${rec.deduction_reason==='其他'?'selected':''}>其他</option>
-            </select>
-          </td>
-          <td>
-            <input type="text" class="form-control form-control-sm"
-              data-field="notes" value="${esc(rec.notes||'')}" onchange="onRowChange(this)"
-              style="min-width:120px;" placeholder="備註…">
-          </td>
-          <td class="text-end total-cell row-total" id="total-${s.id}">${formatNumber(total)}</td>
         </tr>
       `;
     }).join('');
@@ -467,7 +378,6 @@
     renderTfoot();
     renderKPI(collectRows());
 
-    // admin 查看模式：鎖定所有欄位
     if (!canEdit) {
       document.querySelectorAll('#payroll-tbody input').forEach(inp => {
         inp.readOnly = true;
@@ -476,16 +386,6 @@
         inp.style.cursor = 'default';
         inp.style.pointerEvents = 'none';
       });
-      document.querySelectorAll('#payroll-tbody select.deduction-select').forEach(sel => {
-        sel.disabled = true;
-        sel.style.background = 'transparent';
-        sel.style.border = 'none';
-        sel.style.cursor = 'default';
-        sel.style.pointerEvents = 'none';
-        sel.style.appearance = 'none';
-        sel.style.color = '#475569';
-      });
-      // admin 只讀 overhead 輸入框
       ['oh-meal','oh-insurance','oh-notes'].forEach(id => {
         const el = document.getElementById(id);
         if (el) { el.readOnly = true; el.style.background='transparent'; el.style.border='none'; }
@@ -496,70 +396,25 @@
   }
 
   function onRowChange(input) {
-    const row = input.closest('tr');
-    const staffId = row.dataset.staffId;
-    const g = field => Number(row.querySelector(`[data-field="${field}"]`)?.value) || 0;
-
-    // PT 自動計算：改時數後 → 自動填加班費（時薪×時數）
-    if (input.dataset.field === 'overtime_hours' && row.dataset.isPt === '1') {
-      const hourlyRate = Number(row.dataset.hourlyRate || 0);
-      const ptPay = Math.round(g('overtime_hours') * hourlyRate);
-      const perfInput = row.querySelector('[data-field="performance_bonus"]');
-      if (perfInput) perfInput.value = ptPay;
-    }
-
-    const total = g('base_salary') + g('position_allowance') + g('attendance_bonus')
-                + g('performance_bonus') + g('special_bonus') - g('deductions') - g('leave_deductions');
-    document.getElementById('total-' + staffId).textContent = formatNumber(total);
-    // 更新加班警示
-    const otBadge = document.getElementById('ot-' + staffId);
-    if (otBadge) otBadge.innerHTML = getOtBadge(g('overtime_hours'));
     dirty = true;
     document.getElementById('save-hint').style.display = '';
     renderTfoot();
     renderKPI(collectRows());
   }
 
-  function getOtBadge(hours) {
-    if (hours > 46) return '<span class="ot-warn ot-warn-red" title="超過勞基法加班上限 46h/月">⚠ 超標 ' + hours + 'h</span>';
-    if (hours > 38) return '<span class="ot-warn ot-warn-yellow" title="接近勞基法加班上限（46h/月）">! ' + hours + 'h</span>';
-    return '';
-  }
-
-  function calcTotal(rec) {
-    return (Number(rec.base_salary) + Number(rec.position_allowance) +
-            Number(rec.attendance_bonus) + Number(rec.performance_bonus) +
-            Number(rec.special_bonus) - Number(rec.deductions) - Number(rec.leave_deductions||0));
-  }
-
   function renderTfoot() {
     const rows = collectRows();
     const sum = field => rows.reduce((a, r) => a + Number(r[field] || 0), 0);
-    const grandTotal = rows.reduce((a, r) => a + calcTotalFromCollected(r), 0);
     document.getElementById('payroll-tfoot').innerHTML = `
       <tr style="background:#f8fafc;font-weight:700;">
         <td colspan="2">合計</td>
         <td class="text-end">${formatNumber(sum('base_salary'))}</td>
-        <td class="text-end">${formatNumber(sum('position_allowance'))}</td>
-        <td class="text-end" style="font-size:0.85rem;">${sum('overtime_hours').toFixed(2)}h</td>
-        <td class="text-end">${formatNumber(sum('performance_bonus'))}</td>
         <td class="text-end">${formatNumber(sum('attendance_bonus'))}</td>
-        <td class="text-end">${formatNumber(sum('special_bonus'))}</td>
-        <td class="text-end text-danger" style="color:#94a3b8!important;font-weight:400;">${formatNumber(sum('labor_insurance'))}</td>
-        <td class="text-end text-danger" style="color:#94a3b8!important;font-weight:400;">${formatNumber(sum('health_insurance'))}</td>
-        <td class="text-end text-danger">${formatNumber(sum('deductions'))}</td>
-        <td class="text-end text-danger">${formatNumber(sum('leave_deductions'))}</td>
-        <td></td>
-        <td></td>
-        <td class="text-end total-cell" style="font-size:1.05rem;">${formatNumber(grandTotal)}</td>
+        <td class="text-end">${formatNumber(sum('position_allowance'))}</td>
+        <td class="text-end">${formatNumber(sum('performance_bonus'))}</td>
+        <td class="text-end total-cell" style="font-size:1.05rem;">${formatNumber(sum('payout_amount'))}</td>
       </tr>
     `;
-  }
-
-  function calcTotalFromCollected(r) {
-    return Number(r.base_salary) + Number(r.position_allowance) +
-           Number(r.attendance_bonus) + Number(r.performance_bonus) +
-           Number(r.special_bonus) - Number(r.deductions) - Number(r.leave_deductions||0);
   }
 
   function renderKPI(rows) {
@@ -569,16 +424,12 @@
       });
       return;
     }
-    // 實發薪資：優先用 payout_amount（從 Excel 匯入的實際數字），否則用計算值
-    const payoutTotal = rows.reduce((a, r) => {
-      const pa = Number(r.payout_amount || 0);
-      return a + (pa > 0 ? pa : calcTotalFromCollected(r));
-    }, 0);
+    const payoutTotal = rows.reduce((a, r) => a + Number(r.payout_amount || 0), 0);
     const meal      = Number(overheadRow?.meal_allowance || 0);
     const insurance = Number(overheadRow?.employer_insurance || 0);
     const grand     = payoutTotal + meal + insurance;
 
-    document.getElementById('kpi-payout').textContent    = formatNumber(payoutTotal);
+    document.getElementById('kpi-payout').textContent    = payoutTotal > 0 ? formatNumber(payoutTotal) : '—（待填）';
     document.getElementById('kpi-meal').textContent      = meal > 0 ? formatNumber(meal) : '—（待填）';
     document.getElementById('kpi-insurance').textContent = insurance > 0 ? formatNumber(insurance) : '—（待填）';
     document.getElementById('kpi-total').textContent     = formatNumber(grand);
@@ -588,10 +439,7 @@
     const meal      = Number(document.getElementById('oh-meal').value || 0);
     const insurance = Number(document.getElementById('oh-insurance').value || 0);
     const rows      = collectRows();
-    const payoutTotal = rows.reduce((a, r) => {
-      const pa = Number(r.payout_amount || 0);
-      return a + (pa > 0 ? pa : calcTotalFromCollected(r));
-    }, 0);
+    const payoutTotal = rows.reduce((a, r) => a + Number(r.payout_amount || 0), 0);
     document.getElementById('kpi-meal').textContent      = meal > 0 ? formatNumber(meal) : '—（待填）';
     document.getElementById('kpi-insurance').textContent = insurance > 0 ? formatNumber(insurance) : '—（待填）';
     document.getElementById('kpi-total').textContent     = formatNumber(payoutTotal + meal + insurance);
@@ -609,10 +457,8 @@
 
     let err;
     if (overheadRow?.id) {
-      // 更新
       ({ error: err } = await supabase.from('monthly_overhead').update(payload).eq('id', overheadRow.id));
     } else {
-      // 新增
       const { data, error } = await supabase.from('monthly_overhead').insert(payload).select().single();
       err = error;
       if (data) overheadRow = data;
@@ -621,8 +467,8 @@
 
     overheadRow = { ...(overheadRow || {}), ...payload };
     showToast('月度費用已儲存');
-    const hint = `最後更新：${new Date().toLocaleString('zh-TW')}｜薪資＋伙食：${formatNumber(Number(document.getElementById('kpi-payout').textContent.replace(/,/g,''))+meal)} 元 ｜ 總人事成本：${document.getElementById('kpi-total').textContent} 元`;
-    document.getElementById('overhead-hint').textContent = hint;
+    document.getElementById('overhead-hint').textContent =
+      `最後更新：${new Date().toLocaleString('zh-TW')}｜總人事成本：${document.getElementById('kpi-total').textContent} 元`;
     renderKPI(collectRows());
   }
 
