@@ -29,6 +29,13 @@
     <h6 class="mb-0 fw-bold">員工管理</h6>
     <div class="ms-auto d-flex gap-2 align-items-center">
       <span id="view-only-badge" style="display:none;" class="badge bg-secondary">查看模式</span>
+      <select id="sel-year-staff" class="form-select form-select-sm" style="width:90px" onchange="loadStaff()"></select>
+      <select id="sel-month-staff" class="form-select form-select-sm" style="width:75px" onchange="loadStaff()">
+        <option value="1">1 月</option><option value="2">2 月</option><option value="3">3 月</option>
+        <option value="4">4 月</option><option value="5">5 月</option><option value="6">6 月</option>
+        <option value="7">7 月</option><option value="8">8 月</option><option value="9">9 月</option>
+        <option value="10">10 月</option><option value="11">11 月</option><option value="12">12 月</option>
+      </select>
       <button id="btn-add-staff" class="btn btn-sm btn-primary" onclick="openModal()">＋ 新增員工</button>
     </div>
   </div>
@@ -58,7 +65,7 @@
       <div class="col-6 col-md-3">
         <div class="stat-card">
           <div class="stat-value text-warning" id="stat-fixed-total">—</div>
-          <div class="stat-label">實領總額（元）</div>
+          <div class="stat-label">實領總額（元）<span id="stat-month-label" style="font-size:0.7rem;color:#94a3b8;display:block;"></span></div>
         </div>
       </div>
     </div>
@@ -322,6 +329,7 @@
 <script src="js/nav.js"></script>
 <script>
   let staffData = [];
+  let payrollData = [];
   let currentProfile = null;
   let userRole = null;
   let deleteTargetId = null;
@@ -346,15 +354,37 @@
     deleteModal      = new bootstrap.Modal(document.getElementById('delete-modal'));
     terminationModal = new bootstrap.Modal(document.getElementById('termination-modal'));
     restoreModal     = new bootstrap.Modal(document.getElementById('restore-modal'));
+
+    // 初始化年月選擇器
+    const now = new Date();
+    const ySel = document.getElementById('sel-year-staff');
+    for (let y = now.getFullYear(); y >= now.getFullYear() - 2; y--) {
+      const o = document.createElement('option');
+      o.value = y; o.textContent = y + ' 年';
+      ySel.appendChild(o);
+    }
+    ySel.value = now.getFullYear();
+    document.getElementById('sel-month-staff').value = now.getMonth() + 1;
+
     await loadStaff();
   });
 
   async function loadStaff() {
+    const year  = parseInt(document.getElementById('sel-year-staff').value);
+    const month = parseInt(document.getElementById('sel-month-staff').value);
+
     let q = supabase.from('staff').select('*').order('name');
     if (userRole !== 'admin') q = q.eq('store_id', currentProfile.store_id);
     const { data, error } = await q;
     if (error) { showToast('讀取員工資料失敗', 'danger'); return; }
     staffData = data || [];
+
+    // 載入選定月份的薪資記錄（用於顯示加班費/實領金額）
+    let pq = supabase.from('payroll_records').select('staff_id,performance_bonus,payout_amount').eq('year', year).eq('month', month);
+    if (userRole !== 'admin') pq = pq.eq('store_id', currentProfile.store_id);
+    const { data: pData } = await pq;
+    payrollData = pData || [];
+
     renderBoth();
     renderKPI();
     document.getElementById('last-update').textContent = '更新：' + new Date().toLocaleTimeString('zh-TW');
@@ -403,8 +433,8 @@
         <td class="text-end salary-cell">${formatNumber(s.base_salary)}</td>
         <td class="text-end salary-cell">${formatNumber(s.attendance_bonus_amount)}</td>
         <td class="text-end salary-cell">${formatNumber(s.position_allowance)}</td>
-        <td class="text-end">${s.overtime_pay > 0 ? formatNumber(s.overtime_pay) : '<span class="text-muted">—</span>'}</td>
-        <td class="text-end salary-cell">${s.net_salary > 0 ? formatNumber(s.net_salary) : '<span class="text-muted">—</span>'}</td>
+        <td class="text-end">${(() => { const pr = payrollData.find(p => p.staff_id === s.id); const v = Number(pr?.performance_bonus||0); return v > 0 ? formatNumber(v) : '<span class="text-muted">—</span>'; })()}</td>
+        <td class="text-end salary-cell">${(() => { const pr = payrollData.find(p => p.staff_id === s.id); const v = Number(pr?.payout_amount||0); return v > 0 ? formatNumber(v) : '<span class="text-muted">—</span>'; })()}</td>
         <td>${s.hire_date ? s.hire_date : '<span class="text-warning" title="尚未填寫到職日">⚠ 未填</span>'}</td>
         <td style="font-size:0.85rem;color:#475569;">${calcSeniority(s.hire_date)}</td>
         <td class="text-center">${leaveHtml}</td>
@@ -460,9 +490,12 @@
     document.getElementById('stat-count').textContent = active.length;
     document.getElementById('stat-base-total').textContent = formatNumber(total(active, 'base_salary'));
     document.getElementById('stat-allowance-total').textContent = formatNumber(total(active, 'position_allowance'));
-    document.getElementById('stat-fixed-total').textContent = formatNumber(
-      total(active, 'net_salary')
-    );
+
+    const netTotal = payrollData.reduce((a, r) => a + Number(r.payout_amount || 0), 0);
+    const year  = document.getElementById('sel-year-staff').value;
+    const month = document.getElementById('sel-month-staff').value;
+    document.getElementById('stat-fixed-total').textContent = netTotal > 0 ? formatNumber(netTotal) : '—（待填）';
+    document.getElementById('stat-month-label').textContent = `${year} 年 ${month} 月`;
   }
 
   // ── Modal 開啟 ───────────────────────────────────────────
