@@ -212,6 +212,14 @@
     document.getElementById('sel-month').value = now.getMonth() + 1;
 
     await loadPayroll();
+
+    // Realtime 同步：薪資記錄有變動時自動刷新所有裝置
+    supabase
+      .channel('payroll-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payroll_records' }, () => {
+        loadPayroll();
+      })
+      .subscribe();
   });
 
   function getYM() {
