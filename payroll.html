@@ -249,7 +249,14 @@
     let histStaff = [];
     if (missingIds.length) {
       const { data: hs } = await supabase.from('staff').select('*').in('id', missingIds);
-      histStaff = hs || [];
+      // 離職員工只保留到「離職當月」（含）；離職隔月起自動從薪資表消失，
+      // 避免離職前尚未結清的薪水被漏掉，但也不會一直卡在後續月份
+      const viewedYM = year * 100 + month;
+      histStaff = (hs || []).filter(s => {
+        if (!s.termination_date) return true;
+        const [ty, tm] = s.termination_date.split('-').map(Number);
+        return viewedYM <= (ty * 100 + tm);
+      });
     }
     staffList = [...histStaff, ...activeStaff];
 
@@ -367,7 +374,7 @@
       const netSalary    = Number(rec.payout_amount) || 0;
       return `
         <tr data-staff-id="${s.id}">
-          <td><strong>${esc(s.name)}</strong></td>
+          <td><strong>${esc(s.name)}</strong>${s.status === 'inactive' ? ' <span class="badge bg-light text-secondary border" style="font-size:0.68rem;font-weight:600;">已離職</span>' : ''}</td>
           <td style="white-space:nowrap;">${esc(s.position)}</td>
           <td class="text-end">
             <input class="payroll-input" type="number" min="0" step="100"
