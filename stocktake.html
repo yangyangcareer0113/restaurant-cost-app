@@ -601,7 +601,7 @@
       const html =
         buildSection('A', 'bg-danger', 'A 級', aItems, false) +
         buildSection('B', 'bg-warning text-dark', 'B 級', bItems, false) +
-        buildSection('C', 'bg-secondary', 'C 級', cItems, true);
+        buildSection('C', 'bg-secondary', 'C 級', cItems, false);
 
       updateLiveTotal();
       document.getElementById('item-list').innerHTML = html || '<div class="empty-state">沒有符合條件的品項</div>';
