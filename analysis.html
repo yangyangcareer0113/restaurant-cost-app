@@ -171,7 +171,7 @@
         <div class="col-12 col-md-5">
           <div class="table-card" style="padding:1rem;">
             <div class="fw-semibold mb-1">👥 本月新客 vs 回頭客</div>
-            <p style="font-size:0.78rem;color:#94a3b8;margin-bottom:0.75rem;">依會員系統記錄；不含未加入會員的匿名顧客</p>
+            <p style="font-size:0.78rem;color:#94a3b8;margin-bottom:0.75rem;">資料來源：inline 訂位系統</p>
             <div style="max-width:200px;margin:0 auto;">
               <canvas id="customer-chart"></canvas>
             </div>
@@ -256,6 +256,19 @@ function setChg(elId, curr, prev) {
     : `<span class="kpi-down">▼ ${fmt(Math.abs(diff))}（${pct}%）vs 上月</span>`;
 }
 
+// ── inline 代理 ───────────────────────────────────────────
+const INLINE_PROXY = 'https://rzdsyzquqdyuxzgytbcz.supabase.co/functions/v1/inline-proxy';
+
+async function fetchInlineCustomers(year, month) {
+  try {
+    const r = await fetch(`${INLINE_PROXY}?year=${year}&month=${month}`);
+    return await r.json();
+  } catch(e) {
+    console.warn('inline proxy error:', e);
+    return null;
+  }
+}
+
 // ── 嘟嘟 API ──────────────────────────────────────────────
 async function getDudooToken() {
   const r = await fetch(`${DUDOO.apiBase}/auth/login`, {
@@ -305,7 +318,7 @@ async function fetchAll() {
 
     const timeParams = { start_date: startDate, end_date: endDate, hierarchy_id: DUDOO.hierarchyId, company_id: DUDOO.companyId };
 
-    const [summary, prevSummary, items, timeData, members] = await Promise.all([
+    const [summary, prevSummary, items, timeData, curCustomers, prevCustomers] = await Promise.all([
       dudooPost('/statistics/getDashboard?type=reports', { ...baseParams, start_date: startDate, end_date: endDate }),
       dudooPost('/statistics/getDashboard?type=reports', { ...baseParams, start_date: prevStart, end_date: prevEnd }),
       dudooPost(`/statistics/getHotItemList?type=sales_date`, {
@@ -318,10 +331,11 @@ async function fetchAll() {
         category_type: JSON.stringify([]),
       }),
       dudooPost('/reports/getTimeData?type=reports&reference_time=bill_create_time', timeParams),
-      dudooPost('/customer', { draw: 1, start: 0, length: 500, hierarchy_id: DUDOO.hierarchyId, company_id: DUDOO.companyId }),
+      fetchInlineCustomers(year, month),
+      fetchInlineCustomers(prevYear, prevMonth),
     ]);
 
-    renderAll(summary, prevSummary, items?.data || [], Array.isArray(timeData) ? timeData : [], members?.data || [], startDate, endDate, prevStart, prevEnd, year, month);
+    renderAll(summary, prevSummary, items?.data || [], Array.isArray(timeData) ? timeData : [], curCustomers, prevCustomers, startDate, endDate, prevStart, prevEnd, year, month);
 
   } catch(e) {
     alert('資料拉取失敗：' + e.message);
@@ -332,7 +346,7 @@ async function fetchAll() {
   }
 }
 
-function renderAll(s, prev, items, timeData, members, startDate, endDate, prevStart, prevEnd, year, month) {
+function renderAll(s, prev, items, timeData, curCustomers, prevCustomers, startDate, endDate, prevStart, prevEnd, year, month) {
   // ── KPI ──────────────────────────────────────────────
   document.getElementById('kpi-revenue').textContent  = fmt(s.amount);
   document.getElementById('kpi-tables').textContent   = fmt(s.sale_cnt);
@@ -420,7 +434,7 @@ function renderAll(s, prev, items, timeData, members, startDate, endDate, prevSt
   renderTimeData(timeData);
 
   // ── 新舊客分析 ────────────────────────────────────────
-  renderCustomerAnalytics(members, startDate, endDate, prevStart, prevEnd);
+  renderCustomerAnalytics(curCustomers, prevCustomers);
 
   // ── 品項排行 ──────────────────────────────────────────
   renderItems(items);
@@ -523,30 +537,18 @@ function renderTimeData(data) {
   `).join('');
 }
 
-function renderCustomerAnalytics(members, startDate, endDate, prevStart, prevEnd) {
-  if (!members || !members.length) {
-    document.getElementById('customer-legend').innerHTML = '<p class="text-muted small">無會員資料</p>';
+function renderCustomerAnalytics(curData, prevData) {
+  if (!curData || curData.error) {
+    document.getElementById('customer-legend').innerHTML = '<p class="text-muted small">無法取得 inline 新舊客資料</p>';
     document.getElementById('customer-cmp').innerHTML = '';
     return;
   }
 
-  function analyzePeriod(ms, start, end) {
-    const s = new Date(start), e = new Date(end + 'T23:59:59');
-    let newCnt = 0, returnCnt = 0;
-    for (const m of ms) {
-      const ct = new Date(m.create_time);
-      const ut = new Date(m.last_update_time);
-      if (ct >= s && ct <= e) {
-        newCnt++;
-      } else if (ct < s && ut >= s && ut <= e) {
-        returnCnt++;
-      }
-    }
-    return { newCnt, returnCnt, total: newCnt + returnCnt };
-  }
-
-  const cur  = analyzePeriod(members, startDate, endDate);
-  const prev = analyzePeriod(members, prevStart, prevEnd);
+  // inline API 回傳格式：{ count: { new: N, regular: N }, segmentation: [...] }
+  const curNew     = curData.count?.new     || 0;
+  const curRegular = curData.count?.regular || 0;
+  const prevNew     = prevData?.count?.new     || 0;
+  const prevRegular = prevData?.count?.regular || 0;
 
   // 圓餅圖
   if (customerChart) customerChart.destroy();
@@ -554,27 +556,26 @@ function renderCustomerAnalytics(members, startDate, endDate, prevStart, prevEnd
   customerChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: ['新會員', '回頭客'],
-      datasets: [{ data: [cur.newCnt, cur.returnCnt], backgroundColor: ['#3b82f6', '#10b981'], borderWidth: 2 }]
+      labels: ['新客', '回頭客'],
+      datasets: [{ data: [curNew, curRegular], backgroundColor: ['#3b82f6', '#10b981'], borderWidth: 2 }]
     },
     options: { responsive: true, cutout: '60%', plugins: { legend: { display: false } } }
   });
 
-  const total = cur.newCnt + cur.returnCnt || 1;
+  const total = curNew + curRegular || 1;
   document.getElementById('customer-legend').innerHTML = `
     <div class="d-flex justify-content-between mb-1">
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#3b82f6;margin-right:6px;"></span>新會員（首次登記）</span>
-      <span class="fw-semibold">${cur.newCnt} 人（${((cur.newCnt/total)*100).toFixed(0)}%）</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#3b82f6;margin-right:6px;"></span>新客（首次到訪）</span>
+      <span class="fw-semibold">${curNew} 人（${((curNew/total)*100).toFixed(0)}%）</span>
     </div>
     <div class="d-flex justify-content-between mb-1">
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;margin-right:6px;"></span>回頭客（再次回訪）</span>
-      <span class="fw-semibold">${cur.returnCnt} 人（${((cur.returnCnt/total)*100).toFixed(0)}%）</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;margin-right:6px;"></span>回頭客（曾到訪過）</span>
+      <span class="fw-semibold">${curRegular} 人（${((curRegular/total)*100).toFixed(0)}%）</span>
     </div>
   `;
 
-  // 月比較
-  const newDiff    = cur.newCnt - prev.newCnt;
-  const returnDiff = cur.returnCnt - prev.returnCnt;
+  const newDiff    = curNew - prevNew;
+  const returnDiff = curRegular - prevRegular;
   function diffTag(d) {
     if (d > 0) return `<span style="color:#16a34a">▲ ${d}</span>`;
     if (d < 0) return `<span style="color:#dc2626">▼ ${Math.abs(d)}</span>`;
@@ -585,23 +586,23 @@ function renderCustomerAnalytics(members, startDate, endDate, prevStart, prevEnd
     <div class="row g-2 mb-3">
       <div class="col-6">
         <div class="stat-card" style="padding:0.75rem;">
-          <div class="stat-value text-primary" style="font-size:1.4rem;">${cur.newCnt}</div>
-          <div class="stat-label">本月新會員</div>
-          <div style="font-size:0.75rem;margin-top:0.2rem;">vs 上月 ${prev.newCnt} 人 ${diffTag(newDiff)}</div>
+          <div class="stat-value text-primary" style="font-size:1.4rem;">${curNew}</div>
+          <div class="stat-label">本月新客</div>
+          <div style="font-size:0.75rem;margin-top:0.2rem;">vs 上月 ${prevNew} 人 ${diffTag(newDiff)}</div>
         </div>
       </div>
       <div class="col-6">
         <div class="stat-card" style="padding:0.75rem;">
-          <div class="stat-value text-success" style="font-size:1.4rem;">${cur.returnCnt}</div>
+          <div class="stat-value text-success" style="font-size:1.4rem;">${curRegular}</div>
           <div class="stat-label">本月回頭客</div>
-          <div style="font-size:0.75rem;margin-top:0.2rem;">vs 上月 ${prev.returnCnt} 人 ${diffTag(returnDiff)}</div>
+          <div style="font-size:0.75rem;margin-top:0.2rem;">vs 上月 ${prevRegular} 人 ${diffTag(returnDiff)}</div>
         </div>
       </div>
     </div>
     <div style="background:#f8fafc;border-radius:8px;padding:0.75rem;font-size:0.82rem;color:#475569;line-height:1.6;">
-      <strong style="color:#1e293b;">💡 說明：</strong>回頭客 = 在本月到訪、且本月前已加入會員的顧客。
-      ${cur.returnCnt > prev.returnCnt ? '本月回頭客較上月<strong style="color:#16a34a">增加</strong>，舊客迴流趨勢良好。' :
-        cur.returnCnt < prev.returnCnt ? '本月回頭客較上月<strong style="color:#dc2626">減少</strong>，建議加強舊客召回（LINE 推播、優惠提醒）。' :
+      <strong style="color:#1e293b;">💡 說明：</strong>資料來自 inline 訂位系統，回頭客 = 曾經到訪過的顧客在本月再次回訪。
+      ${curRegular > prevRegular ? '本月回頭客較上月<strong style="color:#16a34a">增加</strong>，舊客迴流趨勢良好。' :
+        curRegular < prevRegular ? '本月回頭客較上月<strong style="color:#dc2626">減少</strong>，建議加強舊客召回（LINE 推播、優惠提醒）。' :
         '本月回頭客人數與上月持平。'}
     </div>
   `;
