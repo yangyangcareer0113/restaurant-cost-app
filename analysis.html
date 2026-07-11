@@ -32,6 +32,9 @@
     .policy-icon { font-size:1.1rem;flex-shrink:0;margin-top:0.05rem; }
     .policy-text { font-size:0.875rem;line-height:1.55;color:#bfdbfe; }
     .policy-text strong { color:#fff; }
+    .peak-chip { display:inline-block;padding:0.25rem 0.65rem;border-radius:8px;font-size:0.78rem;font-weight:600; }
+    .peak-high { background:#fef9c3;color:#92400e; }
+    .peak-low  { background:#f1f5f9;color:#64748b; }
     #empty-hint { display:none; }
   </style>
 </head>
@@ -151,6 +154,18 @@
         </div>
       </div>
 
+      <!-- 時段分析 -->
+      <div class="row g-3 mb-3">
+        <div class="col-12">
+          <div class="table-card" style="padding:1rem;">
+            <div class="fw-semibold mb-1">⏰ 時段客流分析</div>
+            <p style="font-size:0.8rem;color:#94a3b8;margin-bottom:0.75rem;">各小時來客數與營業額（依結帳時間統計）</p>
+            <canvas id="time-chart" height="100"></canvas>
+            <div id="time-summary" class="row g-2 mt-2"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- 品項排行 -->
       <div class="row g-3 mb-3">
         <div class="col-12 col-md-6">
@@ -200,6 +215,7 @@ const DUDOO = {
 let dudooToken = null;
 let dailyChart = null;
 let paymentChart = null;
+let timeChart = null;
 
 // ── 工具 ──────────────────────────────────────────────────
 function fmt(n) { return Number(n || 0).toLocaleString('zh-TW'); }
@@ -265,7 +281,9 @@ async function fetchAll() {
 
     const baseParams = { filterType: 'sales_date', hierarchy_id: DUDOO.hierarchyId, company_id: DUDOO.companyId };
 
-    const [summary, prevSummary, items] = await Promise.all([
+    const timeParams = { start_date: startDate, end_date: endDate, hierarchy_id: DUDOO.hierarchyId, company_id: DUDOO.companyId };
+
+    const [summary, prevSummary, items, timeData] = await Promise.all([
       dudooPost('/statistics/getDashboard?type=reports', { ...baseParams, start_date: startDate, end_date: endDate }),
       dudooPost('/statistics/getDashboard?type=reports', { ...baseParams, start_date: prevStart, end_date: prevEnd }),
       dudooPost(`/statistics/getHotItemList?type=sales_date`, {
@@ -276,10 +294,11 @@ async function fetchAll() {
         mealtype: JSON.stringify([]),
         itemset: JSON.stringify([]),
         category_type: JSON.stringify([]),
-      })
+      }),
+      dudooPost('/reports/getTimeData?type=reports&reference_time=bill_create_time', timeParams),
     ]);
 
-    renderAll(summary, prevSummary, items?.data || [], year, month);
+    renderAll(summary, prevSummary, items?.data || [], Array.isArray(timeData) ? timeData : [], year, month);
 
   } catch(e) {
     alert('資料拉取失敗：' + e.message);
@@ -290,7 +309,7 @@ async function fetchAll() {
   }
 }
 
-function renderAll(s, prev, items, year, month) {
+function renderAll(s, prev, items, timeData, year, month) {
   // ── KPI ──────────────────────────────────────────────
   document.getElementById('kpi-revenue').textContent  = fmt(s.amount);
   document.getElementById('kpi-tables').textContent   = fmt(s.sale_cnt);
@@ -374,11 +393,108 @@ function renderAll(s, prev, items, year, month) {
     </div>`
   ).join('');
 
+  // ── 時段分析 ──────────────────────────────────────────
+  renderTimeData(timeData);
+
   // ── 品項排行 ──────────────────────────────────────────
   renderItems(items);
 
   // ── 政策建議 ──────────────────────────────────────────
   renderPolicy(s, prev, items, month);
+}
+
+function renderTimeData(data) {
+  if (!data || !data.length) {
+    document.getElementById('time-summary').innerHTML = '<p class="text-muted small col-12">無時段資料</p>';
+    return;
+  }
+
+  const sorted = [...data].sort((a, b) => a.hour - b.hour);
+  const hours   = sorted.map(d => `${d.hour}:00`);
+  const amounts  = sorted.map(d => d.amount);
+  const persons  = sorted.map(d => d.person);
+  const maxAmt   = Math.max(...amounts) || 1;
+
+  // 高亮 top 3 時段
+  const top3hours = [...sorted].sort((a,b) => b.amount - a.amount).slice(0, 3).map(d => d.hour);
+  const bgColors = sorted.map(d =>
+    top3hours[0] === d.hour ? '#f59e0b' :
+    top3hours.includes(d.hour) ? '#fbbf24' : '#3b82f6'
+  );
+
+  if (timeChart) timeChart.destroy();
+  const ctx = document.getElementById('time-chart').getContext('2d');
+  timeChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: hours,
+      datasets: [
+        {
+          label: '營業額',
+          data: amounts,
+          backgroundColor: bgColors,
+          borderRadius: 4,
+          yAxisID: 'yAmt',
+        },
+        {
+          label: '來客數',
+          data: persons,
+          type: 'line',
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16,185,129,0.1)',
+          pointRadius: 4,
+          pointBackgroundColor: '#10b981',
+          tension: 0.3,
+          yAxisID: 'yPax',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'top', labels: { font: { size: 11 }, boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.dataset.label === '營業額'
+              ? ` $${ctx.parsed.y.toLocaleString()}`
+              : ` ${ctx.parsed.y} 人`
+          }
+        }
+      },
+      scales: {
+        yAmt: {
+          type: 'linear', position: 'left',
+          ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'k', font: { size: 11 } },
+          grid: { color: '#f1f5f9' },
+        },
+        yPax: {
+          type: 'linear', position: 'right',
+          ticks: { font: { size: 11 } },
+          grid: { display: false },
+        },
+        x: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+  // 摘要：找午餐峰值 / 晚餐峰值 / 離峰
+  const lunch  = sorted.filter(d => d.hour >= 11 && d.hour <= 14).sort((a,b) => b.amount - a.amount)[0];
+  const dinner = sorted.filter(d => d.hour >= 17 && d.hour <= 22).sort((a,b) => b.amount - a.amount)[0];
+  const lowest = sorted.slice().sort((a,b) => a.amount - b.amount)[0];
+
+  const chips = [
+    lunch  ? { label: `午餐高峰 ${lunch.hour}:00`, sub: `$${lunch.amount.toLocaleString()} ／ ${lunch.person} 人`, cls: 'peak-high' }  : null,
+    dinner ? { label: `晚餐高峰 ${dinner.hour}:00`, sub: `$${dinner.amount.toLocaleString()} ／ ${dinner.person} 人`, cls: 'peak-high' } : null,
+    lowest ? { label: `離峰時段 ${lowest.hour}:00`, sub: `$${lowest.amount.toLocaleString()} ／ ${lowest.person} 人`, cls: 'peak-low' }  : null,
+  ].filter(Boolean);
+
+  document.getElementById('time-summary').innerHTML = chips.map(c => `
+    <div class="col-auto">
+      <span class="peak-chip ${c.cls}">${c.label}</span>
+      <span style="font-size:0.78rem;color:#64748b;margin-left:0.4rem;">${c.sub}</span>
+    </div>
+  `).join('');
 }
 
 function renderItems(items) {
