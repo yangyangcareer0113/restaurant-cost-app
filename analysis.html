@@ -318,7 +318,7 @@ async function fetchAll() {
 
     const timeParams = { start_date: startDate, end_date: endDate, hierarchy_id: DUDOO.hierarchyId, company_id: DUDOO.companyId };
 
-    const [summary, prevSummary, items, timeData, curCustomers, prevCustomers] = await Promise.all([
+    const [summary, prevSummary, items, timeData, inlineData] = await Promise.all([
       dudooPost('/statistics/getDashboard?type=reports', { ...baseParams, start_date: startDate, end_date: endDate }),
       dudooPost('/statistics/getDashboard?type=reports', { ...baseParams, start_date: prevStart, end_date: prevEnd }),
       dudooPost(`/statistics/getHotItemList?type=sales_date`, {
@@ -332,10 +332,9 @@ async function fetchAll() {
       }),
       dudooPost('/reports/getTimeData?type=reports&reference_time=bill_create_time', timeParams),
       fetchInlineCustomers(year, month),
-      fetchInlineCustomers(prevYear, prevMonth),
     ]);
 
-    renderAll(summary, prevSummary, items?.data || [], Array.isArray(timeData) ? timeData : [], curCustomers, prevCustomers, startDate, endDate, prevStart, prevEnd, year, month);
+    renderAll(summary, prevSummary, items?.data || [], Array.isArray(timeData) ? timeData : [], inlineData, startDate, endDate, prevStart, prevEnd, year, month);
 
   } catch(e) {
     alert('資料拉取失敗：' + e.message);
@@ -346,7 +345,7 @@ async function fetchAll() {
   }
 }
 
-function renderAll(s, prev, items, timeData, curCustomers, prevCustomers, startDate, endDate, prevStart, prevEnd, year, month) {
+function renderAll(s, prev, items, timeData, inlineData, startDate, endDate, prevStart, prevEnd, year, month) {
   // ── KPI ──────────────────────────────────────────────
   document.getElementById('kpi-revenue').textContent  = fmt(s.amount);
   document.getElementById('kpi-tables').textContent   = fmt(s.sale_cnt);
@@ -434,7 +433,7 @@ function renderAll(s, prev, items, timeData, curCustomers, prevCustomers, startD
   renderTimeData(timeData);
 
   // ── 新舊客分析 ────────────────────────────────────────
-  renderCustomerAnalytics(curCustomers, prevCustomers);
+  renderCustomerAnalytics(inlineData, year, month);
 
   // ── 品項排行 ──────────────────────────────────────────
   renderItems(items);
@@ -537,18 +536,27 @@ function renderTimeData(data) {
   `).join('');
 }
 
-function renderCustomerAnalytics(curData, prevData) {
-  if (!curData || curData.error) {
+function renderCustomerAnalytics(inlineData, year, month) {
+  if (!inlineData || inlineData.error) {
     document.getElementById('customer-legend').innerHTML = '<p class="text-muted small">無法取得 inline 新舊客資料</p>';
     document.getElementById('customer-cmp').innerHTML = '';
     return;
   }
 
-  // inline API 回傳格式：{ count: { new: N, regular: N }, segmentation: [...] }
-  const curNew     = curData.count?.new     || 0;
-  const curRegular = curData.count?.regular || 0;
-  const prevNew     = prevData?.count?.new     || 0;
-  const prevRegular = prevData?.count?.regular || 0;
+  // 從 segmentation 陣列中找出當月與上月資料
+  const seg = inlineData.segmentation || [];
+  const curKey  = `${year}-${String(month).padStart(2,'0')}`;
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear  = month === 1 ? year - 1 : year;
+  const prevKey = `${prevYear}-${String(prevMonth).padStart(2,'0')}`;
+
+  const curSeg  = seg.find(s => s.time === curKey)  || { new: 0, regular: 0 };
+  const prevSeg = seg.find(s => s.time === prevKey) || { new: 0, regular: 0 };
+
+  const curNew     = curSeg.new;
+  const curRegular = curSeg.regular;
+  const prevNew    = prevSeg.new;
+  const prevRegular = prevSeg.regular;
 
   // 圓餅圖
   if (customerChart) customerChart.destroy();
