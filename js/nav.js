@@ -39,6 +39,9 @@ function injectNav() {
         <a href="dishes.html" class="nav-admin-only">
           <span class="nav-icon">🍽️</span> 成品菜單
         </a>
+        <a href="analysis.html" class="nav-admin-only">
+          <span class="nav-icon">🔍</span> 月度分析
+        </a>
         <a href="reports.html" class="nav-admin-only">
           <span class="nav-icon">📈</span> 報表導出
         </a>
