@@ -194,7 +194,8 @@
         ? document.getElementById('store-filter').value || null
         : currentProfile.store_id;
 
-      let q = supabase.from('items').select('*').eq('is_active', true).order('category').order('name');
+      const itemsTable = currentProfile.role === 'admin' ? 'items' : 'items_masked';
+      let q = supabase.from(itemsTable).select('*').eq('is_active', true).order('category').order('name');
       if (storeId) q = q.eq('store_id', storeId);
 
       const { data } = await q;
@@ -224,23 +225,31 @@
         tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-5">尚無品項，點右上角「+ 新增品項」開始建立廠商進貨清單</td></tr>';
         return;
       }
-      tbody.innerHTML = items.map(item => `
+      const isAdmin = currentProfile.role === 'admin';
+      tbody.innerHTML = items.map(item => {
+        const locked = item.is_confidential && !isAdmin;
+        const costCell = locked
+          ? '<span class="text-muted">🔒 機密</span>'
+          : (item.unit_cost > 0 ? `<span class="fw-semibold">$${formatNumber(item.unit_cost, 0)} / ${item.unit}</span>` : '<span class="text-muted">—</span>');
+        const actionsCell = locked
+          ? '<span class="text-muted" style="font-size:0.8rem;">🔒 由總部管理</span>'
+          : `<button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal(${JSON.stringify(item).replace(/"/g, '&quot;')})">編輯</button>
+             <button class="btn btn-sm btn-outline-danger" onclick="toggleActive('${item.id}', false)">移除</button>`;
+        return `
         <tr>
           <td data-label="品項名稱"><strong>${item.name}</strong></td>
           <td data-label="類別"><span class="badge bg-light text-secondary border">${item.category || '—'}</span></td>
           <td data-label="廠商">${item.supplier || '<span class="text-muted">—</span>'}</td>
           <td data-label="單位">${item.unit}</td>
-          <td data-label="標準單位成本">${item.unit_cost > 0 ? `<span class="fw-semibold">$${formatNumber(item.unit_cost, 0)} / ${item.unit}</span>` : '<span class="text-muted">—</span>'}</td>
+          <td data-label="標準單位成本">${costCell}</td>
           <td data-label="規格說明" class="text-muted" style="font-size:0.85rem;">${item.spec_note || '—'}</td>
           <td data-label="安全庫存">${formatNumber(item.min_stock_qty, 0)} ${item.unit}</td>
           <td data-label="ABC">
             <span class="badge ${item.abc_class === 'A' ? 'bg-danger' : item.abc_class === 'C' ? 'bg-secondary' : 'bg-warning text-dark'}">${item.abc_class || 'B'}</span>
           </td>
-          <td data-label="操作">
-            <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal(${JSON.stringify(item).replace(/"/g, '&quot;')})">編輯</button>
-            <button class="btn btn-sm btn-outline-danger" onclick="toggleActive('${item.id}', false)">移除</button>
-          </td>
-        </tr>`).join('');
+          <td data-label="操作">${actionsCell}</td>
+        </tr>`;
+      }).join('');
     }
 
     function updateBomHint() {

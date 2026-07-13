@@ -131,9 +131,10 @@ let semisData = {};
 let allDishes = [];
 let currentDish = null;
 let currentBomLines = [];
+let currentDishTrueCost = null; // 非 admin 用 RPC 算出的真實總成本（機密品項成本也算在內，但不外洩明細）
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await requireAdmin();
+  await requireAuth();
   injectNav();
   const data = await renderUserInfo();
   currentProfile = data.profile;
@@ -144,8 +145,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadRefData() {
   const sid = currentProfile.store_id;
+  const isAdmin = currentProfile.role === 'admin';
+  const itemsTable = isAdmin ? 'items' : 'items_masked';
   const [{ data: items }, { data: semis }] = await Promise.all([
-    supabase.from('items').select('id,name,unit,unit_cost,bom_unit,bom_conversion,category').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
+    supabase.from(itemsTable).select('id,name,unit,unit_cost,bom_unit,bom_conversion,category,is_confidential').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
     supabase.from('semi_products').select('id,name,category,output_qty,output_unit').eq('store_id',sid).eq('is_active',true).order('name')
   ]);
   (items||[]).forEach(i => { itemsData[i.id] = i; });
@@ -210,6 +213,13 @@ async function selectDish(id) {
   renderDishList();
   const { data } = await supabase.from('bom_lines').select('*').eq('parent_type','dish').eq('parent_id', id).order('sort_order').order('created_at');
   currentBomLines = data || [];
+
+  currentDishTrueCost = null;
+  if (currentProfile.role !== 'admin') {
+    const { data: rpcCost } = await supabase.rpc('dish_total_cost', { p_dish_id: id });
+    currentDishTrueCost = rpcCost;
+  }
+
   renderRightPanel();
 }
 
@@ -241,9 +251,11 @@ function getChildName(line) {
 
 function buildChildOpts(type) {
   if (type === 'item') {
-    return Object.values(itemsData).map(i =>
-      `<option value="${i.id}" data-unit="${i.bom_unit||'g'}" data-cpu="${(i.unit_cost/(i.bom_conversion||1)).toFixed(4)}">${i.name}（${i.unit}）</option>`
-    ).join('');
+    return Object.values(itemsData).map(i => {
+      const locked = i.is_confidential && currentProfile.role !== 'admin';
+      const cpu = locked ? '' : (i.unit_cost / (i.bom_conversion || 1)).toFixed(4);
+      return `<option value="${i.id}" data-unit="${i.bom_unit||'g'}" data-cpu="${cpu}" data-locked="${locked?'1':''}">${i.name}（${i.unit}）${i.is_confidential ? ' 🔒' : ''}</option>`;
+    }).join('');
   }
   return Object.values(semisData).map(s =>
     `<option value="${s.id}" data-unit="${s.output_unit}" data-cpu="${s.costPerUnit.toFixed(4)}">${s.name}</option>`
@@ -252,7 +264,10 @@ function buildChildOpts(type) {
 
 function renderRightPanel() {
   const d = currentDish;
-  const totalCost = currentBomLines.reduce((s, l) => s + calcLineCost(l), 0);
+  const isAdmin = currentProfile.role === 'admin';
+  const totalCost = (!isAdmin && currentDishTrueCost !== null)
+    ? currentDishTrueCost
+    : currentBomLines.reduce((s, l) => s + calcLineCost(l), 0);
   const costRate = d.selling_price > 0 ? totalCost / d.selling_price * 100 : null;
   const margin   = d.selling_price > 0 ? d.selling_price - totalCost : null;
 
@@ -311,6 +326,8 @@ function renderRightPanel() {
                 <tbody>
                   ${currentBomLines.map(line => {
                     const lineCost = calcLineCost(line);
+                    const linkedItem = line.child_type === 'item' ? itemsData[line.child_id] : null;
+                    const locked = !isAdmin && linkedItem && linkedItem.is_confidential;
                     const typeBadge = line.child_type === 'item'
                       ? '<span class="tag-single">原物料</span>'
                       : '<span class="tag-set">半成品</span>';
@@ -319,8 +336,8 @@ function renderRightPanel() {
                       <td>${typeBadge}</td>
                       <td style="font-size:0.82rem;">${formatNumber(line.std_qty,2)} ${line.bom_unit}</td>
                       <td style="font-size:0.82rem;">${line.waste_rate?line.waste_rate+'%':'—'}</td>
-                      <td class="text-end fw-semibold text-success" style="font-size:0.88rem;">$${formatNumber(lineCost,1)}</td>
-                      <td><button class="btn btn-outline-danger" style="padding:1px 7px;font-size:0.72rem;border-radius:4px;" onclick="deleteBomLine('${line.id}')">×</button></td>
+                      <td class="text-end fw-semibold text-success" style="font-size:0.88rem;">${locked ? '🔒 機密' : `$${formatNumber(lineCost,1)}`}</td>
+                      <td>${locked ? '' : `<button class="btn btn-outline-danger" style="padding:1px 7px;font-size:0.72rem;border-radius:4px;" onclick="deleteBomLine('${line.id}')">×</button>`}</td>
                     </tr>`;
                   }).join('')}
                 </tbody>
@@ -405,6 +422,7 @@ function updateCostPreview() {
   const prev  = document.getElementById('cost-preview');
   if (!prev) return;
   if (!opt?.value || qty <= 0) { prev.textContent = ''; return; }
+  if (opt.dataset.locked) { prev.textContent = '此項目成本 🔒 由總部管理'; return; }
   const cpu  = parseFloat(opt.dataset.cpu) || 0;
   const unit = document.getElementById('add-bom-unit').value || '—';
   prev.textContent = `此項目預估成本：$${formatNumber(cpu * qty * (1 + waste/100), 1)} （$${formatNumber(cpu,3)} / ${unit}）`;

@@ -185,9 +185,13 @@
         ? document.getElementById('store-filter').value || null
         : currentProfile.store_id;
 
-      let q = supabase.from('items').select('id,name,unit,unit_cost,supplier,spec_note,category').eq('is_active', true).order('category').order('name');
+      const isAdmin = currentProfile.role === 'admin';
+      let q = supabase.from('items').select('id,name,unit,unit_cost,supplier,spec_note,category,is_confidential').eq('is_active', true).order('category').order('name');
       if (storeId) q = q.eq('store_id', storeId);
       const { data } = await q;
+
+      // 機密品項（大陸進貨）由總部自行登錄進貨記錄，門店帳號不列入選單
+      const visibleItems = isAdmin ? (data || []) : (data || []).filter(i => !i.is_confidential);
 
       itemsMap = {};
       const sel = document.getElementById('rec-item');
@@ -195,7 +199,7 @@
 
       // 依類別分組
       const grouped = {};
-      (data||[]).forEach(i => {
+      visibleItems.forEach(i => {
         itemsMap[i.id] = i;
         const cat = i.category || '其他';
         if (!grouped[cat]) grouped[cat] = [];
@@ -299,15 +303,20 @@
         ? document.getElementById('store-filter').value || null
         : currentProfile.store_id;
 
-      let q = supabase.from('inventory_records')
-        .select('*, items(name, unit, category, supplier)')
-        .order('created_at', { ascending: false });
+      const isAdmin = currentProfile.role === 'admin';
+      let q = isAdmin
+        ? supabase.from('inventory_records').select('*, items(name, unit, category, supplier)').order('created_at', { ascending: false })
+        : supabase.from('inventory_records_masked').select('*').order('created_at', { ascending: false });
 
       if (storeId) q = q.eq('store_id', storeId);
       if (dateFilter) q = q.eq('record_date', dateFilter);
 
       const { data } = await q;
-      const records = data || [];
+      // 統一格式：admin 用巢狀 items(...)，門店帳號用遮蔽 view 的扁平欄位
+      const records = (data || []).map(r => isAdmin ? r : {
+        ...r,
+        items: { name: r.item_name, unit: r.item_unit, category: r.item_category, supplier: r.item_supplier }
+      });
 
       // 更新日期顯示
       if (dateFilter) {
@@ -330,15 +339,16 @@
       }
 
       tbody.innerHTML = records.map(r => {
-        const unitCost = r.purchase_qty > 0 ? r.purchase_cost / r.purchase_qty : 0;
+        const masked = r.purchase_cost === null || r.purchase_cost === undefined;
+        const unitCost = !masked && r.purchase_qty > 0 ? r.purchase_cost / r.purchase_qty : 0;
         return `
           <tr>
             <td data-label="品項"><strong>${r.items?.name || '—'}</strong></td>
             <td data-label="類別"><span class="badge bg-light text-secondary border" style="font-size:0.72rem;">${r.items?.category || '—'}</span></td>
             <td data-label="廠商" class="text-muted" style="font-size:0.85rem;">${r.items?.supplier || '—'}</td>
             <td data-label="數量"><span class="fw-semibold">${formatNumber(r.purchase_qty, 2)}</span> ${r.items?.unit || ''}</td>
-            <td data-label="單位成本" class="text-muted">$${formatNumber(unitCost, 0)}</td>
-            <td data-label="總金額"><strong class="text-success">$${formatNumber(r.purchase_cost, 0)}</strong></td>
+            <td data-label="單位成本" class="text-muted">${masked ? '🔒 機密' : `$${formatNumber(unitCost, 0)}`}</td>
+            <td data-label="總金額">${masked ? '<span class="text-muted">🔒 機密</span>' : `<strong class="text-success">$${formatNumber(r.purchase_cost, 0)}</strong>`}</td>
             <td data-label="備註" class="text-muted" style="font-size:0.82rem;">${r.notes || '—'}</td>
             <td><button class="btn btn-sm btn-outline-danger" onclick="deleteRecord('${r.id}')">刪除</button></td>
           </tr>`;
