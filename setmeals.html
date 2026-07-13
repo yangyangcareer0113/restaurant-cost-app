@@ -102,24 +102,36 @@
       <div class="modal-body">
         <input type="hidden" id="smi-id">
         <input type="hidden" id="smi-meal-id">
-        <div class="mb-3">
-          <label class="form-label fw-semibold">品項名稱 <span class="text-danger">*</span></label>
-          <div class="input-group">
-            <select id="smi-item-select" class="form-select" onchange="onItemSelect()">
-              <option value="">— 手動輸入 —</option>
-            </select>
-          </div>
-          <input type="text" id="smi-name" class="form-control mt-1" placeholder="或直接輸入名稱（未在品項庫中的也可填）">
+        <div class="mb-3" id="smi-dish-wrap">
+          <label class="form-label fw-semibold">選擇品項 <span class="text-danger">*</span></label>
+          <select id="smi-dish-select" class="form-select" onchange="onPickerChange()">
+            <option value="">— 請選擇成品菜單或原物料 —</option>
+          </select>
+          <div class="form-text">🍽️ 成品菜單＝套餐內的其他菜品；🧾 原物料＝鍋底/湯鍋內的食材、藥材</div>
+          <div class="form-text">找不到想要的品項？<a href="#" onclick="event.preventDefault(); toggleManualEntry();">改用手動輸入</a></div>
+        </div>
+        <div class="mb-3 d-none" id="manual-entry-wrap">
+          <label class="form-label fw-semibold">手動輸入品項名稱</label>
+          <input type="text" id="smi-name" class="form-control" placeholder="例：加購飲料、季節限定小菜">
+          <div class="form-text">找到了？<a href="#" onclick="event.preventDefault(); toggleManualEntry();">改回選單選擇</a></div>
         </div>
         <div class="row g-2 mb-3">
           <div class="col-6">
-            <label class="form-label fw-semibold">成本估算（元）</label>
-            <input type="number" id="smi-cost" class="form-control" min="0" step="0.01" value="0">
+            <label class="form-label fw-semibold">數量</label>
+            <input type="number" id="smi-qty" class="form-control" min="0.1" step="1" value="1" oninput="updateCostPreview()">
           </div>
           <div class="col-6">
             <label class="form-label fw-semibold">選項組（選填）</label>
             <input type="text" id="smi-group" class="form-control" placeholder="例：鍋底選一">
           </div>
+        </div>
+        <div class="mb-3 d-none" id="admin-cost-wrap">
+          <label class="form-label fw-semibold">成本估算（元）</label>
+          <input type="number" id="smi-cost" class="form-control" min="0" step="0.01" value="0" oninput="updateCostPreview()">
+        </div>
+        <div class="mb-3 p-2 bg-light rounded d-flex justify-content-between align-items-center">
+          <span class="text-muted" style="font-size:0.85rem;">此品項預估成本</span>
+          <strong id="cost-preview">—</strong>
         </div>
         <div class="mb-3">
           <label class="form-label fw-semibold">備注</label>
@@ -142,7 +154,12 @@
 <script>
   let currentProfile = null;
   let allMeals = [];
-  let allLibItems = []; // items from items table for dropdown
+  let allDishes = [];       // 成品菜單品項，供「選擇菜品」下拉選單使用
+  let dishCostMap = {};     // dish_id → 真實總成本（來自 dishes_total_cost RPC）
+  let allItems = [];        // 原物料（含中藥材等機密品項），供「選擇原物料」下拉選單使用
+  let allItemsMap = {};     // item_id → {name, unit, unit_cost, is_confidential}（非 admin 機密品項 unit_cost 為 null）
+  let mealTrueCost = {};    // set_meal_id → 真實總成本（來自 set_meals_total_cost RPC）
+  let manualMode = false;
 
   const RC = {
     star:   { badge: 'bom-star',   label: '⭐ 優秀'   },
@@ -162,7 +179,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
-    await requireAdmin();
+    await requireAuth();
     injectNav();
     const d = await renderUserInfo();
     currentProfile = d.profile;
@@ -180,25 +197,65 @@
       document.getElementById('meal-store-wrap').classList.remove('d-none');
     }
 
-    // Load items library for dropdown
-    const { data: libData } = await supabase.from('items').select('id,name,cost_low,cost_high').eq('is_active', true).order('name');
-    allLibItems = libData || [];
-    const smiSel = document.getElementById('smi-item-select');
-    allLibItems.forEach(i => smiSel.insertAdjacentHTML('beforeend', `<option value="${i.id}" data-cost="${i.cost_high || i.cost_low || 0}">${i.name}</option>`));
+    // 載入成品菜單（供「選擇菜品」下拉選單使用，例如套餐裡包哪些成品菜）
+    const isAdmin = currentProfile.role === 'admin';
+    let dishQ = supabase.from('dishes').select('id,name,category,store_id,selling_price').eq('is_active', true).order('category').order('name');
+    if (!isAdmin) dishQ = dishQ.eq('store_id', currentProfile.store_id);
+    const { data: dishData } = await dishQ;
+    allDishes = dishData || [];
+
+    // 載入原物料（供「選擇原物料」下拉選單使用，例如鍋底/湯鍋裡用了哪些中藥材）
+    // 非 admin 用遮蔽 view：機密品項名稱看得到、可以選，但 unit_cost 會是 null（前端不會算出金額）
+    const itemsTable = isAdmin ? 'items' : 'items_masked';
+    let itemsQ = supabase.from(itemsTable).select('id,name,category,unit,unit_cost,is_confidential').eq('is_active', true).order('category').order('name');
+    if (!isAdmin) itemsQ = itemsQ.eq('store_id', currentProfile.store_id);
+    const { data: itemsData } = await itemsQ;
+    allItems = itemsData || [];
+    allItemsMap = {};
+    allItems.forEach(i => { allItemsMap[i.id] = i; });
 
     await loadMeals();
   });
 
   async function loadMeals() {
-    const storeId = currentProfile.role === 'admin'
+    const isAdmin = currentProfile.role === 'admin';
+    const storeId = isAdmin
       ? document.getElementById('store-filter').value || null
       : currentProfile.store_id;
 
-    let q = supabase.from('set_meals').select('*, set_meal_items(*)').order('name');
-    if (storeId) q = q.eq('store_id', storeId);
+    if (isAdmin) {
+      let q = supabase.from('set_meals').select('*, set_meal_items(*)').order('name');
+      if (storeId) q = q.eq('store_id', storeId);
+      const { data } = await q;
+      allMeals = data || [];
+    } else {
+      // 門店帳號：套餐主檔 + 遮蔽後的品項明細分開查（view 沒有 FK metadata 不能用 embed 語法），
+      // 前端用 set_meal_id 手動組回去
+      let q = supabase.from('set_meals').select('*');
+      if (storeId) q = q.eq('store_id', storeId);
+      const { data: meals } = await q;
+      const mealIds = (meals || []).map(m => m.id);
+      let smiRows = [];
+      if (mealIds.length) {
+        const { data } = await supabase.from('set_meal_items_masked').select('*').in('set_meal_id', mealIds);
+        smiRows = data || [];
+      }
+      allMeals = (meals || []).map(m => ({ ...m, set_meal_items: smiRows.filter(r => r.set_meal_id === m.id) }));
+    }
 
-    const { data } = await q;
-    allMeals = data || [];
+    // 套餐總成本 & 菜品成本一律用資料庫 RPC 算出的真實值（含機密品項成本在內，但不外洩明細）
+    const storeIds = [...new Set(allMeals.map(m => m.store_id).filter(Boolean))];
+    mealTrueCost = {};
+    dishCostMap = {};
+    await Promise.all(storeIds.map(async sid => {
+      const [{ data: mealRows }, { data: dishRows }] = await Promise.all([
+        supabase.rpc('set_meals_total_cost', { p_store_id: sid }),
+        supabase.rpc('dishes_total_cost', { p_store_id: sid })
+      ]);
+      (mealRows || []).forEach(r => { mealTrueCost[r.set_meal_id] = r.total_cost; });
+      (dishRows || []).forEach(r => { dishCostMap[r.dish_id] = r.total_cost; });
+    }));
+
     renderMeals(allMeals);
   }
 
@@ -209,9 +266,12 @@
       return;
     }
 
+    const isAdmin = currentProfile.role === 'admin';
     container.innerHTML = meals.map(meal => {
       const items = meal.set_meal_items || [];
-      const totalCost = items.reduce((s, i) => s + (i.cost_est || 0), 0);
+      const totalCost = mealTrueCost[meal.id] !== undefined
+        ? mealTrueCost[meal.id]
+        : items.reduce((s, i) => s + (i.dish_id ? (dishCostMap[i.dish_id] || 0) * (i.qty || 1) : (i.cost_est || 0)), 0);
       const rate = meal.price > 0 ? (totalCost / meal.price * 100) : 0;
       const rKey = items.length ? ratingFromRate(rate) : 'unk';
       const rc = RC[rKey];
@@ -264,20 +324,27 @@
               </tr>
             </thead>
             <tbody>
-              ${items.length ? items.sort((a,b)=>a.sort_order-b.sort_order).map(it => `
+              ${items.length ? items.sort((a,b)=>a.sort_order-b.sort_order).map(it => {
+                const isDishBased = !!it.dish_id;
+                // set_meal_items_masked view 已經把機密品項連結的 cost_est 遮成 null；admin 端一定看得到真實值
+                const locked = !isDishBased && !isAdmin && it.item_id && (it.cost_est === null || it.cost_est === undefined);
+                const lineCost = isDishBased ? (dishCostMap[it.dish_id] || 0) * (it.qty || 1) : (it.cost_est || 0);
+                const qtyTag = it.qty && it.qty != 1 ? ` × ${formatNumber(it.qty, 0)}` : '';
+                return `
                 <tr>
-                  <td>${it.item_name}</td>
+                  <td>${it.item_name}${qtyTag}</td>
                   <td class="text-muted">${it.choice_group || '—'}</td>
-                  <td class="fw-bold">$${formatNumber(it.cost_est, 0)}</td>
+                  <td class="fw-bold">${locked ? '🔒 機密' : `$${formatNumber(lineCost, 0)}`}</td>
                   <td class="text-muted">${it.notes || '—'}</td>
                   <td>
+                    ${locked ? '<span class="text-muted" style="font-size:0.78rem;">🔒 由總部管理</span>' : `
                     <button class="btn btn-xs btn-outline-primary btn-sm py-0 px-2 me-1"
                       onclick="openEditSmiModal(${JSON.stringify(it).replace(/"/g,'&quot;')})">編輯</button>
                     <button class="btn btn-xs btn-outline-danger btn-sm py-0 px-2"
-                      onclick="deleteSmi('${it.id}', '${meal.id}')">刪除</button>
+                      onclick="deleteSmi('${it.id}', '${meal.id}')">刪除</button>`}
                   </td>
                 </tr>
-              `).join('') : '<tr><td colspan="5" class="text-center text-muted">尚無品項，點「新增品項」開始建立 BOM</td></tr>'}
+              `;}).join('') : '<tr><td colspan="5" class="text-center text-muted">尚無品項，點「新增品項」開始建立 BOM</td></tr>'}
             </tbody>
             ${items.length ? `
             <tfoot>
@@ -356,15 +423,118 @@
 
   // ---- BOM 品項 CRUD ----
 
+  function populateDishSelect(storeId) {
+    const sel = document.getElementById('smi-dish-select');
+    sel.innerHTML = '<option value="">— 請選擇品項 —</option>';
+
+    // 成品菜單（套餐/雙人餐等由其他菜品組成的品項）
+    const dishGroups = {};
+    allDishes.filter(d => !storeId || d.store_id === storeId).forEach(d => {
+      const cat = '🍽️ ' + (d.category || '其他');
+      (dishGroups[cat] = dishGroups[cat] || []).push(d);
+    });
+    Object.entries(dishGroups).forEach(([cat, list]) => {
+      const og = document.createElement('optgroup');
+      og.label = cat;
+      list.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = 'dish:' + d.id;
+        opt.textContent = d.name;
+        og.appendChild(opt);
+      });
+      sel.appendChild(og);
+    });
+
+    // 原物料（鍋底/湯鍋等由食材、藥材組成的品項；機密品項名稱看得到，成本會遮蔽）
+    const itemGroups = {};
+    allItems.forEach(i => {
+      const cat = '🧾 ' + (i.category || '其他');
+      (itemGroups[cat] = itemGroups[cat] || []).push(i);
+    });
+    Object.entries(itemGroups).forEach(([cat, list]) => {
+      const og = document.createElement('optgroup');
+      og.label = cat;
+      list.forEach(i => {
+        const opt = document.createElement('option');
+        opt.value = 'item:' + i.id;
+        opt.textContent = i.name + (i.is_confidential ? ' 🔒' : '');
+        og.appendChild(opt);
+      });
+      sel.appendChild(og);
+    });
+  }
+
+  function toggleManualEntry() {
+    manualMode = !manualMode;
+    document.getElementById('manual-entry-wrap').classList.toggle('d-none', !manualMode);
+    document.getElementById('smi-dish-wrap').classList.toggle('d-none', manualMode);
+    if (manualMode) document.getElementById('smi-dish-select').value = '';
+    else document.getElementById('smi-name').value = '';
+    updateCostPreview();
+  }
+
+  // 選單改變時：若選到非機密原物料，用真實單位成本 × 數量帶入建議成本（可再手動覆蓋）
+  function onPickerChange() {
+    const val = document.getElementById('smi-dish-select').value;
+    if (val) {
+      const [type, pid] = val.split(':');
+      if (type === 'item') {
+        const item = allItemsMap[pid];
+        const locked = item && item.is_confidential && currentProfile.role !== 'admin';
+        if (!locked) {
+          const qty = parseFloat(document.getElementById('smi-qty').value) || 1;
+          document.getElementById('smi-cost').value = Math.round((item?.unit_cost || 0) * qty);
+        }
+      }
+    }
+    updateCostPreview();
+  }
+
+  function updateCostPreview() {
+    const preview = document.getElementById('cost-preview');
+    const wrap = document.getElementById('admin-cost-wrap');
+    const qty = parseFloat(document.getElementById('smi-qty').value) || 1;
+
+    if (manualMode) {
+      wrap.classList.remove('d-none');
+      const cost = parseFloat(document.getElementById('smi-cost').value) || 0;
+      preview.textContent = '$' + formatNumber(cost, 0);
+      return;
+    }
+
+    const val = document.getElementById('smi-dish-select').value;
+    if (!val) { wrap.classList.add('d-none'); preview.textContent = '—'; return; }
+    const [type, pid] = val.split(':');
+    if (type === 'dish') {
+      wrap.classList.add('d-none');
+      preview.textContent = '$' + formatNumber((dishCostMap[pid] || 0) * qty, 0);
+      return;
+    }
+    // type === 'item'：非機密品項可手動輸入/覆蓋成本；機密品項鎖住
+    const item = allItemsMap[pid];
+    const locked = item && item.is_confidential && currentProfile.role !== 'admin';
+    wrap.classList.toggle('d-none', locked);
+    if (locked) { preview.textContent = '🔒 由總部設定'; return; }
+    const cost = parseFloat(document.getElementById('smi-cost').value) || 0;
+    preview.textContent = '$' + formatNumber(cost, 0);
+  }
+
   function openAddSmiModal(mealId) {
     document.getElementById('smi-modal-title').textContent = '新增品項';
     document.getElementById('smi-id').value = '';
     document.getElementById('smi-meal-id').value = mealId;
-    document.getElementById('smi-item-select').value = '';
     document.getElementById('smi-name').value = '';
+    document.getElementById('smi-qty').value = '1';
     document.getElementById('smi-cost').value = '0';
     document.getElementById('smi-group').value = '';
     document.getElementById('smi-notes').value = '';
+    manualMode = false;
+    document.getElementById('manual-entry-wrap').classList.add('d-none');
+    document.getElementById('smi-dish-wrap').classList.remove('d-none');
+    const meal = allMeals.find(m => m.id === mealId);
+    populateDishSelect(meal ? meal.store_id : currentProfile.store_id);
+    document.getElementById('smi-dish-select').value = '';
+    updateCostPreview();
     new bootstrap.Modal(document.getElementById('smiModal')).show();
   }
 
@@ -372,33 +542,62 @@
     document.getElementById('smi-modal-title').textContent = '編輯品項';
     document.getElementById('smi-id').value = item.id;
     document.getElementById('smi-meal-id').value = item.set_meal_id;
-    document.getElementById('smi-item-select').value = item.item_id || '';
-    document.getElementById('smi-name').value = item.item_name;
-    document.getElementById('smi-cost').value = item.cost_est || 0;
+    document.getElementById('smi-qty').value = item.qty || 1;
     document.getElementById('smi-group').value = item.choice_group || '';
     document.getElementById('smi-notes').value = item.notes || '';
-    new bootstrap.Modal(document.getElementById('smiModal')).show();
-  }
 
-  function onItemSelect() {
-    const sel = document.getElementById('smi-item-select');
-    const opt = sel.options[sel.selectedIndex];
-    if (opt.value) {
-      document.getElementById('smi-name').value = opt.text;
-      const cost = parseFloat(opt.dataset.cost) || 0;
-      if (cost > 0) document.getElementById('smi-cost').value = cost;
+    const meal = allMeals.find(m => m.id === item.set_meal_id);
+    populateDishSelect(meal ? meal.store_id : currentProfile.store_id);
+
+    manualMode = !item.dish_id && !item.item_id;
+    document.getElementById('manual-entry-wrap').classList.toggle('d-none', !manualMode);
+    document.getElementById('smi-dish-wrap').classList.toggle('d-none', manualMode);
+
+    if (manualMode) {
+      document.getElementById('smi-dish-select').value = '';
+      document.getElementById('smi-name').value = item.item_name;
+      document.getElementById('smi-cost').value = item.cost_est || 0;
+    } else {
+      document.getElementById('smi-dish-select').value = item.dish_id ? ('dish:' + item.dish_id) : ('item:' + item.item_id);
+      document.getElementById('smi-name').value = '';
+      document.getElementById('smi-cost').value = item.cost_est || 0;
     }
+    updateCostPreview();
+    new bootstrap.Modal(document.getElementById('smiModal')).show();
   }
 
   async function saveSmi() {
     const id = document.getElementById('smi-id').value;
     const mealId = document.getElementById('smi-meal-id').value;
-    const itemId = document.getElementById('smi-item-select').value || null;
-    const name = document.getElementById('smi-name').value.trim();
-    if (!name) { showToast('請填寫品項名稱', 'danger'); return; }
+    const qty = parseFloat(document.getElementById('smi-qty').value) || 1;
+
+    let dishId = null, itemId = null, name, costEst;
+    if (!manualMode) {
+      const val = document.getElementById('smi-dish-select').value;
+      if (!val) { showToast('請選擇品項', 'danger'); return; }
+      const [type, pid] = val.split(':');
+      if (type === 'dish') {
+        const dish = allDishes.find(d => d.id === pid);
+        if (!dish) { showToast('請選擇菜品', 'danger'); return; }
+        dishId = pid; name = dish.name;
+        costEst = null; // 套餐內的成品菜，成本由 dish_total_cost 自動算，不存手動值
+      } else {
+        const item = allItemsMap[pid];
+        if (!item) { showToast('請選擇原物料', 'danger'); return; }
+        itemId = pid; name = item.name;
+        const locked = item.is_confidential && currentProfile.role !== 'admin';
+        // 非機密原物料：員工自己輸入的成本估算；機密品項員工端不存值，由總部另外填
+        costEst = locked ? null : (parseFloat(document.getElementById('smi-cost').value) || 0);
+      }
+    } else {
+      name = document.getElementById('smi-name').value.trim();
+      if (!name) { showToast('請選擇品項或輸入品項名稱', 'danger'); return; }
+      costEst = parseFloat(document.getElementById('smi-cost').value) || 0;
+    }
+
     const payload = {
-      set_meal_id: mealId, item_id: itemId, item_name: name,
-      cost_est: parseFloat(document.getElementById('smi-cost').value) || 0,
+      set_meal_id: mealId, dish_id: dishId, item_id: itemId, item_name: name, qty,
+      cost_est: costEst,
       choice_group: document.getElementById('smi-group').value.trim() || null,
       notes: document.getElementById('smi-notes').value.trim() || null,
     };

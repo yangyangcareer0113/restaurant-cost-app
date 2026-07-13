@@ -32,11 +32,14 @@ function injectNav() {
         <a href="bom.html" class="nav-not-accountant">
           <span class="nav-icon">🧾</span> 成本 BOM
         </a>
+        <a href="setmeals.html" class="nav-not-accountant">
+          <span class="nav-icon">🎉</span> 套餐管理
+        </a>
         <!-- 以下僅 admin 可見 -->
         <a href="semis.html" class="nav-admin-only">
           <span class="nav-icon">🥣</span> 半成品
         </a>
-        <a href="dishes.html" class="nav-admin-only">
+        <a href="dishes.html" class="nav-not-accountant">
           <span class="nav-icon">🍽️</span> 成品菜單
         </a>
         <a href="analysis.html" class="nav-admin-only">

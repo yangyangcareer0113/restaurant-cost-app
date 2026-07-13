@@ -207,6 +207,7 @@ let semisData = {};    // id → semi with costPerUnit
 let semiLinesData = {};// semiId → [{line, item}]
 let allDishes = [];
 let dishLinesData = {};// dishId → lines[]
+let dishTrueCost = {}; // dishId → 真實總成本（非 admin 用 RPC 覆蓋遮蔽後的加總誤差）
 let allItems = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -225,15 +226,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadAllData() {
   const sid = currentProfile.store_id;
+  const isAdmin = currentProfile.role === 'admin';
+  const itemsTable = isAdmin ? 'items' : 'items_masked';
 
   const [{ data: items }, { data: semis }, { data: dishes }] = await Promise.all([
-    supabase.from('items').select('id,name,unit,unit_cost,bom_unit,bom_conversion,category,supplier,spec_note,min_stock_qty').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
+    supabase.from(itemsTable).select('id,name,unit,unit_cost,bom_unit,bom_conversion,category,supplier,spec_note,min_stock_qty,is_confidential').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
     supabase.from('semi_products').select('id,name,category,output_qty,output_unit').eq('store_id',sid).eq('is_active',true).order('name'),
     supabase.from('dishes').select('*').eq('store_id',sid).eq('is_active',true).order('category').order('name')
   ]);
 
   allItems = items || [];
   allItems.forEach(i => { itemsData[i.id] = i; });
+
+  // 非 admin：機密品項的 unit_cost 已在資料庫端被遮蔽為 null，
+  // 菜品/套餐的「總成本」改用資料庫 RPC 算出的真實值覆蓋，畫面上單項成本維持遮蔽
+  dishTrueCost = {};
+  if (!isAdmin) {
+    const { data: rows } = await supabase.rpc('dishes_total_cost', { p_store_id: sid });
+    (rows || []).forEach(r => { dishTrueCost[r.dish_id] = r.total_cost; });
+  }
 
   // Semi-products cost calculation
   const semiIds = (semis||[]).map(s => s.id);
@@ -321,10 +332,15 @@ function renderDishBOM() {
   const cat     = document.getElementById('dish-cat-filter')?.value || '';
   const rateFlt = document.getElementById('dish-rate-filter')?.value || '';
 
+  const isAdmin = currentProfile.role === 'admin';
   let good = 0, warn = 0, high = 0;
   const dishesWithCost = allDishes.map(d => {
     const lines = dishLinesData[d.id] || [];
-    const totalCost = lines.length ? lines.reduce((s, l) => s + calcDishLineCost(l), 0) : null;
+    // 非 admin：只要有品項就一定有真實總成本（RPC 已對整店算好），優先採用；
+    // 避免因機密品項單價被遮蔽而讓前端加總失真
+    const totalCost = lines.length
+      ? (!isAdmin && dishTrueCost[d.id] !== undefined ? dishTrueCost[d.id] : lines.reduce((s, l) => s + calcDishLineCost(l), 0))
+      : null;
     const costRate = (totalCost !== null && d.selling_price > 0) ? totalCost / d.selling_price * 100 : null;
     if (costRate !== null) {
       if (costRate <= 30) good++;
@@ -371,31 +387,34 @@ function renderDishBOM() {
         const lineCost = calcDishLineCost(line);
         if (line.child_type === 'item') {
           const item = itemsData[line.child_id];
+          const locked = item?.is_confidential && !isAdmin;
           const cpu = item?.unit_cost && item?.bom_conversion > 0 ? item.unit_cost / item.bom_conversion : 0;
           treeRows += `<div class="bom-tree-row">
             <div class="bom-name"><span style="color:#94a3b8;margin-right:6px;">▸</span>${item?.name||'—'}</div>
             <div class="bom-qty">${formatNumber(line.std_qty,2)} ${line.bom_unit}${line.waste_rate?` (+${line.waste_rate}%)`:''}</div>
-            <div class="bom-unit-cost">$${formatNumber(cpu,3)}/${line.bom_unit}</div>
-            <div class="bom-line-cost">$${formatNumber(lineCost,1)}</div>
+            <div class="bom-unit-cost">${locked ? '🔒 機密' : `$${formatNumber(cpu,3)}/${line.bom_unit}`}</div>
+            <div class="bom-line-cost">${locked ? '🔒' : `$${formatNumber(lineCost,1)}`}</div>
           </div>`;
         } else {
           const semi = semisData[line.child_id];
+          const semiLocked = !isAdmin && (semiLinesData[line.child_id] || []).some(sl => itemsData[sl.child_id]?.is_confidential);
           treeRows += `<div class="bom-tree-row semi-header-row">
             <div class="bom-name" style="flex:3;"><span style="color:#16a34a;margin-right:6px;">◈</span>${semi?.name||'半成品'} <span style="font-size:0.7rem;color:#6b7280;">× ${formatNumber(line.std_qty,2)}${line.bom_unit}</span></div>
-            <div class="bom-unit-cost" style="flex:2;color:#16a34a;font-size:0.78rem;">$${formatNumber(semi?.costPerUnit||0,3)}/${semi?.output_unit||'—'}</div>
-            <div class="bom-line-cost">$${formatNumber(lineCost,1)}</div>
+            <div class="bom-unit-cost" style="flex:2;color:#16a34a;font-size:0.78rem;">${semiLocked ? '🔒 機密' : `$${formatNumber(semi?.costPerUnit||0,3)}/${semi?.output_unit||'—'}`}</div>
+            <div class="bom-line-cost">${semiLocked ? '🔒' : `$${formatNumber(lineCost,1)}`}</div>
           </div>`;
           // Show sub-ingredients of the semi
           if (semi && semiLinesData[semi.id]?.length) {
             semiLinesData[semi.id].forEach(sl => {
               const subItem = itemsData[sl.child_id];
+              const subLocked = subItem?.is_confidential && !isAdmin;
               const subCpu  = subItem?.unit_cost && subItem?.bom_conversion > 0 ? subItem.unit_cost / subItem.bom_conversion : 0;
               const subCost = calcDishLineCost(sl);
               treeRows += `<div class="bom-tree-row bom-indent" style="background:#f0fdf4;">
                 <div class="bom-name" style="color:#4b5563;font-size:0.82rem;"><span style="color:#86efac;margin-right:6px;">└</span>${subItem?.name||'—'}</div>
                 <div class="bom-qty">${formatNumber(sl.std_qty,2)} ${sl.bom_unit}${sl.waste_rate?` (+${sl.waste_rate}%)`:''}</div>
-                <div class="bom-unit-cost">$${formatNumber(subCpu,3)}/${sl.bom_unit}</div>
-                <div class="bom-line-cost" style="color:#16a34a;">$${formatNumber(subCost,1)}</div>
+                <div class="bom-unit-cost">${subLocked ? '🔒 機密' : `$${formatNumber(subCpu,3)}/${sl.bom_unit}`}</div>
+                <div class="bom-line-cost" style="color:#16a34a;">${subLocked ? '🔒' : `$${formatNumber(subCost,1)}`}</div>
               </div>`;
             });
           }
@@ -442,7 +461,9 @@ function renderDishBOM() {
               <div class="ct-label mt-1">食材成本率</div>
             </div>
           </div>
-        ` : `<div class="text-center text-muted py-3" style="font-size:0.85rem;">尚未建立配方，前往 <a href="dishes.html">成品菜單</a> 新增食材</div>`}
+        ` : (isAdmin
+            ? `<div class="text-center text-muted py-3" style="font-size:0.85rem;">尚未建立配方，前往 <a href="dishes.html">成品菜單</a> 新增食材</div>`
+            : `<div class="text-center text-muted py-3" style="font-size:0.85rem;">尚未建立配方（如為套餐/組合類品項，請至「套餐管理」查看成本）</div>`)}
       </div>
     </div>`;
   }).join('');
@@ -493,11 +514,13 @@ function renderProcurementTable() {
     grouped[c].push(i);
   });
 
+  const isAdminP = currentProfile.role === 'admin';
   let html = '';
   Object.entries(grouped).forEach(([c, list]) => {
     const filledCnt = list.filter(i => i.unit_cost > 0).length;
     html += `<tr class="cat-header"><td colspan="8">${c}（${list.length} 品，已填 ${filledCnt} / 待補 ${list.length - filledCnt}）</td></tr>`;
     list.forEach(item => {
+      const locked  = item.is_confidential && !isAdminP;
       const hasCost = item.unit_cost > 0;
       const hasBom  = item.bom_conversion && item.bom_conversion !== 1;
       const costPer = hasCost && item.bom_conversion > 0
@@ -508,15 +531,18 @@ function renderProcurementTable() {
         : '<span class="text-muted" style="font-size:0.78rem;">—</span>';
       const supStr  = item.supplier && item.supplier !== '待確認'
         ? `<span class="supplier-tag">${item.supplier}</span>` : '<span class="text-muted">—</span>';
-      html += `<tr class="${hasCost?'':'row-todo'}">
+      const costCell = locked
+        ? '<span class="text-muted">🔒 機密</span>'
+        : (hasCost ? `<span class="cost-val">$${formatNumber(item.unit_cost,0)} / ${item.unit}</span>${costPer}` : '<span class="text-muted">—</span>');
+      html += `<tr class="${hasCost || locked?'':'row-todo'}">
         <td><strong>${item.name}</strong></td>
         <td><span class="badge bg-light text-secondary border" style="font-size:0.72rem;">${item.category||'—'}</span></td>
         <td>${supStr}</td>
         <td>${item.unit}</td>
-        <td>${hasCost ? `<span class="cost-val">$${formatNumber(item.unit_cost,0)} / ${item.unit}</span>${costPer}` : '<span class="text-muted">—</span>'}</td>
+        <td>${costCell}</td>
         <td>${bomTag}</td>
         <td class="text-muted" style="font-size:0.82rem;max-width:240px;">${item.spec_note||'—'}</td>
-        <td>${hasCost ? '<span class="badge-filled">✅ 已填</span>' : '<span class="badge-todo">⚑ 待補</span>'}</td>
+        <td>${locked ? '<span class="badge-filled">🔒 機密</span>' : (hasCost ? '<span class="badge-filled">✅ 已填</span>' : '<span class="badge-todo">⚑ 待補</span>')}</td>
       </tr>`;
     });
   });
