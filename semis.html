@@ -124,6 +124,7 @@ let itemsData = {};
 let allSemis = [];
 let currentSemi = null;
 let currentBomLines = [];
+let itemOptsMap = {}; // 顯示名稱 → { id, unit, cpu, defaultQty }
 
 document.addEventListener('DOMContentLoaded', async () => {
   await requireAdmin();
@@ -137,7 +138,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadItems() {
   const { data } = await supabase.from('items')
-    .select('id,name,unit,unit_cost,bom_unit,bom_conversion,category')
+    .select('id,name,unit,unit_cost,bom_unit,bom_conversion,serving_qty,category')
     .eq('store_id', currentProfile.store_id).eq('is_active',true).order('category').order('name');
   (data||[]).forEach(i => { itemsData[i.id] = i; });
 }
@@ -176,7 +177,7 @@ async function selectSemi(id) {
 function calcLineCost(line) {
   const item = itemsData[line.child_id];
   if (!item || !item.unit_cost || !(item.bom_conversion > 0)) return 0;
-  return (item.unit_cost / item.bom_conversion) * line.std_qty * (1 + (line.waste_rate||0)/100);
+  return calcItemLineCost(item, line.std_qty, line.waste_rate);
 }
 
 function renderRightPanel() {
@@ -184,9 +185,15 @@ function renderRightPanel() {
   const totalCost = currentBomLines.reduce((acc, l) => acc + calcLineCost(l), 0);
   const costPerUnit = s.output_qty > 0 ? totalCost / s.output_qty : 0;
 
-  const itemOpts = Object.values(itemsData).map(i =>
-    `<option value="${i.id}" data-unit="${i.bom_unit||'g'}" data-cpu="${(i.unit_cost/(i.bom_conversion||1)).toFixed(4)}">${i.name}（${i.unit}）</option>`
-  ).join('');
+  itemOptsMap = {};
+  Object.values(itemsData).forEach(i => {
+    const hasServing = i.serving_qty > 0;
+    const unit = hasServing ? '份' : (i.bom_unit || 'g');
+    const cpu = hasServing ? costPerServing(i) : costPerBomUnit(i);
+    const label = `${i.name}（${i.unit}）`;
+    itemOptsMap[label] = { id: i.id, unit, cpu, defaultQty: hasServing ? 1 : '' };
+  });
+  const itemOptsHtml = Object.keys(itemOptsMap).map(label => `<option value="${label}">`).join('');
 
   document.getElementById('right-panel').innerHTML = `
     <div class="d-flex flex-column gap-3">
@@ -271,10 +278,9 @@ function renderRightPanel() {
           <div class="row g-2 align-items-end">
             <div class="col-12 col-sm-5">
               <label class="form-label mb-1" style="font-size:0.78rem;">原物料</label>
-              <select id="add-item-id" class="form-select form-select-sm" onchange="onItemSelect()">
-                <option value="">請選擇原物料</option>
-                ${itemOpts}
-              </select>
+              <input type="text" id="add-item-search" class="form-control form-control-sm" list="add-item-list" placeholder="輸入關鍵字搜尋" autocomplete="off" oninput="onItemSelect()">
+              <datalist id="add-item-list">${itemOptsHtml}</datalist>
+              <input type="hidden" id="add-item-id">
             </div>
             <div class="col-4 col-sm-2">
               <label class="form-label mb-1" style="font-size:0.78rem;">用量</label>
@@ -300,19 +306,25 @@ function renderRightPanel() {
 }
 
 function onItemSelect() {
-  const opt = document.getElementById('add-item-id').selectedOptions[0];
-  if (opt?.dataset.unit) document.getElementById('add-bom-unit').value = opt.dataset.unit;
+  const name = document.getElementById('add-item-search').value;
+  const match = itemOptsMap[name];
+  const hidden = document.getElementById('add-item-id');
+  if (!match) { hidden.value = ''; updatePreview(); return; }
+  hidden.value = match.id;
+  hidden.dataset.cpu = match.cpu;
+  document.getElementById('add-bom-unit').value = match.unit;
+  if (match.defaultQty) document.getElementById('add-qty').value = match.defaultQty;
   updatePreview();
 }
 
 function updatePreview() {
-  const opt   = document.getElementById('add-item-id')?.selectedOptions[0];
+  const hidden = document.getElementById('add-item-id');
   const qty   = parseFloat(document.getElementById('add-qty')?.value) || 0;
   const waste = parseFloat(document.getElementById('add-waste')?.value) || 0;
   const prev  = document.getElementById('semi-cost-preview');
   if (!prev) return;
-  if (!opt?.value || qty <= 0) { prev.textContent = ''; return; }
-  const cpu  = parseFloat(opt.dataset.cpu) || 0;
+  if (!hidden?.value || qty <= 0) { prev.textContent = ''; return; }
+  const cpu  = parseFloat(hidden.dataset.cpu) || 0;
   const unit = document.getElementById('add-bom-unit').value || '—';
   prev.textContent = `此原料成本：$${formatNumber(cpu * qty * (1 + waste/100), 1)} （$${formatNumber(cpu,3)} / ${unit}）`;
 }

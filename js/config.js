@@ -31,6 +31,32 @@ function calcCostPerUnit(purchaseCost, purchaseQty) {
   return (purchaseCost / purchaseQty).toFixed(2);
 }
 
+// ============================================================
+// BOM 成本共用計算（每份成本為基準）
+// 有設定 serving_qty（每份用量）的原物料：std_qty 代表「幾份」，
+// 成本＝每份成本 × 份數；沒設定的維持舊制：std_qty＝原始 bom_unit 數量。
+// ============================================================
+
+// 每 bom_unit 成本（例：每克多少錢）
+function costPerBomUnit(item) {
+  if (!item || !(item.bom_conversion > 0)) return 0;
+  return (item.unit_cost || 0) / item.bom_conversion;
+}
+
+// 每份成本（僅在原物料有設定 serving_qty 時有意義）
+function costPerServing(item) {
+  if (!item || !(item.serving_qty > 0)) return 0;
+  return costPerBomUnit(item) * item.serving_qty;
+}
+
+// 一筆 BOM 明細的成本（qty 依 serving_qty 是否設定，代表「份數」或原始 bom_unit 數量）
+function calcItemLineCost(item, qty, wasteRate) {
+  const q = qty || 0;
+  const wasteMult = 1 + (wasteRate || 0) / 100;
+  if (item?.serving_qty > 0) return costPerServing(item) * q * wasteMult;
+  return costPerBomUnit(item) * q * wasteMult;
+}
+
 // 格式化數字（加千分位）
 function formatNumber(num, decimals = 0) {
   if (num === null || num === undefined) return '—';

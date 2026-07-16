@@ -148,7 +148,7 @@ async function loadRefData() {
   const isAdmin = currentProfile.role === 'admin';
   const itemsTable = isAdmin ? 'items' : 'items_masked';
   const [{ data: items }, { data: semis }] = await Promise.all([
-    supabase.from(itemsTable).select('id,name,unit,unit_cost,bom_unit,bom_conversion,category,is_confidential').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
+    supabase.from(itemsTable).select('id,name,unit,unit_cost,bom_unit,bom_conversion,serving_qty,category,is_confidential').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
     supabase.from('semi_products').select('id,name,category,output_qty,output_unit').eq('store_id',sid).eq('is_active',true).order('name')
   ]);
   (items||[]).forEach(i => { itemsData[i.id] = i; });
@@ -166,7 +166,7 @@ async function loadRefData() {
       if (l.child_type === 'item') {
         const item = itemsData[l.child_id];
         if (item?.unit_cost > 0 && item.bom_conversion > 0) {
-          total += (item.unit_cost / item.bom_conversion) * l.std_qty * (1 + (l.waste_rate||0)/100);
+          total += calcItemLineCost(item, l.std_qty, l.waste_rate);
         }
       }
     });
@@ -227,7 +227,7 @@ function calcLineCost(line) {
   if (line.child_type === 'item') {
     const item = itemsData[line.child_id];
     if (!item || !item.unit_cost || !(item.bom_conversion > 0)) return 0;
-    return (item.unit_cost / item.bom_conversion) * line.std_qty * (1 + (line.waste_rate||0)/100);
+    return calcItemLineCost(item, line.std_qty, line.waste_rate);
   }
   const semi = semisData[line.child_id];
   if (!semi) return 0;
@@ -249,17 +249,25 @@ function getChildName(line) {
     : (semisData[line.child_id]?.name || '—');
 }
 
+let childOptsMap = {}; // 顯示名稱 → { id, unit, cpu, locked, defaultQty }
+
 function buildChildOpts(type) {
+  childOptsMap = {};
   if (type === 'item') {
     return Object.values(itemsData).map(i => {
       const locked = i.is_confidential && currentProfile.role !== 'admin';
-      const cpu = locked ? '' : (i.unit_cost / (i.bom_conversion || 1)).toFixed(4);
-      return `<option value="${i.id}" data-unit="${i.bom_unit||'g'}" data-cpu="${cpu}" data-locked="${locked?'1':''}">${i.name}（${i.unit}）${i.is_confidential ? ' 🔒' : ''}</option>`;
+      const hasServing = i.serving_qty > 0;
+      const unit = hasServing ? '份' : (i.bom_unit || 'g');
+      const cpu = locked ? 0 : (hasServing ? costPerServing(i) : costPerBomUnit(i));
+      const label = `${i.name}（${i.unit}）${i.is_confidential ? ' 🔒' : ''}`;
+      childOptsMap[label] = { id: i.id, unit, cpu, locked, defaultQty: hasServing ? 1 : '' };
+      return `<option value="${label}">`;
     }).join('');
   }
-  return Object.values(semisData).map(s =>
-    `<option value="${s.id}" data-unit="${s.output_unit}" data-cpu="${s.costPerUnit.toFixed(4)}">${s.name}</option>`
-  ).join('');
+  return Object.values(semisData).map(s => {
+    childOptsMap[s.name] = { id: s.id, unit: s.output_unit, cpu: s.costPerUnit, locked: false, defaultQty: '' };
+    return `<option value="${s.name}">`;
+  }).join('');
 }
 
 function renderRightPanel() {
@@ -366,10 +374,9 @@ function renderRightPanel() {
             </div>
             <div class="col-6 col-sm-5">
               <label class="form-label mb-1" style="font-size:0.78rem;">食材</label>
-              <select id="add-child-id" class="form-select form-select-sm" onchange="onChildSelect()">
-                <option value="">請選擇</option>
-                ${buildChildOpts('item')}
-              </select>
+              <input type="text" id="add-child-search" class="form-control form-control-sm" list="add-child-list" placeholder="輸入關鍵字搜尋" autocomplete="off" oninput="onChildSearchInput()">
+              <datalist id="add-child-list">${buildChildOpts('item')}</datalist>
+              <input type="hidden" id="add-child-id">
             </div>
             <div class="col-4 col-sm-2">
               <label class="form-label mb-1" style="font-size:0.78rem;">用量</label>
@@ -402,28 +409,36 @@ function renderRightPanel() {
 
 function onAddTypeChange() {
   const type = document.getElementById('add-child-type').value;
-  const sel = document.getElementById('add-child-id');
-  sel.innerHTML = '<option value="">請選擇</option>' + buildChildOpts(type);
+  document.getElementById('add-child-list').innerHTML = buildChildOpts(type);
+  document.getElementById('add-child-search').value = '';
+  document.getElementById('add-child-id').value = '';
   document.getElementById('add-bom-unit').value = '';
   document.getElementById('add-qty').value = '';
   updateCostPreview();
 }
 
-function onChildSelect() {
-  const opt = document.getElementById('add-child-id').selectedOptions[0];
-  if (opt?.dataset.unit) document.getElementById('add-bom-unit').value = opt.dataset.unit;
+function onChildSearchInput() {
+  const name = document.getElementById('add-child-search').value;
+  const match = childOptsMap[name];
+  const hidden = document.getElementById('add-child-id');
+  if (!match) { hidden.value = ''; updateCostPreview(); return; }
+  hidden.value = match.id;
+  hidden.dataset.cpu = match.cpu;
+  hidden.dataset.locked = match.locked ? '1' : '';
+  document.getElementById('add-bom-unit').value = match.unit;
+  if (match.defaultQty) document.getElementById('add-qty').value = match.defaultQty;
   updateCostPreview();
 }
 
 function updateCostPreview() {
-  const opt   = document.getElementById('add-child-id')?.selectedOptions[0];
+  const hidden = document.getElementById('add-child-id');
   const qty   = parseFloat(document.getElementById('add-qty')?.value) || 0;
   const waste = parseFloat(document.getElementById('add-waste')?.value) || 0;
   const prev  = document.getElementById('cost-preview');
   if (!prev) return;
-  if (!opt?.value || qty <= 0) { prev.textContent = ''; return; }
-  if (opt.dataset.locked) { prev.textContent = '此項目成本 🔒 由總部管理'; return; }
-  const cpu  = parseFloat(opt.dataset.cpu) || 0;
+  if (!hidden?.value || qty <= 0) { prev.textContent = ''; return; }
+  if (hidden.dataset.locked) { prev.textContent = '此項目成本 🔒 由總部管理'; return; }
+  const cpu  = parseFloat(hidden.dataset.cpu) || 0;
   const unit = document.getElementById('add-bom-unit').value || '—';
   prev.textContent = `此項目預估成本：$${formatNumber(cpu * qty * (1 + waste/100), 1)} （$${formatNumber(cpu,3)} / ${unit}）`;
 }
