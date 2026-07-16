@@ -44,9 +44,9 @@
               </div>
               <div class="mb-3">
                 <label class="form-label fw-semibold">品項 <span class="text-danger">*</span></label>
-                <select id="rec-item" class="form-select" onchange="onItemChange()">
-                  <option value="">請選擇品項</option>
-                </select>
+                <input type="text" id="rec-item-search" class="form-control" list="rec-item-list" placeholder="輸入關鍵字搜尋品項" autocomplete="off" oninput="onItemChange()">
+                <datalist id="rec-item-list"></datalist>
+                <input type="hidden" id="rec-item">
               </div>
 
               <!-- 品項資訊提示 -->
@@ -148,6 +148,7 @@
   <script>
     let currentProfile = null;
     let itemsMap = {};
+    let itemNameToId = {};
 
     document.addEventListener('DOMContentLoaded', async () => {
       await requireAuth();
@@ -194,33 +195,23 @@
       const visibleItems = isAdmin ? (data || []) : (data || []).filter(i => !i.is_confidential);
 
       itemsMap = {};
-      const sel = document.getElementById('rec-item');
-      sel.innerHTML = '<option value="">請選擇品項</option>';
+      itemNameToId = {};
+      const list = document.getElementById('rec-item-list');
+      list.innerHTML = '';
 
-      // 依類別分組
-      const grouped = {};
       visibleItems.forEach(i => {
         itemsMap[i.id] = i;
-        const cat = i.category || '其他';
-        if (!grouped[cat]) grouped[cat] = [];
-        grouped[cat].push(i);
-      });
-
-      Object.entries(grouped).forEach(([cat, items]) => {
-        const og = document.createElement('optgroup');
-        og.label = cat;
-        items.forEach(i => {
-          const opt = document.createElement('option');
-          opt.value = i.id;
-          opt.textContent = `${i.name}（${i.unit}）`;
-          og.appendChild(opt);
-        });
-        sel.appendChild(og);
+        const label = `${i.name}（${i.unit}）`;
+        itemNameToId[label] = i.id;
+        list.insertAdjacentHTML('beforeend', `<option value="${label}">`);
       });
     }
 
     function onItemChange() {
-      const item = itemsMap[document.getElementById('rec-item').value];
+      const name = document.getElementById('rec-item-search').value;
+      const itemId = itemNameToId[name] || '';
+      document.getElementById('rec-item').value = itemId;
+      const item = itemsMap[itemId];
       const hint = document.getElementById('item-hint');
       const unitEl = document.getElementById('qty-unit');
 
@@ -287,6 +278,7 @@
       showToast(`✓ 已記錄：${itemsMap[itemId].name} × ${qty} ${itemsMap[itemId].unit}，$${formatNumber(payload.purchase_cost, 0)}`);
 
       document.getElementById('rec-item').value = '';
+      document.getElementById('rec-item-search').value = '';
       document.getElementById('rec-qty').value = '';
       document.getElementById('rec-unit-cost').value = '';
       document.getElementById('rec-notes').value = '';

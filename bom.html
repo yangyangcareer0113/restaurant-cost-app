@@ -230,7 +230,7 @@ async function loadAllData() {
   const itemsTable = isAdmin ? 'items' : 'items_masked';
 
   const [{ data: items }, { data: semis }, { data: dishes }] = await Promise.all([
-    supabase.from(itemsTable).select('id,name,unit,unit_cost,bom_unit,bom_conversion,category,supplier,spec_note,min_stock_qty,is_confidential').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
+    supabase.from(itemsTable).select('id,name,unit,unit_cost,bom_unit,bom_conversion,serving_qty,category,supplier,spec_note,min_stock_qty,is_confidential').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
     supabase.from('semi_products').select('id,name,category,output_qty,output_unit').eq('store_id',sid).eq('is_active',true).order('name'),
     supabase.from('dishes').select('*').eq('store_id',sid).eq('is_active',true).order('category').order('name')
   ]);
@@ -260,7 +260,7 @@ async function loadAllData() {
       if (l.child_type === 'item') {
         const item = itemsData[l.child_id];
         if (item?.unit_cost > 0 && item.bom_conversion > 0) {
-          total += (item.unit_cost / item.bom_conversion) * l.std_qty * (1 + (l.waste_rate||0)/100);
+          total += calcItemLineCost(item, l.std_qty, l.waste_rate);
         }
       }
     });
@@ -300,7 +300,7 @@ function calcDishLineCost(line) {
   if (line.child_type === 'item') {
     const item = itemsData[line.child_id];
     if (!item || !item.unit_cost || !(item.bom_conversion > 0)) return 0;
-    return (item.unit_cost / item.bom_conversion) * line.std_qty * (1 + (line.waste_rate||0)/100);
+    return calcItemLineCost(item, line.std_qty, line.waste_rate);
   }
   const semi = semisData[line.child_id];
   if (!semi) return 0;
@@ -388,7 +388,7 @@ function renderDishBOM() {
         if (line.child_type === 'item') {
           const item = itemsData[line.child_id];
           const locked = item?.is_confidential && !isAdmin;
-          const cpu = item?.unit_cost && item?.bom_conversion > 0 ? item.unit_cost / item.bom_conversion : 0;
+          const cpu = item?.serving_qty > 0 ? costPerServing(item) : costPerBomUnit(item);
           treeRows += `<div class="bom-tree-row">
             <div class="bom-name"><span style="color:#94a3b8;margin-right:6px;">▸</span>${item?.name||'—'}</div>
             <div class="bom-qty">${formatNumber(line.std_qty,2)} ${line.bom_unit}${line.waste_rate?` (+${line.waste_rate}%)`:''}</div>
@@ -408,7 +408,7 @@ function renderDishBOM() {
             semiLinesData[semi.id].forEach(sl => {
               const subItem = itemsData[sl.child_id];
               const subLocked = subItem?.is_confidential && !isAdmin;
-              const subCpu  = subItem?.unit_cost && subItem?.bom_conversion > 0 ? subItem.unit_cost / subItem.bom_conversion : 0;
+              const subCpu  = subItem?.serving_qty > 0 ? costPerServing(subItem) : costPerBomUnit(subItem);
               const subCost = calcDishLineCost(sl);
               treeRows += `<div class="bom-tree-row bom-indent" style="background:#f0fdf4;">
                 <div class="bom-name" style="color:#4b5563;font-size:0.82rem;"><span style="color:#86efac;margin-right:6px;">└</span>${subItem?.name||'—'}</div>
@@ -524,7 +524,7 @@ function renderProcurementTable() {
       const hasCost = item.unit_cost > 0;
       const hasBom  = item.bom_conversion && item.bom_conversion !== 1;
       const costPer = hasCost && item.bom_conversion > 0
-        ? `<span class="text-muted" style="font-size:0.75rem;"> → $${(item.unit_cost/item.bom_conversion).toFixed(3)}/${item.bom_unit||'g'}</span>`
+        ? `<span class="text-muted" style="font-size:0.75rem;"> → $${(item.unit_cost/item.bom_conversion).toFixed(3)}/${item.bom_unit||'g'}${item.serving_qty > 0 ? `，1份(${item.serving_qty}${item.bom_unit||'g'})≈$${costPerServing(item).toFixed(2)}` : ''}</span>`
         : '';
       const bomTag  = hasBom
         ? `<span class="bom-unit-tag">1${item.unit}=${item.bom_conversion}${item.bom_unit}</span>`

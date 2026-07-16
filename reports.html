@@ -74,9 +74,9 @@
           </div>
           <div class="col-6 col-md-3">
             <label class="form-label fw-semibold">品項（選填）</label>
-            <select id="item-filter" class="form-select" onchange="loadReport()">
-              <option value="">所有品項</option>
-            </select>
+            <input type="text" id="item-filter-search" class="form-control" list="item-filter-list" placeholder="搜尋品項，留空＝所有品項" autocomplete="off" oninput="onItemFilterInput()">
+            <datalist id="item-filter-list"></datalist>
+            <input type="hidden" id="item-filter">
           </div>
           <div class="col-12 col-md-2">
             <button class="btn btn-primary w-100" onclick="loadReport()">查詢</button>
@@ -143,9 +143,9 @@
             <div class="table-header">
               <span class="fw-semibold">📉 每日消耗量</span>
               <div class="d-flex gap-2 align-items-center">
-                <select id="consumption-item" class="form-select form-select-sm" style="width:auto;" onchange="renderConsumptionChart()">
-                  <option value="">選擇品項</option>
-                </select>
+                <input type="text" id="consumption-item-search" class="form-control form-control-sm" style="width:160px;" list="consumption-item-list" placeholder="搜尋品項" autocomplete="off" oninput="onConsumptionItemInput()">
+                <datalist id="consumption-item-list"></datalist>
+                <input type="hidden" id="consumption-item">
                 <div class="btn-group" role="group">
                   <button class="btn btn-outline-secondary chart-type-btn active" id="cons-bar" onclick="setConsumptionChart('bar')">直條</button>
                   <button class="btn btn-outline-secondary chart-type-btn" id="cons-line" onclick="setConsumptionChart('line')">折線</button>
@@ -241,14 +241,33 @@
         (data||[]).map(s=>`<option value="${s.id}">${s.name}</option>`).join(''));
     }
 
+    let reportItemNameToId = {};
+
     async function loadItemsFilter() {
       const storeId = currentProfile.store_id;
       let q = supabase.from('items').select('id, name, unit').eq('is_active', true).order('name');
       if (storeId) q = q.eq('store_id', storeId);
       const { data } = await q;
-      const opts = (data||[]).map(i=>`<option value="${i.id}">${i.name}</option>`).join('');
-      document.getElementById('item-filter').insertAdjacentHTML('beforeend', opts);
-      document.getElementById('consumption-item').insertAdjacentHTML('beforeend', opts);
+      reportItemNameToId = {};
+      const opts = (data||[]).map(i => {
+        const label = `${i.name}（${i.unit}）`;
+        reportItemNameToId[label] = i.id;
+        return `<option value="${label}">`;
+      }).join('');
+      document.getElementById('item-filter-list').innerHTML = opts;
+      document.getElementById('consumption-item-list').innerHTML = opts;
+    }
+
+    function onItemFilterInput() {
+      const name = document.getElementById('item-filter-search').value;
+      document.getElementById('item-filter').value = reportItemNameToId[name] || '';
+      loadReport();
+    }
+
+    function onConsumptionItemInput() {
+      const name = document.getElementById('consumption-item-search').value;
+      document.getElementById('consumption-item').value = reportItemNameToId[name] || '';
+      renderConsumptionChart();
     }
 
     // ============================================================

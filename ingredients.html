@@ -118,7 +118,7 @@ async function loadItems() {
   const isAdmin = currentProfile.role === 'admin';
   const itemsTable = isAdmin ? 'items' : 'items_masked';
   const { data } = await supabase.from(itemsTable)
-    .select('id,name,unit,unit_cost,bom_unit,bom_conversion,category,supplier,spec_note,is_confidential')
+    .select('id,name,unit,unit_cost,bom_unit,bom_conversion,serving_qty,category,supplier,spec_note,is_confidential')
     .eq('store_id', sid).eq('is_active', true).order('category').order('name');
   allItems = data || [];
 
@@ -173,7 +173,7 @@ function renderProcurementTable() {
       const hasCost = item.unit_cost > 0;
       const hasBom  = item.bom_conversion && item.bom_conversion !== 1;
       const costPer = hasCost && item.bom_conversion > 0
-        ? `<span class="text-muted" style="font-size:0.75rem;"> → $${(item.unit_cost/item.bom_conversion).toFixed(3)}/${item.bom_unit||'g'}</span>`
+        ? `<span class="text-muted" style="font-size:0.75rem;"> → $${(item.unit_cost/item.bom_conversion).toFixed(3)}/${item.bom_unit||'g'}${item.serving_qty > 0 ? `，1份(${item.serving_qty}${item.bom_unit||'g'})≈$${costPerServing(item).toFixed(2)}` : ''}</span>`
         : '';
       const bomTag  = hasBom
         ? `<span class="bom-unit-tag">1${item.unit}=${item.bom_conversion}${item.bom_unit}</span>`

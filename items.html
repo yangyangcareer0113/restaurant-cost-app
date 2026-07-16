@@ -118,6 +118,19 @@
                 <div class="form-text" id="bom-hint" style="color:#2563eb;"></div>
               </div>
             </div>
+            <hr class="my-2">
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label" style="font-size:0.82rem;">每份用量（選填）</label>
+                <input type="number" id="item-serving-qty" class="form-control form-control-sm" min="0" step="0.01" placeholder="例：140" oninput="updateBomHint()">
+                <div class="form-text">出餐一份實際用多少 BOM 計量單位</div>
+              </div>
+              <div class="col-6">
+                <label class="form-label" style="font-size:0.82rem;">每份成本</label>
+                <div class="form-control form-control-sm bg-white" id="serving-cost-preview" style="color:#166534;font-weight:600;">—</div>
+                <div class="form-text">填了以後，配方裡用到這個品項就是用「幾份」計價</div>
+              </div>
+            </div>
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">安全庫存量（最低備量）</label>
@@ -257,10 +270,21 @@
       const bomUnit  = document.getElementById('item-bom-unit')?.value || 'g';
       const conv     = parseFloat(document.getElementById('item-bom-conversion')?.value) || 1;
       const unitCost = parseFloat(document.getElementById('item-unit-cost')?.value) || 0;
+      const servingQty = parseFloat(document.getElementById('item-serving-qty')?.value) || 0;
       const hint = document.getElementById('bom-hint');
       if (!hint) return;
       const cpbu = conv > 0 && unitCost > 0 ? `，每 ${bomUnit} 成本 ≈ $${(unitCost/conv).toFixed(3)}` : '';
       hint.textContent = `1 ${unit||'進貨單位'} = ${conv} ${bomUnit}${cpbu}`;
+
+      const servingPreview = document.getElementById('serving-cost-preview');
+      if (servingPreview) {
+        if (servingQty > 0 && conv > 0) {
+          const cost = (unitCost / conv) * servingQty;
+          servingPreview.textContent = `1 份（${servingQty}${bomUnit}）≈ $${cost.toFixed(2)}`;
+        } else {
+          servingPreview.textContent = '—';
+        }
+      }
     }
 
     function openAddModal() {
@@ -275,6 +299,7 @@
       document.getElementById('item-minstk').value = '0';
       document.getElementById('item-bom-unit').value = 'g';
       document.getElementById('item-bom-conversion').value = '1';
+      document.getElementById('item-serving-qty').value = '';
       document.getElementById('abc-B').checked = true;
       updateBomHint();
     }
@@ -291,6 +316,7 @@
       document.getElementById('item-minstk').value = item.min_stock_qty;
       document.getElementById('item-bom-unit').value = item.bom_unit || 'g';
       document.getElementById('item-bom-conversion').value = item.bom_conversion || 1;
+      document.getElementById('item-serving-qty').value = item.serving_qty || '';
       const abcVal = item.abc_class || 'B';
       const abcRadio = document.getElementById(`abc-${abcVal}`);
       if (abcRadio) abcRadio.checked = true;
@@ -306,6 +332,7 @@
       const storeId = currentProfile.role === 'admin'
         ? document.getElementById('item-store').value
         : currentProfile.store_id;
+      const servingQty = parseFloat(document.getElementById('item-serving-qty').value) || null;
 
       const payload = {
         store_id: storeId,
@@ -318,11 +345,21 @@
         min_stock_qty: parseFloat(document.getElementById('item-minstk').value) || 0,
         bom_unit: document.getElementById('item-bom-unit').value || 'g',
         bom_conversion: parseFloat(document.getElementById('item-bom-conversion').value) || 1,
+        serving_qty: servingQty,
         abc_class: document.querySelector('input[name="abc-class"]:checked')?.value || 'B',
       };
 
       if (!payload.name) { showToast('請填寫品項名稱', 'danger'); return; }
       if (!payload.unit) { showToast('請填寫進貨單位', 'danger'); return; }
+
+      // 第一次從「沒設定每份用量」變成「有設定」時，把這個品項既有配方裡的
+      // std_qty（原本是原始 bom_unit 數量，例如公克數）換算成「幾份」，
+      // 讓配方成本在切換當下維持不變，之後才改用「每份成本」計價。
+      let priorServingQty = null;
+      if (id) {
+        const { data: priorItem } = await supabase.from('items').select('serving_qty').eq('id', id).maybeSingle();
+        priorServingQty = priorItem?.serving_qty || null;
+      }
 
       let error;
       if (id) {
@@ -331,6 +368,18 @@
         ({ error } = await supabase.from('items').insert(payload));
       }
       if (error) { showToast('儲存失敗：' + error.message, 'danger'); return; }
+
+      if (id && !priorServingQty && servingQty > 0) {
+        const { data: lines } = await supabase.from('bom_lines')
+          .select('id,std_qty').eq('child_type', 'item').eq('child_id', id);
+        for (const line of (lines || [])) {
+          await supabase.from('bom_lines')
+            .update({ std_qty: line.std_qty / servingQty, bom_unit: '份' })
+            .eq('id', line.id);
+        }
+        if (lines?.length) showToast(`已將 ${lines.length} 筆既有配方換算成「份數」計價`, 'success');
+      }
+
       bootstrap.Modal.getInstance(document.getElementById('itemModal')).hide();
       showToast(id ? '品項已更新' : '品項已新增');
       await loadItems();
