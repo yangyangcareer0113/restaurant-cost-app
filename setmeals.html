@@ -115,15 +115,9 @@
           <input type="text" id="smi-name" class="form-control" placeholder="例：加購飲料、季節限定小菜">
           <div class="form-text">找到了？<a href="#" onclick="event.preventDefault(); toggleManualEntry();">改回選單選擇</a></div>
         </div>
-        <div class="row g-2 mb-3">
-          <div class="col-6">
-            <label class="form-label fw-semibold">數量</label>
-            <input type="number" id="smi-qty" class="form-control" min="0.1" step="1" value="1" oninput="updateCostPreview()">
-          </div>
-          <div class="col-6">
-            <label class="form-label fw-semibold">選項組（選填）</label>
-            <input type="text" id="smi-group" class="form-control" placeholder="例：鍋底選一">
-          </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">數量</label>
+          <input type="number" id="smi-qty" class="form-control" min="0.1" step="1" value="1" oninput="recalcSmiCost()">
         </div>
         <div class="mb-3 d-none" id="admin-cost-wrap">
           <label class="form-label fw-semibold">成本估算（元）</label>
@@ -317,7 +311,6 @@
             <thead>
               <tr>
                 <th>品項名稱</th>
-                <th>選項組</th>
                 <th>成本估算</th>
                 <th>備注</th>
                 <th>操作</th>
@@ -333,7 +326,6 @@
                 return `
                 <tr>
                   <td>${it.item_name}${qtyTag}</td>
-                  <td class="text-muted">${it.choice_group || '—'}</td>
                   <td class="fw-bold">${locked ? '🔒 機密' : `$${formatNumber(lineCost, 0)}`}</td>
                   <td class="text-muted">${it.notes || '—'}</td>
                   <td>
@@ -344,7 +336,7 @@
                       onclick="deleteSmi('${it.id}', '${meal.id}')">刪除</button>`}
                   </td>
                 </tr>
-              `;}).join('') : '<tr><td colspan="5" class="text-center text-muted">尚無品項，點「新增品項」開始建立 BOM</td></tr>'}
+              `;}).join('') : '<tr><td colspan="4" class="text-center text-muted">尚無品項，點「新增品項」開始建立 BOM</td></tr>'}
             </tbody>
             ${items.length ? `
             <tfoot>
@@ -454,23 +446,28 @@
   }
 
   // 搜尋框輸入時：找到完全符合的原物料名稱才會解析成真正的品項 id，
-  // 若是非機密原物料，用真實每份/每單位成本 × 數量帶入建議成本（可再手動覆蓋）
-  function onPickerChange() {
-    const name = document.getElementById('smi-dish-search').value;
-    const val = smiItemOptsMap[name] || '';
-    document.getElementById('smi-dish-select').value = val;
+  // 選到品項，或數量改變時都要重算：非機密原物料用真實每份/每單位成本 × 數量帶入建議成本（可再手動覆蓋）
+  function recalcSmiCost() {
+    const val = document.getElementById('smi-dish-select').value;
     if (val) {
       const [type, pid] = val.split(':');
       if (type === 'item') {
         const item = allItemsMap[pid];
         const locked = item && item.is_confidential && currentProfile.role !== 'admin';
-        if (!locked) {
+        if (item && !locked) {
           const qty = parseFloat(document.getElementById('smi-qty').value) || 1;
           document.getElementById('smi-cost').value = Math.round(calcItemLineCost(item, qty, 0));
         }
       }
     }
     updateCostPreview();
+  }
+
+  function onPickerChange() {
+    const name = document.getElementById('smi-dish-search').value;
+    const val = smiItemOptsMap[name] || '';
+    document.getElementById('smi-dish-select').value = val;
+    recalcSmiCost();
   }
 
   function updateCostPreview() {
@@ -509,7 +506,6 @@
     document.getElementById('smi-name').value = '';
     document.getElementById('smi-qty').value = '1';
     document.getElementById('smi-cost').value = '0';
-    document.getElementById('smi-group').value = '';
     document.getElementById('smi-notes').value = '';
     manualMode = false;
     document.getElementById('manual-entry-wrap').classList.add('d-none');
@@ -527,7 +523,6 @@
     document.getElementById('smi-id').value = item.id;
     document.getElementById('smi-meal-id').value = item.set_meal_id;
     document.getElementById('smi-qty').value = item.qty || 1;
-    document.getElementById('smi-group').value = item.choice_group || '';
     document.getElementById('smi-notes').value = item.notes || '';
 
     const meal = allMeals.find(m => m.id === item.set_meal_id);
@@ -592,7 +587,6 @@
     const payload = {
       set_meal_id: mealId, dish_id: dishId, item_id: itemId, item_name: name, qty,
       cost_est: costEst,
-      choice_group: document.getElementById('smi-group').value.trim() || null,
       notes: document.getElementById('smi-notes').value.trim() || null,
     };
     let error;
