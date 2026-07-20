@@ -438,6 +438,8 @@
     // 排除調料、清潔用品、瓦斯、包材、主食乾貨等非此範疇的進貨（2026-07-20 依 Cherish 指示調整）
     const MATERIAL_CATEGORIES = ['蔬菜類','雞肉類','豬肉類','牛肉類','海鮮類','牛肉丸類','小菜類','飲品類','飲品食材'];
     const MAINLAND_HERB_CATEGORIES = ['中藥材','中藥類'];
+    // 「大陸進貨」類別裡混了非藥材的大陸進口包材（例如保鮮膜），這些不算食材成本，逐一排除
+    const MAINLAND_CATEGORY_NON_HERB_NAMES = ['保鮮膜'];
 
     function nextMonthStartStr() {
       let ny = year, nm = month + 1;
@@ -449,7 +451,7 @@
       // 上個版本少了結束日期上限，查過去月份時會把「當月起～查詢當下」全部撈進來，
       // 導致例如查 6 月時把 7 月已發生的進貨也算進 6 月成本
       let q = supabase.from('inventory_records')
-        .select('purchase_cost, record_date, items!inner(category, supplier)')
+        .select('purchase_cost, record_date, items!inner(name, category, supplier)')
         .gte('record_date', monthStart)
         .lt('record_date', nextMonthStartStr());
       if (storeId) q = q.eq('store_id', storeId);
@@ -458,7 +460,7 @@
         const cat = r.items?.category;
         if (MATERIAL_CATEGORIES.includes(cat)) return true;
         if (MAINLAND_HERB_CATEGORIES.includes(cat) && r.items?.supplier === '大陸') return true;
-        if (cat === '大陸進貨') return true;
+        if (cat === '大陸進貨') return !MAINLAND_CATEGORY_NON_HERB_NAMES.includes(r.items?.name);
         return false;
       });
     }

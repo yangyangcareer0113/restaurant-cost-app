@@ -249,28 +249,27 @@ function getChildName(line) {
     : (semisData[line.child_id]?.name || '—');
 }
 
-let childOptsMap = {}; // 顯示名稱 → { id, unit, cpu, locked, defaultQty }
+let childOptsList = []; // [{ id, label, name, unit, cpu, locked, defaultQty }]
 
 function buildChildOpts(type) {
-  childOptsMap = {};
   if (type === 'item') {
-    return Object.values(itemsData).map(i => {
+    childOptsList = Object.values(itemsData).map(i => {
       const locked = i.is_confidential && currentProfile.role !== 'admin';
       const hasServing = i.serving_qty > 0;
       const unit = hasServing ? '份' : (i.bom_unit || 'g');
       const cpu = locked ? 0 : (hasServing ? costPerServing(i) : costPerBomUnit(i));
       const label = `${i.name}（${i.unit}）${i.is_confidential ? ' 🔒' : ''}`;
-      childOptsMap[label] = { id: i.id, unit, cpu, locked, defaultQty: hasServing ? 1 : '' };
-      return `<option value="${label}">`;
-    }).join('');
+      return { id: i.id, label, name: i.name, unit, cpu, locked, defaultQty: hasServing ? 1 : '' };
+    });
+  } else {
+    childOptsList = Object.values(semisData).map(s => (
+      { id: s.id, label: s.name, name: s.name, unit: s.output_unit, cpu: s.costPerUnit, locked: false, defaultQty: '' }
+    ));
   }
-  return Object.values(semisData).map(s => {
-    childOptsMap[s.name] = { id: s.id, unit: s.output_unit, cpu: s.costPerUnit, locked: false, defaultQty: '' };
-    return `<option value="${s.name}">`;
-  }).join('');
 }
 
 function renderRightPanel() {
+  buildChildOpts('item');
   const d = currentDish;
   const isAdmin = currentProfile.role === 'admin';
   const totalCost = (!isAdmin && currentDishTrueCost !== null)
@@ -374,8 +373,10 @@ function renderRightPanel() {
             </div>
             <div class="col-6 col-sm-5">
               <label class="form-label mb-1" style="font-size:0.78rem;">食材</label>
-              <input type="text" id="add-child-search" class="form-control form-control-sm" list="add-child-list" placeholder="輸入關鍵字搜尋" autocomplete="off" oninput="onChildSearchInput()">
-              <datalist id="add-child-list">${buildChildOpts('item')}</datalist>
+              <div class="position-relative">
+                <input type="text" id="add-child-search" class="form-control form-control-sm" placeholder="輸入關鍵字搜尋" autocomplete="off" oninput="onChildSearchInput()" onfocus="onChildSearchInput()">
+                <div id="add-child-dropdown" class="list-group position-absolute w-100 d-none" style="z-index:1050; max-height:220px; overflow-y:auto; box-shadow:0 6px 16px rgba(0,0,0,0.15);"></div>
+              </div>
               <input type="hidden" id="add-child-id">
             </div>
             <div class="col-4 col-sm-2">
@@ -409,19 +410,35 @@ function renderRightPanel() {
 
 function onAddTypeChange() {
   const type = document.getElementById('add-child-type').value;
-  document.getElementById('add-child-list').innerHTML = buildChildOpts(type);
+  buildChildOpts(type);
   document.getElementById('add-child-search').value = '';
   document.getElementById('add-child-id').value = '';
   document.getElementById('add-bom-unit').value = '';
   document.getElementById('add-qty').value = '';
+  document.getElementById('add-child-dropdown').classList.add('d-none');
   updateCostPreview();
 }
 
+// 搜尋框輸入/聚焦時：即時列出名稱包含關鍵字的食材供點選。不用瀏覽器原生 datalist——
+// 它在 iPad/Safari 上常常整串比對失敗或完全不篩選，導致打了關鍵字卻選不到、送出時
+// 卡在「請選擇食材」。改成自己控制的下拉清單保證任何裝置都能可靠篩選、點選。
 function onChildSearchInput() {
-  const name = document.getElementById('add-child-search').value;
-  const match = childOptsMap[name];
+  const dropdown = document.getElementById('add-child-dropdown');
+  const q = document.getElementById('add-child-search').value.trim();
+  if (!q) { dropdown.classList.add('d-none'); dropdown.innerHTML = ''; return; }
+  const matches = childOptsList.filter(o => o.name.includes(q)).slice(0, 30);
+  dropdown.innerHTML = matches.length
+    ? matches.map(o => `<button type="button" class="list-group-item list-group-item-action" onclick="selectChildOption('${o.id}')">${o.label}</button>`).join('')
+    : '<div class="list-group-item text-muted" style="font-size:0.85rem;">沒有符合的食材</div>';
+  dropdown.classList.remove('d-none');
+}
+
+function selectChildOption(id) {
+  const match = childOptsList.find(o => o.id === id);
   const hidden = document.getElementById('add-child-id');
-  if (!match) { hidden.value = ''; updateCostPreview(); return; }
+  document.getElementById('add-child-dropdown').classList.add('d-none');
+  if (!match) return;
+  document.getElementById('add-child-search').value = match.label;
   hidden.value = match.id;
   hidden.dataset.cpu = match.cpu;
   hidden.dataset.locked = match.locked ? '1' : '';
@@ -429,6 +446,13 @@ function onChildSearchInput() {
   if (match.defaultQty) document.getElementById('add-qty').value = match.defaultQty;
   updateCostPreview();
 }
+
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('add-child-search')?.closest('.position-relative');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('add-child-dropdown')?.classList.add('d-none');
+  }
+});
 
 function updateCostPreview() {
   const hidden = document.getElementById('add-child-id');
