@@ -39,9 +39,6 @@ function injectNav() {
           <span class="nav-icon">🍽️</span> 成品菜單
         </a>
         <!-- 以下僅 admin 可見 -->
-        <a href="semis.html" class="nav-admin-only">
-          <span class="nav-icon">🥣</span> 半成品
-        </a>
         <a href="bom.html" class="nav-admin-only">
           <span class="nav-icon">🧾</span> 成本 BOM
         </a>
