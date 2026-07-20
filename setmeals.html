@@ -104,8 +104,10 @@
         <input type="hidden" id="smi-meal-id">
         <div class="mb-3" id="smi-dish-wrap">
           <label class="form-label fw-semibold">選擇原物料 <span class="text-danger">*</span></label>
-          <input type="text" id="smi-dish-search" class="form-control" list="smi-dish-list" placeholder="輸入關鍵字搜尋原物料" autocomplete="off" oninput="onPickerChange()">
-          <datalist id="smi-dish-list"></datalist>
+          <div class="position-relative">
+            <input type="text" id="smi-dish-search" class="form-control" placeholder="輸入關鍵字搜尋原物料" autocomplete="off" oninput="onDishSearchInput()" onfocus="onDishSearchInput()">
+            <div id="smi-dish-dropdown" class="list-group position-absolute w-100 d-none" style="z-index:1060; max-height:220px; overflow-y:auto; box-shadow:0 6px 16px rgba(0,0,0,0.15);"></div>
+          </div>
           <input type="hidden" id="smi-dish-select">
           <div class="form-text">🧾 原物料＝鍋底/湯鍋內的食材、藥材，跟進貨時 Key 的品項名稱一致</div>
           <div class="form-text">找不到想要的品項？<a href="#" onclick="event.preventDefault(); toggleManualEntry();">改用手動輸入</a></div>
@@ -415,26 +417,47 @@
 
   // ---- BOM 品項 CRUD ----
 
-  let smiItemOptsMap = {}; // 顯示名稱 → 'item:id'
-
-  // 套餐新增品項只給選原物料（進貨 Key 品項名稱＝原物料名稱，不是出餐品名）
-  function populateDishSelect(storeId) {
-    smiItemOptsMap = {};
-    const list = document.getElementById('smi-dish-list');
-    list.innerHTML = '';
-    allItems.forEach(i => {
-      const label = i.name + (i.is_confidential ? ' 🔒' : '');
-      smiItemOptsMap[label] = 'item:' + i.id;
-      list.insertAdjacentHTML('beforeend', `<option value="${label}">`);
-    });
+  // 顯示名稱（含機密標記）
+  function itemLabel(item) {
+    return item ? item.name + (item.is_confidential ? ' 🔒' : '') : '';
   }
 
   // 設定目前選中的品項（同時更新隱藏值與搜尋框顯示文字），供編輯既有品項時回填用
   function setSmiDishSelection(value) {
     document.getElementById('smi-dish-select').value = value || '';
-    const label = Object.entries(smiItemOptsMap).find(([, v]) => v === value)?.[0] || '';
+    let label = '';
+    if (value && value.startsWith('item:')) {
+      label = itemLabel(allItemsMap[value.split(':')[1]]);
+    }
     document.getElementById('smi-dish-search').value = label;
   }
+
+  // 搜尋框輸入/聚焦時：即時列出名稱包含關鍵字的原物料供點選。
+  // 不用瀏覽器原生 datalist——它在 iPad/Safari 上常常整串比對失敗或完全不篩選，
+  // 改成自己控制的下拉清單才能保證「打關鍵字→列出所有符合的品項」在任何裝置都可靠。
+  function onDishSearchInput() {
+    const dropdown = document.getElementById('smi-dish-dropdown');
+    const q = document.getElementById('smi-dish-search').value.trim();
+    if (!q) { dropdown.classList.add('d-none'); dropdown.innerHTML = ''; return; }
+    const matches = allItems.filter(i => i.name.includes(q)).slice(0, 30);
+    dropdown.innerHTML = matches.length
+      ? matches.map(i => `<button type="button" class="list-group-item list-group-item-action" onclick="selectDishOption('item:${i.id}')">${itemLabel(i)}</button>`).join('')
+      : '<div class="list-group-item text-muted" style="font-size:0.85rem;">沒有符合的原物料，可改用手動輸入</div>';
+    dropdown.classList.remove('d-none');
+  }
+
+  function selectDishOption(value) {
+    setSmiDishSelection(value);
+    document.getElementById('smi-dish-dropdown').classList.add('d-none');
+    recalcSmiCost();
+  }
+
+  document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('smi-dish-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+      document.getElementById('smi-dish-dropdown')?.classList.add('d-none');
+    }
+  });
 
   function toggleManualEntry() {
     manualMode = !manualMode;
@@ -461,13 +484,6 @@
       }
     }
     updateCostPreview();
-  }
-
-  function onPickerChange() {
-    const name = document.getElementById('smi-dish-search').value;
-    const val = smiItemOptsMap[name] || '';
-    document.getElementById('smi-dish-select').value = val;
-    recalcSmiCost();
   }
 
   function updateCostPreview() {
@@ -510,9 +526,8 @@
     manualMode = false;
     document.getElementById('manual-entry-wrap').classList.add('d-none');
     document.getElementById('smi-dish-wrap').classList.remove('d-none');
-    const meal = allMeals.find(m => m.id === mealId);
-    populateDishSelect(meal ? meal.store_id : currentProfile.store_id);
     document.getElementById('smi-dish-search').disabled = false;
+    document.getElementById('smi-dish-dropdown').classList.add('d-none');
     setSmiDishSelection('');
     updateCostPreview();
     new bootstrap.Modal(document.getElementById('smiModal')).show();
@@ -524,9 +539,7 @@
     document.getElementById('smi-meal-id').value = item.set_meal_id;
     document.getElementById('smi-qty').value = item.qty || 1;
     document.getElementById('smi-notes').value = item.notes || '';
-
-    const meal = allMeals.find(m => m.id === item.set_meal_id);
-    populateDishSelect(meal ? meal.store_id : currentProfile.store_id);
+    document.getElementById('smi-dish-dropdown').classList.add('d-none');
 
     manualMode = !item.dish_id && !item.item_id;
     document.getElementById('manual-entry-wrap').classList.toggle('d-none', !manualMode);
