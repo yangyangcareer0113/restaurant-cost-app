@@ -103,13 +103,13 @@
         <input type="hidden" id="smi-id">
         <input type="hidden" id="smi-meal-id">
         <div class="mb-3" id="smi-dish-wrap">
-          <label class="form-label fw-semibold">選擇原物料 <span class="text-danger">*</span></label>
+          <label class="form-label fw-semibold">選擇原物料或成品菜品 <span class="text-danger">*</span></label>
           <div class="position-relative">
-            <input type="text" id="smi-dish-search" class="form-control" placeholder="輸入關鍵字搜尋原物料" autocomplete="off" oninput="onDishSearchInput()" onfocus="onDishSearchInput()">
+            <input type="text" id="smi-dish-search" class="form-control" placeholder="輸入關鍵字搜尋原物料或成品菜品" autocomplete="off" oninput="onDishSearchInput()" onfocus="onDishSearchInput()">
             <div id="smi-dish-dropdown" class="list-group position-absolute w-100 d-none" style="z-index:1060; max-height:220px; overflow-y:auto; box-shadow:0 6px 16px rgba(0,0,0,0.15);"></div>
           </div>
           <input type="hidden" id="smi-dish-select">
-          <div class="form-text">🧾 原物料＝鍋底/湯鍋內的食材、藥材，跟進貨時 Key 的品項名稱一致</div>
+          <div class="form-text">🧾 原物料＝鍋底/湯鍋內的食材、藥材，跟進貨時 Key 的品項名稱一致；🍽️ 成品菜品＝成品菜單裡已建好的鍋底、蔬菜組合等，成本自動帶入該菜品的配方成本</div>
           <div class="form-text">找不到想要的品項？<a href="#" onclick="event.preventDefault(); toggleManualEntry();">改用手動輸入</a></div>
         </div>
         <div class="mb-3 d-none" id="manual-entry-wrap">
@@ -417,32 +417,40 @@
 
   // ---- BOM 品項 CRUD ----
 
-  // 顯示名稱（含機密標記）
+  // 顯示名稱（含機密標記／成品標記）
   function itemLabel(item) {
     return item ? item.name + (item.is_confidential ? ' 🔒' : '') : '';
+  }
+  function dishLabel(dish) {
+    return dish ? `🍽️ ${dish.name}（成品）` : '';
   }
 
   // 設定目前選中的品項（同時更新隱藏值與搜尋框顯示文字），供編輯既有品項時回填用
   function setSmiDishSelection(value) {
     document.getElementById('smi-dish-select').value = value || '';
     let label = '';
-    if (value && value.startsWith('item:')) {
-      label = itemLabel(allItemsMap[value.split(':')[1]]);
+    if (value) {
+      const [type, pid] = value.split(':');
+      if (type === 'item') label = itemLabel(allItemsMap[pid]);
+      else if (type === 'dish') label = dishLabel(allDishes.find(d => d.id === pid));
     }
     document.getElementById('smi-dish-search').value = label;
   }
 
-  // 搜尋框輸入/聚焦時：即時列出名稱包含關鍵字的原物料供點選。
+  // 搜尋框輸入/聚焦時：即時列出名稱包含關鍵字的原物料「和」成品菜品供點選
+  // （員工已經先在成品菜單建好鍋底、蔬菜組合等成品，套餐可以直接引用該成品的配方成本）。
   // 不用瀏覽器原生 datalist——它在 iPad/Safari 上常常整串比對失敗或完全不篩選，
   // 改成自己控制的下拉清單才能保證「打關鍵字→列出所有符合的品項」在任何裝置都可靠。
   function onDishSearchInput() {
     const dropdown = document.getElementById('smi-dish-dropdown');
     const q = document.getElementById('smi-dish-search').value.trim();
     if (!q) { dropdown.classList.add('d-none'); dropdown.innerHTML = ''; return; }
-    const matches = allItems.filter(i => i.name.includes(q)).slice(0, 30);
-    dropdown.innerHTML = matches.length
-      ? matches.map(i => `<button type="button" class="list-group-item list-group-item-action" onclick="selectDishOption('item:${i.id}')">${itemLabel(i)}</button>`).join('')
-      : '<div class="list-group-item text-muted" style="font-size:0.85rem;">沒有符合的原物料，可改用手動輸入</div>';
+    const itemMatches = allItems.filter(i => i.name.includes(q)).slice(0, 20)
+      .map(i => `<button type="button" class="list-group-item list-group-item-action" onclick="selectDishOption('item:${i.id}')">${itemLabel(i)}</button>`);
+    const dishMatches = allDishes.filter(d => d.name.includes(q)).slice(0, 20)
+      .map(d => `<button type="button" class="list-group-item list-group-item-action" onclick="selectDishOption('dish:${d.id}')">${dishLabel(d)}</button>`);
+    const html = itemMatches.concat(dishMatches).join('');
+    dropdown.innerHTML = html || '<div class="list-group-item text-muted" style="font-size:0.85rem;">沒有符合的品項，可改用手動輸入</div>';
     dropdown.classList.remove('d-none');
   }
 
@@ -546,24 +554,18 @@
     document.getElementById('smi-dish-wrap').classList.toggle('d-none', manualMode);
     const searchInput = document.getElementById('smi-dish-search');
 
+    searchInput.disabled = false;
     if (manualMode) {
       setSmiDishSelection('');
-      searchInput.disabled = false;
       document.getElementById('smi-name').value = item.item_name;
-      document.getElementById('smi-cost').value = item.cost_est || 0;
     } else if (item.dish_id) {
-      // 舊資料相容：套餐新增品項現在只給選原物料，這類舊的成品菜連結維持顯示但不可再用這個欄位改選
-      document.getElementById('smi-dish-select').value = 'dish:' + item.dish_id;
-      searchInput.value = (allDishes.find(d => d.id === item.dish_id)?.name || '（成品菜，僅供參考）') + '　🍽️ 舊資料，成本由總部自動試算';
-      searchInput.disabled = true;
+      setSmiDishSelection('dish:' + item.dish_id);
       document.getElementById('smi-name').value = '';
-      document.getElementById('smi-cost').value = item.cost_est || 0;
     } else {
-      searchInput.disabled = false;
       setSmiDishSelection('item:' + item.item_id);
       document.getElementById('smi-name').value = '';
-      document.getElementById('smi-cost').value = item.cost_est || 0;
     }
+    document.getElementById('smi-cost').value = item.cost_est || 0;
     updateCostPreview();
     new bootstrap.Modal(document.getElementById('smiModal')).show();
   }
