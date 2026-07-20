@@ -366,10 +366,14 @@
       const materialCost = recs.reduce((s, r) => s + (r.purchase_cost || 0), 0);
 
       // ── 3. 人事成本 ──
-      const payroll = (payrollData || []).reduce((s, r) =>
-        s + (r.base_salary||0) + (r.position_allowance||0) + (r.attendance_bonus||0)
+      // 跟薪資結構分析頁一致：有填「實領金額」(payout_amount) 就用那個真實數字，
+      // 沒填才退回用底薪+加給+獎金-扣款算（舊版一律用公式算，導致跟實際薪資結構對不上）
+      const payroll = (payrollData || []).reduce((s, r) => {
+        const formulaAmt = (r.base_salary||0) + (r.position_allowance||0) + (r.attendance_bonus||0)
           + (r.performance_bonus||0) + (r.special_bonus||0)
-          - (r.deductions||0) - (r.leave_deductions||0), 0);
+          - (r.deductions||0) - (r.leave_deductions||0);
+        return s + ((r.payout_amount||0) || formulaAmt);
+      }, 0);
       const overhead = (overheadData?.meal_allowance || 0) + (overheadData?.employer_insurance || 0)
         + (overheadData?.festival_bonus || 0) + (overheadData?.birthday_bonus || 0);
       const laborCost = payroll + overhead;
@@ -430,18 +434,38 @@
     // ============================================================
     // Supabase 資料載入
     // ============================================================
+    // 物料成本率只算「生鮮食材／大陸進貨藥材／飲料酒類」，跟品項管理的類別掛鉤，
+    // 排除調料、清潔用品、瓦斯、包材、主食乾貨等非此範疇的進貨（2026-07-20 依 Cherish 指示調整）
+    const MATERIAL_CATEGORIES = ['蔬菜類','雞肉類','豬肉類','牛肉類','海鮮類','牛肉丸類','小菜類','飲品類','飲品食材'];
+    const MAINLAND_HERB_CATEGORIES = ['中藥材','中藥類'];
+
+    function nextMonthStartStr() {
+      let ny = year, nm = month + 1;
+      if (nm > 12) { nm = 1; ny++; }
+      return `${ny}-${String(nm).padStart(2,'0')}-01`;
+    }
+
     async function loadMonthRecords(storeId) {
+      // 上個版本少了結束日期上限，查過去月份時會把「當月起～查詢當下」全部撈進來，
+      // 導致例如查 6 月時把 7 月已發生的進貨也算進 6 月成本
       let q = supabase.from('inventory_records')
-        .select('purchase_cost, record_date')
-        .gte('record_date', monthStart);
+        .select('purchase_cost, record_date, items!inner(category, supplier)')
+        .gte('record_date', monthStart)
+        .lt('record_date', nextMonthStartStr());
       if (storeId) q = q.eq('store_id', storeId);
       const { data } = await q;
-      return data || [];
+      return (data || []).filter(r => {
+        const cat = r.items?.category;
+        if (MATERIAL_CATEGORIES.includes(cat)) return true;
+        if (MAINLAND_HERB_CATEGORIES.includes(cat) && r.items?.supplier === '大陸') return true;
+        if (cat === '大陸進貨') return true;
+        return false;
+      });
     }
 
     async function loadPayroll(storeId) {
       let q = supabase.from('payroll_records')
-        .select('base_salary,position_allowance,attendance_bonus,performance_bonus,special_bonus,deductions,leave_deductions')
+        .select('base_salary,position_allowance,attendance_bonus,performance_bonus,special_bonus,deductions,leave_deductions,payout_amount')
         .eq('year', year).eq('month', month);
       if (storeId) q = q.eq('store_id', storeId);
       const { data } = await q;
@@ -563,7 +587,7 @@
         status: mRatio < TARGET_M_LOW ? 'ok'
           : mRatio <= TARGET_M_HIGH ? 'warn'
           : 'danger',
-        target: `目標 < ${TARGET_M_LOW}%，上限 ${TARGET_M_HIGH}%`
+        target: `目標 < ${TARGET_M_LOW}%，上限 ${TARGET_M_HIGH}%（僅計生鮮食材／大陸藥材／飲料酒類）`
       });
 
       setGauge({
