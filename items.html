@@ -26,8 +26,8 @@
       <div class="table-card">
         <div class="p-2 px-3 border-bottom d-flex gap-2">
           <input type="text" id="search" class="form-control form-control-sm" placeholder="搜尋品項名稱、廠商或類別..." oninput="filterItems()">
-          <select id="cat-filter" class="form-select form-select-sm" style="width:auto;" onchange="filterItems()">
-            <option value="">所有類別</option>
+          <select id="sup-filter" class="form-select form-select-sm" style="width:auto;" onchange="filterItems()">
+            <option value="">所有廠商</option>
           </select>
         </div>
         <div class="table-responsive">
@@ -214,21 +214,21 @@
       const { data } = await q;
       allItems = data || [];
 
-      // 填充類別篩選
-      const cats = [...new Set(allItems.map(i => i.category).filter(Boolean))].sort();
-      const catSel = document.getElementById('cat-filter');
-      catSel.innerHTML = '<option value="">所有類別</option>';
-      cats.forEach(c => catSel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+      // 填充廠商篩選
+      const sups = [...new Set(allItems.map(i => i.supplier).filter(s => s && s !== '待確認'))].sort();
+      const supSel = document.getElementById('sup-filter');
+      supSel.innerHTML = '<option value="">所有廠商</option>';
+      sups.forEach(s => supSel.insertAdjacentHTML('beforeend', `<option value="${s}">${s}</option>`));
 
       renderTable(allItems);
     }
 
     function filterItems() {
       const q = document.getElementById('search').value.toLowerCase();
-      const cat = document.getElementById('cat-filter').value;
+      const sup = document.getElementById('sup-filter').value;
       renderTable(allItems.filter(i =>
         (!q || i.name.toLowerCase().includes(q) || (i.supplier||'').toLowerCase().includes(q) || (i.category||'').toLowerCase().includes(q)) &&
-        (!cat || i.category === cat)
+        (!sup || i.supplier === sup)
       ));
     }
 
