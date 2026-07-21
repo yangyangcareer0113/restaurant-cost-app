@@ -287,7 +287,7 @@
               <div class="text-muted" style="font-size:0.72rem;">定價</div>
             </div>
             <div>
-              <div class="fw-bold">$${formatNumber(totalCost, 0)}</div>
+              <div class="fw-bold">$${formatNumber(totalCost, 2)}</div>
               <div class="text-muted" style="font-size:0.72rem;">估算成本</div>
             </div>
             <div>
@@ -328,7 +328,7 @@
                 return `
                 <tr>
                   <td>${it.item_name}${qtyTag}</td>
-                  <td class="fw-bold">${locked ? '🔒 機密' : `$${formatNumber(lineCost, 0)}`}</td>
+                  <td class="fw-bold">${locked ? '🔒 機密' : `$${formatNumber(lineCost, 2)}`}</td>
                   <td class="text-muted">${it.notes || '—'}</td>
                   <td>
                     ${locked ? '<span class="text-muted" style="font-size:0.78rem;">🔒 由總部管理</span>' : `
@@ -344,9 +344,9 @@
             <tfoot>
               <tr class="cost-total-row">
                 <td colspan="2"><strong>套餐合計（定價 $${formatNumber(meal.price,0)}）</strong></td>
-                <td><strong>$${formatNumber(totalCost,0)}</strong></td>
+                <td><strong>$${formatNumber(totalCost,2)}</strong></td>
                 <td colspan="2"><strong>成本率 ${rateStr}</strong>
-                  ${meal.price > 0 && items.length ? `— 毛利 $${formatNumber(meal.price - totalCost, 0)}` : ''}
+                  ${meal.price > 0 && items.length ? `— 毛利 $${formatNumber(meal.price - totalCost, 2)}` : ''}
                 </td>
               </tr>
             </tfoot>` : ''}
@@ -502,7 +502,7 @@
     if (manualMode) {
       wrap.classList.remove('d-none');
       const cost = parseFloat(document.getElementById('smi-cost').value) || 0;
-      preview.textContent = '$' + formatNumber(cost, 0);
+      preview.textContent = '$' + formatNumber(cost, 2);
       return;
     }
 
@@ -511,7 +511,7 @@
     const [type, pid] = val.split(':');
     if (type === 'dish') {
       wrap.classList.add('d-none');
-      preview.textContent = '$' + formatNumber((dishCostMap[pid] || 0) * qty, 0);
+      preview.textContent = '$' + formatNumber((dishCostMap[pid] || 0) * qty, 2);
       return;
     }
     // type === 'item'：非機密品項可手動輸入/覆蓋成本；機密品項鎖住
@@ -520,7 +520,7 @@
     wrap.classList.toggle('d-none', locked);
     if (locked) { preview.textContent = '🔒 由總部設定'; return; }
     const cost = parseFloat(document.getElementById('smi-cost').value) || 0;
-    preview.textContent = '$' + formatNumber(cost, 0);
+    preview.textContent = '$' + formatNumber(cost, 2);
   }
 
   function openAddSmiModal(mealId) {
