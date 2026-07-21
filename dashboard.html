@@ -375,7 +375,7 @@
         return s + ((r.payout_amount||0) || formulaAmt);
       }, 0);
       const overhead = (overheadData?.meal_allowance || 0) + (overheadData?.employer_insurance || 0)
-        + (overheadData?.festival_bonus || 0) + (overheadData?.birthday_bonus || 0);
+        + (overheadData?.festival_bonus || 0) + (overheadData?.birthday_bonus || 0) + (overheadData?.remittance_fee || 0);
       const laborCost = payroll + overhead;
 
       // ── 4. Gauge ──
@@ -478,17 +478,18 @@
       // 全門店檢視（admin 未選特定門店）：加總所有門店同月份的雜支，維持跟單店檢視一致的計算基礎
       if (!storeId) {
         const { data } = await supabase.from('monthly_overhead')
-          .select('meal_allowance,employer_insurance,festival_bonus,birthday_bonus')
+          .select('meal_allowance,employer_insurance,festival_bonus,birthday_bonus,remittance_fee')
           .eq('year', year).eq('month', month);
         return (data || []).reduce((s, r) => ({
           meal_allowance: s.meal_allowance + (r.meal_allowance || 0),
           employer_insurance: s.employer_insurance + (r.employer_insurance || 0),
           festival_bonus: s.festival_bonus + (r.festival_bonus || 0),
           birthday_bonus: s.birthday_bonus + (r.birthday_bonus || 0),
-        }), { meal_allowance: 0, employer_insurance: 0, festival_bonus: 0, birthday_bonus: 0 });
+          remittance_fee: s.remittance_fee + (r.remittance_fee || 0),
+        }), { meal_allowance: 0, employer_insurance: 0, festival_bonus: 0, birthday_bonus: 0, remittance_fee: 0 });
       }
       const { data } = await supabase.from('monthly_overhead')
-        .select('meal_allowance,employer_insurance,festival_bonus,birthday_bonus')
+        .select('meal_allowance,employer_insurance,festival_bonus,birthday_bonus,remittance_fee')
         .eq('store_id', storeId).eq('year', year).eq('month', month)
         .maybeSingle();
       return data;
