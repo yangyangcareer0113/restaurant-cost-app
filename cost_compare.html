@@ -378,7 +378,7 @@
             .eq('store_id', storeId).eq('year', y).eq('month', m),
           supabase
             .from('monthly_overhead')
-            .select('meal_allowance, employer_insurance, festival_bonus, birthday_bonus')
+            .select('meal_allowance, employer_insurance, festival_bonus, birthday_bonus, remittance_fee')
             .eq('store_id', storeId).eq('year', y).eq('month', m)
             .maybeSingle()
         ]);
@@ -387,7 +387,7 @@
             + (r.performance_bonus||0) + (r.special_bonus||0)
             - (r.deductions||0) - (r.leave_deductions||0), 0);
         const overhead = (ohData?.meal_allowance || 0) + (ohData?.employer_insurance || 0)
-          + (ohData?.festival_bonus || 0) + (ohData?.birthday_bonus || 0);
+          + (ohData?.festival_bonus || 0) + (ohData?.birthday_bonus || 0) + (ohData?.remittance_fee || 0);
         laborMap[p] = payroll + overhead;
       }));
 
