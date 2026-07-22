@@ -545,7 +545,7 @@
     // （purchase_qty=當月總進貨量，current_stock=當月底庫存，用「上月庫存+本月進貨-本月庫存」反推消耗量）
     async function loadHerbFluctuationRecords(storeId) {
       let q = supabase.from('inventory_records')
-        .select('record_date, purchase_qty, purchase_cost, current_stock, item_id, items!inner(name, is_confidential)')
+        .select('record_date, purchase_qty, purchase_cost, current_stock, item_id, items!inner(name, is_confidential, unit_cost)')
         .eq('items.is_confidential', true)
         .order('record_date', { ascending: true });
       if (storeId) q = q.eq('store_id', storeId);
@@ -582,7 +582,7 @@
         const prev = lastByItem[r.item_id];
         if (prev && r.current_stock != null && prev.current_stock != null) {
           const usedQty = prev.current_stock + (r.purchase_qty || 0) - r.current_stock;
-          const unitCost = (r.purchase_qty > 0 && r.purchase_cost > 0) ? (r.purchase_cost / r.purchase_qty) : 0;
+          const unitCost = r.items?.unit_cost || 0;
           usageByMonth[mk] = (usageByMonth[mk] || 0) + Math.max(usedQty, 0) * unitCost;
         }
         lastByItem[r.item_id] = r;
