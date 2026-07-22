@@ -241,6 +241,26 @@
               </div>
             </div>
           </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <span class="fw-semibold">📦 中藥材進貨浮動（月比較）</span>
+            </div>
+            <div class="p-3">
+              <canvas id="herb-purchase-chart" height="150"></canvas>
+              <div id="herb-purchase-empty" class="empty-state d-none">尚無跨月資料</div>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <span class="fw-semibold">🔥 中藥材消耗浮動（月比較）</span>
+            </div>
+            <div class="p-3">
+              <canvas id="herb-usage-chart" height="150"></canvas>
+              <div id="herb-usage-empty" class="empty-state d-none">尚無跨月資料</div>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -270,6 +290,8 @@
 
     let currentProfile = null;
     let costChart = null;
+    let herbPurchaseChart = null;
+    let herbUsageChart = null;
 
     // ── 日期工具（依右上角選擇的年月重新計算，預設為當月/當日） ──
     let todayStr, year, month, monthStr, monthStart, daysInMonth, dayOfMonth, isCurrentMonth;
@@ -392,6 +414,10 @@
 
       // ── 7. 趨勢圖 ──
       renderCostChart(recs);
+
+      // ── 8. 中藥材進貨/消耗浮動（跨月比較）──
+      const herbRecords = await loadHerbFluctuationRecords(storeId);
+      renderHerbFluctuationCharts(herbRecords);
     }
 
     // ============================================================
@@ -513,6 +539,82 @@
       return Object.values(latestMap).filter(r =>
         stockAlertLevel(r.current_stock, r.items?.min_stock_qty) !== 'ok'
       );
+    }
+
+    // 中藥材（大陸進貨機密品項）跨月進貨/消耗浮動：每筆記錄視為當月月底快照
+    // （purchase_qty=當月總進貨量，current_stock=當月底庫存，用「上月庫存+本月進貨-本月庫存」反推消耗量）
+    async function loadHerbFluctuationRecords(storeId) {
+      let q = supabase.from('inventory_records')
+        .select('record_date, purchase_qty, purchase_cost, current_stock, item_id, items!inner(name, is_confidential)')
+        .eq('items.is_confidential', true)
+        .order('record_date', { ascending: true });
+      if (storeId) q = q.eq('store_id', storeId);
+      const { data } = await q;
+      return data || [];
+    }
+
+    function renderHerbFluctuationCharts(records) {
+      const purchaseEl = document.getElementById('herb-purchase-chart');
+      const usageEl = document.getElementById('herb-usage-chart');
+
+      if (!records.length) {
+        purchaseEl.style.display = 'none';
+        usageEl.style.display = 'none';
+        document.getElementById('herb-purchase-empty').classList.remove('d-none');
+        document.getElementById('herb-usage-empty').classList.remove('d-none');
+        return;
+      }
+      purchaseEl.style.display = '';
+      usageEl.style.display = '';
+      document.getElementById('herb-purchase-empty').classList.add('d-none');
+      document.getElementById('herb-usage-empty').classList.add('d-none');
+
+      // 依月份彙總進貨成本；依「同品項前一筆記錄」反推消耗成本
+      const monthKey = d => d.slice(0, 7);
+      const purchaseByMonth = {};
+      const usageByMonth = {};
+      const lastByItem = {};
+
+      records.forEach(r => {
+        const mk = monthKey(r.record_date);
+        purchaseByMonth[mk] = (purchaseByMonth[mk] || 0) + (r.purchase_cost || 0);
+
+        const prev = lastByItem[r.item_id];
+        if (prev && r.current_stock != null && prev.current_stock != null) {
+          const usedQty = prev.current_stock + (r.purchase_qty || 0) - r.current_stock;
+          const unitCost = (r.purchase_qty > 0 && r.purchase_cost > 0) ? (r.purchase_cost / r.purchase_qty) : 0;
+          usageByMonth[mk] = (usageByMonth[mk] || 0) + Math.max(usedQty, 0) * unitCost;
+        }
+        lastByItem[r.item_id] = r;
+      });
+
+      const months = Object.keys(purchaseByMonth).sort();
+      const monthLabel = mk => mk.slice(5) + '月';
+
+      if (herbPurchaseChart) herbPurchaseChart.destroy();
+      herbPurchaseChart = new Chart(purchaseEl, {
+        type: 'bar',
+        data: {
+          labels: months.map(monthLabel),
+          datasets: [{ label: '進貨成本（元）', data: months.map(m => Math.round(purchaseByMonth[m])),
+            backgroundColor: 'rgba(37,99,235,0.65)', borderRadius: 4 }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } } }
+      });
+
+      if (herbUsageChart) herbUsageChart.destroy();
+      herbUsageChart = new Chart(usageEl, {
+        type: 'line',
+        data: {
+          labels: months.map(monthLabel),
+          datasets: [{ label: '消耗成本（元）', data: months.map(m => Math.round(usageByMonth[m] || 0)),
+            borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.08)',
+            fill: true, tension: 0.3, pointRadius: 3 }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } } }
+      });
     }
 
     // ============================================================

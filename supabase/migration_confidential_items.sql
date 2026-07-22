@@ -56,7 +56,8 @@ SELECT
   smi.id, smi.set_meal_id, smi.item_id, smi.item_name,
   CASE WHEN i.is_confidential AND NOT is_admin() THEN NULL ELSE smi.cost_est END AS cost_est,
   smi.choice_group, smi.notes, smi.sort_order, smi.created_at,
-  COALESCE(i.is_confidential, false) AS is_confidential
+  COALESCE(i.is_confidential, false) AS is_confidential,
+  smi.dish_id, smi.qty
 FROM set_meal_items smi
 LEFT JOIN items i ON i.id = smi.item_id;
 
