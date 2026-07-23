@@ -456,11 +456,11 @@
   }
 
   // 還沒跑過打卡分析、沒有真實加班工時時，用「加班費金額」倒推估算：
-  // 時薪抓「月薪÷240」（勞基法月薪換算慣例），沒有底薪（多為PT）就用2026基本時薪196元頂替；
+  // 時薪抓「月薪÷240」（勞基法月薪換算慣例），沒有底薪的PT用實際時薪200元；
   // 加班費倍率抓最保守的1.34倍（勞基法平日加班前2小時），倍率越高估出的工時越低，故用此偏保守估法避免低估風險。
   function estimateOvertimeHours(overtimePay, baseSalary) {
     if (!overtimePay || overtimePay <= 0) return 0;
-    const hourlyRate = baseSalary > 0 ? baseSalary / 240 : 196;
+    const hourlyRate = baseSalary > 0 ? baseSalary / 240 : 200;
     return overtimePay / (hourlyRate * 1.34);
   }
 
@@ -492,7 +492,7 @@
     let suggestions = '';
     if (withLevel.some(r => r.estimated)) {
       suggestions += `<div class="mb-2 text-muted" style="font-size:0.78rem;">
-        ⚠️ 標「推算」的工時是用當月加班費金額反推估算（月薪÷240算時薪，沒底薪的用2026基本時薪$196，
+        ⚠️ 標「推算」的工時是用當月加班費金額反推估算（月薪÷240算時薪，沒底薪的PT用實際時薪$200，
         加班費倍率抓保守值1.34倍），不是打卡記錄的真實工時，僅供參考。要看精確數字請到「打卡記錄」跑該月分析。</div>`;
     }
     if (red.length) {
