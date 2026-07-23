@@ -110,6 +110,7 @@
                 <th class="text-end">全勤</th>
                 <th class="text-end">職務加給</th>
                 <th class="text-end">加班費 <span style="font-size:0.7rem;color:#94a3b8;">手動</span></th>
+                <th class="text-end">加班工時 <span style="font-size:0.7rem;color:#94a3b8;">勞基法燈號</span></th>
                 <th class="text-end">實領金額 <span style="font-size:0.7rem;color:#94a3b8;">手動</span></th>
               </tr>
             </thead>
@@ -118,6 +119,15 @@
           </table>
         </div>
       </div>
+    </div>
+
+    <!-- 加班工時健檢 -->
+    <div class="table-card mt-3" id="overtime-health-card" style="display:none;">
+      <div class="table-header">
+        <span class="fw-semibold">🚦 加班工時健檢（勞基法）</span>
+        <span style="font-size:0.78rem;color:#94a3b8;">🟢≤30h健康 🟡30-46h提醒 🔴&gt;46h警示</span>
+      </div>
+      <div class="p-3" id="overtime-health-body"></div>
     </div>
 
     <!-- 月度費用補充 -->
@@ -363,7 +373,7 @@
     document.getElementById('btn-init').style.display = (canEdit && !hasRecords) ? '' : 'none';
     document.getElementById('btn-save').style.display = (canEdit && hasRecords) ? '' : 'none';
 
-    if (!hasRecords) { renderKPI([]); return; }
+    if (!hasRecords) { renderKPI([]); document.getElementById('overtime-health-card').style.display = 'none'; return; }
 
     const tbody = document.getElementById('payroll-tbody');
     tbody.innerHTML = staffList.map(s => {
@@ -373,9 +383,12 @@
         attendance_bonus: s.attendance_bonus_amount || 0,
         performance_bonus: 0,
         payout_amount: 0,
+        overtime_hours: 0,
       };
       const overtimePay  = Number(rec.performance_bonus) || 0;
       const netSalary    = Number(rec.payout_amount) || 0;
+      const otHours      = Number(rec.overtime_hours) || 0;
+      const otLevel      = overtimeLevel(otHours);
       return `
         <tr data-staff-id="${s.id}">
           <td><strong>${esc(s.name)}</strong>${s.status === 'inactive' ? ' <span class="badge bg-light text-secondary border" style="font-size:0.68rem;font-weight:600;">已離職</span>' : ''}</td>
@@ -397,6 +410,11 @@
               data-field="performance_bonus" value="${overtimePay > 0 ? overtimePay : ''}"
               placeholder="手動輸入" onchange="onRowChange(this)">
           </td>
+          <td class="text-end" style="white-space:nowrap;">
+            ${otHours > 0
+              ? `<span title="${otLevel.title}">${otLevel.icon}</span> ${otHours.toFixed(1)}h`
+              : '<span class="text-muted">—</span>'}
+          </td>
           <td class="text-end">
             <input class="payroll-input manual-input" type="number" min="0" step="100"
               data-field="payout_amount" value="${netSalary > 0 ? netSalary : ''}"
@@ -405,6 +423,11 @@
         </tr>
       `;
     }).join('');
+
+    renderOvertimeHealthCheck(staffList.map(s => {
+      const rec = payrollRows.find(r => r.staff_id === s.id);
+      return { name: s.name, hours: Number(rec?.overtime_hours) || 0 };
+    }).filter(r => r.hours > 0));
 
     renderTfoot();
     renderKPI(collectRows());
@@ -426,6 +449,56 @@
     }
   }
 
+  // 勞基法第32條：一般加班上限每月46小時（免經核可）；超過需勞資協議且有季平均上限。
+  // 46h已是法定上限，30h設為提醒緣衝，讓店長在超標前就能調整排班。
+  function overtimeLevel(hours) {
+    if (hours > 46) return { icon: '🔴', title: '超過勞基法一般月加班上限46小時，需檢視是否已完成勞資協議加簽，否則有違法風險' };
+    if (hours > 30) return { icon: '🟡', title: '接近勞基法月加班上限46小時，建議留意排班分配' };
+    return { icon: '🟢', title: '在合理加班區間內' };
+  }
+
+  function renderOvertimeHealthCheck(rows) {
+    const card = document.getElementById('overtime-health-card');
+    const body = document.getElementById('overtime-health-body');
+    if (!rows.length) { card.style.display = 'none'; return; }
+    card.style.display = '';
+
+    const withLevel = rows.map(r => ({ ...r, level: overtimeLevel(r.hours) }));
+    const red = withLevel.filter(r => r.level.icon === '🔴');
+    const yellow = withLevel.filter(r => r.level.icon === '🟡');
+    const green = withLevel.filter(r => r.level.icon === '🟢');
+
+    const rowHtml = r => `
+      <div class="d-flex justify-content-between align-items-center py-1" style="border-bottom:1px solid #f1f5f9;">
+        <span>${r.level.icon} ${esc(r.name)}</span>
+        <strong>${r.hours.toFixed(1)}h</strong>
+      </div>`;
+
+    let suggestions = '';
+    if (red.length) {
+      suggestions += `<div class="mb-2" style="color:#dc2626;">
+        <strong>🔴 紅燈（${red.map(r=>r.name).join('、')}）：</strong>
+        本月已超過勞基法一般月加班上限46小時。下月修正建議：① 確認是否已簽署工會/勞資會議加班協議，未簽署者立即降到46小時內；
+        ② 檢視是否有長期人力缺口，優先補人或調整排班分散工時；③ 若持續超標，注意勞基法對加班採「每3個月平均不得超過138小時」，
+        本月超標需在接下來兩個月內明顯降低以拉回平均值。</div>`;
+    }
+    if (yellow.length) {
+      suggestions += `<div class="mb-2" style="color:#b45309;">
+        <strong>🟡 黃燈（${yellow.map(r=>r.name).join('、')}）：</strong>
+        已接近46小時上限。下月修正建議：檢視班表是否集中在少數幾人身上，優先把即將到頂的員工排班往下調，
+        避免下月一開始就逼近或超過上限。</div>`;
+    }
+    if (green.length && !red.length && !yellow.length) {
+      suggestions += `<div style="color:#15803d;"><strong>🟢 全員在健康區間內</strong>，維持現有排班節奏即可。</div>`;
+    }
+
+    body.innerHTML = `
+      <div class="row g-3">
+        <div class="col-12 col-md-6">${withLevel.sort((a,b)=>b.hours-a.hours).map(rowHtml).join('')}</div>
+        <div class="col-12 col-md-6" style="font-size:0.85rem;line-height:1.7;">${suggestions}</div>
+      </div>`;
+  }
+
   function onRowChange(input) {
     dirty = true;
     document.getElementById('save-hint').style.display = '';
@@ -443,6 +516,7 @@
         <td class="text-end">${formatNumber(sum('attendance_bonus'))}</td>
         <td class="text-end">${formatNumber(sum('position_allowance'))}</td>
         <td class="text-end">${formatNumber(sum('performance_bonus'))}</td>
+        <td class="text-end text-muted" style="font-size:0.8rem;">—</td>
         <td class="text-end total-cell" style="font-size:1.05rem;">${formatNumber(sum('payout_amount'))}</td>
       </tr>
     `;
