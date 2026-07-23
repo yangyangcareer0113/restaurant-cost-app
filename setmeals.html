@@ -155,6 +155,7 @@
   let allItems = [];        // 原物料（含中藥材等機密品項），供「選擇原物料」下拉選單使用
   let allItemsMap = {};     // item_id → {name, unit, unit_cost, is_confidential}（非 admin 機密品項 unit_cost 為 null）
   let mealTrueCost = {};    // set_meal_id → 真實總成本（來自 set_meals_total_cost RPC）
+  let dishBomMap = {};      // dish_id → [{name, qty, unit, cost, locked}]（連結成品菜品的品項，展開顯示底下真正用了哪些食材）
   let manualMode = false;
 
   const RC = {
@@ -252,7 +253,35 @@
       (dishRows || []).forEach(r => { dishCostMap[r.dish_id] = r.total_cost; });
     }));
 
+    // 套餐裡連結到成品菜品的品項，展開顯示該菜品底下實際用了哪些食材（不然只會看到一行菜品總價，看不到明細）
+    const dishIds = [...new Set(
+      allMeals.flatMap(m => (m.set_meal_items || []).map(it => it.dish_id).filter(Boolean))
+    )];
+    await loadDishBomDetails(dishIds);
+
     renderMeals(allMeals);
+  }
+
+  async function loadDishBomDetails(dishIds) {
+    dishBomMap = {};
+    if (!dishIds.length) return;
+    const isAdmin = currentProfile.role === 'admin';
+    const { data: lines } = await supabase.from('bom_lines').select('*').eq('parent_type', 'dish').in('parent_id', dishIds);
+    (lines || []).forEach(line => {
+      if (!dishBomMap[line.parent_id]) dishBomMap[line.parent_id] = [];
+      if (line.child_type === 'item') {
+        const item = allItemsMap[line.child_id];
+        const locked = !!(item?.is_confidential && !isAdmin);
+        const cost = item ? calcItemLineCost(item, line.std_qty, line.waste_rate) : 0;
+        dishBomMap[line.parent_id].push({
+          name: item?.name || '（未知品項）', qty: line.std_qty, unit: line.bom_unit, cost, locked
+        });
+      } else {
+        dishBomMap[line.parent_id].push({
+          name: '半成品項目', qty: line.std_qty, unit: line.bom_unit, cost: null, locked: false
+        });
+      }
+    });
   }
 
   function renderMeals(meals) {
@@ -325,6 +354,12 @@
                 const locked = !isDishBased && !isAdmin && it.item_id && (it.cost_est === null || it.cost_est === undefined);
                 const lineCost = isDishBased ? (dishCostMap[it.dish_id] || 0) * (it.qty || 1) : (it.cost_est || 0);
                 const qtyTag = it.qty && it.qty != 1 ? ` × ${formatNumber(it.qty, 0)}` : '';
+                const subRows = isDishBased ? (dishBomMap[it.dish_id] || []).map(sub => `
+                <tr class="table-light">
+                  <td class="text-muted" style="font-size:0.8rem;">↳ ${sub.name}${sub.qty != null ? ` ${formatNumber(sub.qty, 2)} ${sub.unit || ''}` : ''}</td>
+                  <td class="text-muted" style="font-size:0.8rem;">${sub.locked ? '🔒 機密' : (sub.cost != null ? `$${formatNumber(sub.cost, 2)}` : '—')}</td>
+                  <td colspan="2"></td>
+                </tr>`).join('') : '';
                 return `
                 <tr>
                   <td>${it.item_name}${qtyTag}</td>
@@ -338,6 +373,7 @@
                       onclick="deleteSmi('${it.id}', '${meal.id}')">刪除</button>`}
                   </td>
                 </tr>
+                ${subRows}
               `;}).join('') : '<tr><td colspan="4" class="text-center text-muted">尚無品項，點「新增品項」開始建立 BOM</td></tr>'}
             </tbody>
             ${items.length ? `
