@@ -91,6 +91,15 @@
               </div>
 
               <div class="mb-3">
+                <label class="form-label fw-semibold">目前庫存（盤點）</label>
+                <div class="input-group">
+                  <input type="number" id="rec-current-stock" class="form-control" min="0" step="0.01" placeholder="現場實際盤到的庫存量">
+                  <span class="input-group-text" id="stock-unit" style="font-size:0.8rem;min-width:40px;">—</span>
+                </div>
+                <div class="form-text">填了才會更新這個品項的庫存快照，用於算月消耗浮動；沒盤點可留空，不會動到庫存資料</div>
+              </div>
+
+              <div class="mb-3">
                 <label class="form-label fw-semibold">備註（廠商、發票號等）</label>
                 <input type="text" id="rec-notes" class="form-control" placeholder="選填">
               </div>
@@ -228,6 +237,7 @@
       document.getElementById('hint-unit-cost').textContent = item.unit_cost > 0 ? `$${formatNumber(item.unit_cost, 0)} / ${item.unit}` : '—（尚未設定）';
       document.getElementById('hint-spec').textContent = item.spec_note || '—';
       unitEl.textContent = item.unit;
+      document.getElementById('stock-unit').textContent = item.unit;
 
       // 自動帶入標準單位成本
       if (item.unit_cost > 0) {
@@ -252,7 +262,9 @@
 
       const qty = parseFloat(document.getElementById('rec-qty').value) || 0;
       const unitCost = parseFloat(document.getElementById('rec-unit-cost').value) || 0;
-      if (qty <= 0) { showToast('請填寫進貨數量', 'danger'); return; }
+      const stockInput = document.getElementById('rec-current-stock').value;
+      const currentStock = stockInput === '' ? null : parseFloat(stockInput);
+      if (qty <= 0 && currentStock === null) { showToast('請填寫進貨數量或目前庫存', 'danger'); return; }
 
       const storeId = currentProfile.role === 'admin'
         ? document.getElementById('store-filter').value || itemsMap[itemId]?.store_id
@@ -267,7 +279,7 @@
         purchase_qty: qty,
         purchase_cost: qty * unitCost,
         waste_qty: 0,
-        current_stock: 0,
+        current_stock: currentStock,
         notes: document.getElementById('rec-notes').value.trim() || null,
         created_by: session.user.id
       };
@@ -275,12 +287,14 @@
       const { error } = await supabase.from('inventory_records').insert(payload);
       if (error) { showToast('儲存失敗：' + error.message, 'danger'); return; }
 
-      showToast(`✓ 已記錄：${itemsMap[itemId].name} × ${qty} ${itemsMap[itemId].unit}，$${formatNumber(payload.purchase_cost, 0)}`);
+      showToast(`✓ 已記錄：${itemsMap[itemId].name} × ${qty} ${itemsMap[itemId].unit}，$${formatNumber(payload.purchase_cost, 0)}${currentStock !== null ? `，庫存 ${currentStock}` : ''}`);
 
       document.getElementById('rec-item').value = '';
       document.getElementById('rec-item-search').value = '';
       document.getElementById('rec-qty').value = '';
       document.getElementById('rec-unit-cost').value = '';
+      document.getElementById('rec-current-stock').value = '';
+      document.getElementById('stock-unit').textContent = '—';
       document.getElementById('rec-notes').value = '';
       document.getElementById('item-hint').classList.add('d-none');
       document.getElementById('calc-preview').classList.add('d-none');
