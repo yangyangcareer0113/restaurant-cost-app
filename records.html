@@ -40,7 +40,7 @@
             <div class="p-3">
               <div class="mb-3">
                 <label class="form-label fw-semibold">進貨日期</label>
-                <input type="date" id="rec-date" class="form-control">
+                <input type="date" id="rec-date" class="form-control" onchange="onRecDateChange()">
               </div>
               <div class="mb-3">
                 <label class="form-label fw-semibold">品項 <span class="text-danger">*</span></label>
@@ -183,6 +183,13 @@
       const { data } = await supabase.from('stores').select('id,name').order('name');
       const sel = document.getElementById('store-filter');
       (data||[]).forEach(s => sel.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.name}</option>`));
+    }
+
+    // 左邊「進貨日期」改了，右邊清單跟著切到同一天，不用再手動調右上角的日期篩選
+    async function onRecDateChange() {
+      const d = document.getElementById('rec-date').value;
+      document.getElementById('filter-date').value = d;
+      await loadRecords();
     }
 
     async function onStoreChange() {
