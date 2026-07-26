@@ -223,7 +223,7 @@
       });
     }
 
-    function onItemChange() {
+    async function onItemChange() {
       const name = document.getElementById('rec-item-search').value;
       const itemId = itemNameToId[name] || '';
       document.getElementById('rec-item').value = itemId;
@@ -241,14 +241,30 @@
 
       hint.classList.remove('d-none');
       document.getElementById('hint-supplier').textContent = item.supplier || '—';
-      document.getElementById('hint-unit-cost').textContent = item.unit_cost > 0 ? `$${formatNumber(item.unit_cost, 0)} / ${item.unit}` : '—（尚未設定）';
       document.getElementById('hint-spec').textContent = item.spec_note || '—';
       unitEl.textContent = item.unit;
       document.getElementById('stock-unit').textContent = item.unit;
 
-      // 自動帶入標準單位成本
-      if (item.unit_cost > 0) {
-        document.getElementById('rec-unit-cost').value = item.unit_cost;
+      // 自動帶入單位成本：優先抓「最近一次進貨」的實際單價，而不是品項管理當初設定的標準成本，
+      // 因為進貨價會隨時間波動，員工每次記錄時應該看到最新真實成本，不是建檔當時的舊數字
+      const { data: lastRec } = await supabase.from('inventory_records')
+        .select('purchase_qty, purchase_cost, record_date')
+        .eq('item_id', itemId)
+        .gt('purchase_qty', 0)
+        .order('record_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const lastUnitCost = lastRec && lastRec.purchase_qty > 0 ? lastRec.purchase_cost / lastRec.purchase_qty : null;
+      const effectiveCost = lastUnitCost != null ? lastUnitCost : item.unit_cost;
+
+      document.getElementById('hint-unit-cost').textContent = effectiveCost > 0
+        ? `$${formatNumber(effectiveCost, 0)} / ${item.unit}${lastUnitCost != null ? `（${lastRec.record_date} 最近一次進貨）` : '（品項管理設定值，尚無進貨記錄）'}`
+        : '—（尚未設定）';
+
+      if (effectiveCost > 0) {
+        document.getElementById('rec-unit-cost').value = effectiveCost;
       }
       calcPreview();
     }

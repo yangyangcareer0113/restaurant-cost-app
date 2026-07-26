@@ -142,6 +142,56 @@
   </div>
 </div>
 
+<!-- 編輯/新增：成品菜品配方裡的原物料（直接改 bom_lines，套餐引用的成本會即時反映） -->
+<div class="modal fade" id="dishLineModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="dish-line-modal-title">編輯食材</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="dl-id">
+        <input type="hidden" id="dl-dish-id">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">原物料 <span class="text-danger">*</span></label>
+          <div class="position-relative">
+            <input type="text" id="dl-item-search" class="form-control" placeholder="輸入關鍵字搜尋原物料" autocomplete="off" oninput="onDishLineItemSearch()" onfocus="onDishLineItemSearch()">
+            <div id="dl-item-dropdown" class="list-group position-absolute w-100 d-none" style="z-index:1060; max-height:220px; overflow-y:auto; box-shadow:0 6px 16px rgba(0,0,0,0.15);"></div>
+          </div>
+          <input type="hidden" id="dl-item-id">
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label fw-semibold">用量</label>
+            <input type="number" id="dl-qty" class="form-control" min="0" step="0.01" oninput="updateDishLinePreview()">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">BOM 單位</label>
+            <input type="text" id="dl-unit" class="form-control" placeholder="g">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">損耗率 %</label>
+          <input type="number" id="dl-waste" class="form-control" min="0" max="99" step="1" value="0" oninput="updateDishLinePreview()">
+        </div>
+        <div class="mb-3 p-2 bg-light rounded d-flex justify-content-between align-items-center">
+          <span class="text-muted" style="font-size:0.85rem;">此食材預估成本</span>
+          <strong id="dl-cost-preview">—</strong>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">備注</label>
+          <input type="text" id="dl-notes" class="form-control" placeholder="選填">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button class="btn btn-primary" onclick="saveDishLine()">儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
@@ -274,14 +324,125 @@
         const locked = !!(item?.is_confidential && !isAdmin);
         const cost = item ? calcItemLineCost(item, line.std_qty, line.waste_rate) : 0;
         dishBomMap[line.parent_id].push({
-          name: item?.name || '（未知品項）', qty: line.std_qty, unit: line.bom_unit, cost, locked
+          id: line.id, dishId: line.parent_id, childId: line.child_id, childType: 'item',
+          name: item?.name || '（未知品項）', qty: line.std_qty, unit: line.bom_unit,
+          wasteRate: line.waste_rate || 0, notes: line.notes, cost, locked
         });
       } else {
         dishBomMap[line.parent_id].push({
-          name: '半成品項目', qty: line.std_qty, unit: line.bom_unit, cost: null, locked: false
+          id: line.id, dishId: line.parent_id, childId: line.child_id, childType: line.child_type,
+          name: '半成品項目', qty: line.std_qty, unit: line.bom_unit,
+          wasteRate: line.waste_rate || 0, notes: line.notes, cost: null, locked: false
         });
       }
     });
+  }
+
+  // ── 成品菜品配方（bom_lines）新增/編輯/刪除：直接在套餐管理裡改，不用跳去成品菜單 ──
+  function onDishLineItemSearch() {
+    const dropdown = document.getElementById('dl-item-dropdown');
+    const q = document.getElementById('dl-item-search').value.trim();
+    if (!q) { dropdown.classList.add('d-none'); dropdown.innerHTML = ''; return; }
+    const matches = allItems.filter(i => i.name.includes(q)).slice(0, 20)
+      .map(i => `<button type="button" class="list-group-item list-group-item-action" onclick="selectDishLineItem('${i.id}')">${itemLabel(i)}</button>`);
+    dropdown.innerHTML = matches.join('') || '<div class="list-group-item text-muted" style="font-size:0.85rem;">沒有符合的原物料</div>';
+    dropdown.classList.remove('d-none');
+  }
+
+  function selectDishLineItem(itemId) {
+    const item = allItemsMap[itemId];
+    document.getElementById('dl-item-id').value = itemId;
+    document.getElementById('dl-item-search').value = itemLabel(item);
+    document.getElementById('dl-item-dropdown').classList.add('d-none');
+    if (item?.serving_qty > 0) {
+      document.getElementById('dl-unit').value = '份';
+    } else if (!document.getElementById('dl-unit').value) {
+      document.getElementById('dl-unit').value = 'g';
+    }
+    updateDishLinePreview();
+  }
+
+  function updateDishLinePreview() {
+    const itemId = document.getElementById('dl-item-id').value;
+    const item = allItemsMap[itemId];
+    const qty = parseFloat(document.getElementById('dl-qty').value) || 0;
+    const waste = parseFloat(document.getElementById('dl-waste').value) || 0;
+    const preview = document.getElementById('dl-cost-preview');
+    if (!item) { preview.textContent = '—'; return; }
+    if (item.is_confidential && currentProfile.role !== 'admin') { preview.textContent = '🔒 機密'; return; }
+    preview.textContent = '$' + formatNumber(calcItemLineCost(item, qty, waste), 2);
+  }
+
+  function openAddDishLineModal(dishId) {
+    document.getElementById('dish-line-modal-title').textContent = '新增食材到配方';
+    document.getElementById('dl-id').value = '';
+    document.getElementById('dl-dish-id').value = dishId;
+    document.getElementById('dl-item-id').value = '';
+    document.getElementById('dl-item-search').value = '';
+    document.getElementById('dl-item-dropdown').classList.add('d-none');
+    document.getElementById('dl-qty').value = '';
+    document.getElementById('dl-unit').value = 'g';
+    document.getElementById('dl-waste').value = '0';
+    document.getElementById('dl-notes').value = '';
+    document.getElementById('dl-cost-preview').textContent = '—';
+    new bootstrap.Modal(document.getElementById('dishLineModal')).show();
+  }
+
+  function openEditDishLineModal(sub) {
+    document.getElementById('dish-line-modal-title').textContent = '編輯食材';
+    document.getElementById('dl-id').value = sub.id;
+    document.getElementById('dl-dish-id').value = sub.dishId;
+    document.getElementById('dl-item-id').value = sub.childId;
+    document.getElementById('dl-item-search').value = itemLabel(allItemsMap[sub.childId]);
+    document.getElementById('dl-item-dropdown').classList.add('d-none');
+    document.getElementById('dl-qty').value = sub.qty;
+    document.getElementById('dl-unit').value = sub.unit || 'g';
+    document.getElementById('dl-waste').value = sub.wasteRate || 0;
+    document.getElementById('dl-notes').value = sub.notes || '';
+    updateDishLinePreview();
+    new bootstrap.Modal(document.getElementById('dishLineModal')).show();
+  }
+
+  async function saveDishLine() {
+    const id = document.getElementById('dl-id').value;
+    const dishId = document.getElementById('dl-dish-id').value;
+    const itemId = document.getElementById('dl-item-id').value;
+    if (!itemId) { showToast('請選擇原物料', 'danger'); return; }
+    const qty = parseFloat(document.getElementById('dl-qty').value) || 0;
+    if (qty <= 0) { showToast('請填寫用量', 'danger'); return; }
+
+    const payload = {
+      parent_type: 'dish',
+      parent_id: dishId,
+      child_type: 'item',
+      child_id: itemId,
+      std_qty: qty,
+      bom_unit: document.getElementById('dl-unit').value.trim() || 'g',
+      waste_rate: parseFloat(document.getElementById('dl-waste').value) || 0,
+      notes: document.getElementById('dl-notes').value.trim() || null,
+    };
+    const dish = allDishes.find(d => d.id === dishId);
+    if (dish) payload.store_id = dish.store_id;
+
+    let error;
+    if (id) {
+      ({ error } = await supabase.from('bom_lines').update(payload).eq('id', id));
+    } else {
+      ({ error } = await supabase.from('bom_lines').insert(payload));
+    }
+    if (error) { showToast('儲存失敗：' + error.message, 'danger'); return; }
+
+    bootstrap.Modal.getInstance(document.getElementById('dishLineModal')).hide();
+    showToast(id ? '食材已更新' : '食材已新增');
+    await loadMeals();
+  }
+
+  async function deleteDishLine(id, dishId) {
+    if (!confirm('確定要從這個配方移除這項食材？')) return;
+    const { error } = await supabase.from('bom_lines').delete().eq('id', id);
+    if (error) { showToast('刪除失敗：' + error.message, 'danger'); return; }
+    showToast('已刪除', 'warning');
+    await loadMeals();
   }
 
   function renderMeals(meals) {
@@ -358,8 +519,20 @@
                 <tr class="table-light">
                   <td class="text-muted" style="font-size:0.8rem;">↳ ${sub.name}${sub.qty != null ? ` ${formatNumber(sub.qty, 2)} ${sub.unit || ''}` : ''}</td>
                   <td class="text-muted" style="font-size:0.8rem;">${sub.locked ? '🔒 機密' : (sub.cost != null ? `$${formatNumber(sub.cost, 2)}` : '—')}</td>
-                  <td colspan="2"></td>
-                </tr>`).join('') : '';
+                  <td colspan="2">
+                    ${sub.locked || sub.childType !== 'item' ? '' : `
+                    <button class="btn btn-xs btn-outline-primary btn-sm py-0 px-2 me-1"
+                      onclick="openEditDishLineModal(${JSON.stringify(sub).replace(/"/g,'&quot;')})">編輯</button>
+                    <button class="btn btn-xs btn-outline-danger btn-sm py-0 px-2"
+                      onclick="deleteDishLine('${sub.id}', '${it.dish_id}')">刪除</button>`}
+                  </td>
+                </tr>`).join('') + (isDishBased ? `
+                <tr class="table-light">
+                  <td colspan="4">
+                    <button class="btn btn-xs btn-outline-success btn-sm py-0 px-2"
+                      onclick="openAddDishLineModal('${it.dish_id}')">+ 新增食材到「${it.item_name}」配方</button>
+                  </td>
+                </tr>` : '') : '';
                 return `
                 <tr>
                   <td>${it.item_name}${qtyTag}</td>
