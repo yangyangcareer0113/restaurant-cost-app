@@ -322,6 +322,10 @@
     const TARGET_L         = 28;
 
     let currentProfile = null;
+    // 切換年月/門店時可能觸發新的 loadDashboard()，若前一次還沒載完，
+    // 舊的那次資料回來時千萬不能再渲染（否則會用新請求覆寫掉的全域日期變數，
+    // 畫出「數字跟標籤對不上」的錯誤畫面）。用序號讓舊的那次自動放棄渲染。
+    let dashboardLoadSeq = 0;
     let costChart = null;
     let herbPurchaseChart = null;
     let herbUsageChart = null;
@@ -393,7 +397,25 @@
     // ============================================================
     // 主載入
     // ============================================================
+    function setDashboardSelectorsDisabled(disabled) {
+      ['sel-year-dash', 'sel-month-dash', 'store-selector'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = disabled;
+      });
+    }
+
     async function loadDashboard() {
+      const mySeq = ++dashboardLoadSeq;
+      setDashboardSelectorsDisabled(true); // 載入中先鎖住選單，避免使用者連續切換觸發重疊載入
+      try {
+        await loadDashboardInner(mySeq);
+      } finally {
+        // 只有「目前最新的那一次」載入才能解鎖選單，避免舊的一次在較新一次還在跑時把選單解鎖
+        if (mySeq === dashboardLoadSeq) setDashboardSelectorsDisabled(false);
+      }
+    }
+
+    async function loadDashboardInner(mySeq) {
       recalcDatesForSelection();
 
       const storeId = currentProfile.role === 'admin'
@@ -411,6 +433,10 @@
         loadLatestInventory(storeId),
         loadPersonalPotTrend(),
       ]);
+
+      // 資料回來前，若使用者已經切換年月/門店觸發了更新的一次載入，
+      // 這次就是過期資料，直接放棄渲染，讓最新那次載入去更新畫面。
+      if (mySeq !== dashboardLoadSeq) return;
 
       // ── 肚肚 badge ──
       const badge = document.getElementById('dudoo-badge');
@@ -461,6 +487,7 @@
 
       // ── 8. 中藥材進貨/消耗浮動（跨月比較）──
       const herbRecords = await loadHerbFluctuationRecords(storeId);
+      if (mySeq !== dashboardLoadSeq) return;
       renderHerbFluctuationCharts(herbRecords);
     }
 
