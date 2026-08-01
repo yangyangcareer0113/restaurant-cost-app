@@ -327,10 +327,11 @@
     let herbUsageChart = null;
     let personalPotChart = null;
 
-    // 「個人鍋」在肚肚 POS 上是獨立分類（曾出現過"U個人鍋品項 Popular Items"、"(富民店)個人鍋"等命名，品項也重建過一次），
-    // 統一用 category_name 是否包含「個人鍋」判斷。鍋數只算鍋底口味（品名含「鍋」或「煲」字，可能帶雙語後綴），
-    // 加購肉品（牛小排、牛肉丸等品名不含鍋/煲字）不算一鍋，但金額仍計入總額。
-    const PERSONAL_POT_CATEGORY_MATCH = '個人鍋';
+    // 「個人鍋」7 月中上線，品項名稱一律以「（個人）」開頭（例："（個人）無花果乾潤鍋"）。
+    // 不能用 category_name 判斷——肚肚 POS 上另有一個舊分類「U個人鍋品項 Popular Items」，
+    // 名字也含「個人鍋」但品項名沒有「（個人）」前綴，是改版前的舊品項，不是這次要追蹤的產品，會誤抓 5-6 月資料。
+    // 鍋數只算鍋底口味（品名含「鍋」或「煲」字），加購肉品（牛小排、牛肉丸等）不算一鍋，但金額仍計入總額。
+    const PERSONAL_POT_NAME_PREFIX = /^[（(]個人[）)]/;
 
     // ── 日期工具（依右上角選擇的年月重新計算，預設為當月/當日） ──
     let todayStr, year, month, monthStr, monthStart, daysInMonth, dayOfMonth, isCurrentMonth;
@@ -527,11 +528,11 @@
 
     function aggregatePersonalPot(items) {
       if (!items) return { potCount: 0, potRevenue: 0, ok: false };
-      const potCategoryItems = items.filter(i => (i.category_name || '').includes(PERSONAL_POT_CATEGORY_MATCH));
-      const potCount = potCategoryItems
+      const potItems = items.filter(i => PERSONAL_POT_NAME_PREFIX.test(i.item_name || ''));
+      const potCount = potItems
         .filter(i => /[鍋煲]/.test(i.item_name || ''))
         .reduce((s, i) => s + (i.num || 0), 0);
-      const potRevenue = potCategoryItems.reduce((s, i) => s + (i.totalRevenue || 0), 0);
+      const potRevenue = potItems.reduce((s, i) => s + (i.totalRevenue || 0), 0);
       return { potCount, potRevenue, ok: true };
     }
 
