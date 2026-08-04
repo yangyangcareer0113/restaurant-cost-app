@@ -529,6 +529,11 @@
     }
 
     // 品項銷售明細（用來抓「個人鍋」分類底下各口味的銷售鍋數／金額）
+    // 注意：這支 API 一定要用 ?type=reports（不是 type=sales_date），且 mealtype/itemset/category_type
+    // 要帶完整的真實選項清單，company_id 要是純數字陣列字串「[17970]」——這組參數是直接從肚肚後台
+    // 「營運報表 > 商品分析 > 熱門商品」頁面實際發出的請求原封不動複製過來的，逐一比對驗證跟後台顯示的
+    // 數字完全一致（2026-08-04）。先前版本少了這些參數/用錯 type，導致抓到的數字整體膨脹了將近 2 倍，
+    // 跟後台顯示的真實數字對不上，改動這裡務必先用同樣的方式（打開肚肚後台，比對數字）驗證過再上線。
     async function fetchDudooHotItems(startDate, endDate) {
       const token = await dudooEnsureToken();
       if (!token) return null;
@@ -536,14 +541,17 @@
         start_date: startDate,
         end_date: endDate,
         hierarchy_id: DUDOO_HIERARCHY,
-        company_id: JSON.stringify([DUDOO_COMPANY]),
-        rank_by: 'qty',
-        mealtype: '[]',
-        itemset: '[]',
-        category_type: '[]'
+        company_id: `[${DUDOO_COMPANY}]`,
+        tag_id: '0',
+        item_type: '4',
+        item_sub: '0',
+        rank_by: 'amount',
+        mealtype: '["onsite"," arrival"," takeout"," delivery"]',
+        itemset: '["singleItem"," setItem"," subItem"]',
+        category_type: '["0"]'
       });
       try {
-        const resp = await fetch(`${DUDOO_API}/statistics/getHotItemList?type=sales_date`, {
+        const resp = await fetch(`${DUDOO_API}/statistics/getHotItemList?type=reports`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'access-token': token },
           body: params.toString()
