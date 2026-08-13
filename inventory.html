@@ -113,10 +113,15 @@
       if (storeId) itemQuery = itemQuery.eq('store_id', storeId);
       const { data: items } = await itemQuery;
 
-      // 取每個品項最新一筆庫存記錄
+      // 取每個品項最新一筆「有填庫存」的記錄
+      // 注意：不能單純抓最新一筆 inventory_records，因為大部分進貨記錄的
+      // 「目前庫存」欄位是空的（員工只填進貨量），若不過濾掉 null，
+      // 這些空值記錄會蓋掉之前員工實際盤點填入的庫存數字，導致庫存總覽跟盤點對不起來。
       let recQuery = supabase.from('inventory_records')
-        .select('item_id, current_stock, record_date')
-        .order('record_date', { ascending: false });
+        .select('item_id, current_stock, record_date, created_at')
+        .not('current_stock', 'is', null)
+        .order('record_date', { ascending: false })
+        .order('created_at', { ascending: false });
       if (storeId) recQuery = recQuery.eq('store_id', storeId);
       const { data: records } = await recQuery;
 

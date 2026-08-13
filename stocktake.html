@@ -451,8 +451,9 @@
       badge.textContent = s.text;
 
       let html = '';
-      if (currentStocktake.status === 'draft' && currentProfile.role !== 'admin') {
-        html += `<button class="btn btn-primary" onclick="submitStocktake()">📤 提交盤點</button>`;
+      if (currentStocktake.status !== 'reviewed' && currentProfile.role !== 'admin') {
+        const label = currentStocktake.status === 'submitted' ? '📤 補齊後再次提交' : '📤 提交盤點';
+        html += `<button class="btn btn-primary" onclick="submitStocktake()">${label}</button>`;
       }
       if (currentStocktake.status === 'submitted' && currentProfile.role === 'admin') {
         html += `<button class="btn btn-success" onclick="reviewStocktake()">✅ 確認審核</button>`;
@@ -464,10 +465,10 @@
       }
       actions.innerHTML = html;
 
-      // 新增品項按鈕：僅 draft 且非 admin 顯示
+      // 新增品項按鈕：老闆審核前都可以顯示，讓門店可以分段補齊
       const btnAdd = document.getElementById('btn-add-item');
       if (btnAdd) {
-        if (currentStocktake.status === 'draft' && currentProfile.role !== 'admin') {
+        if (currentStocktake.status !== 'reviewed' && currentProfile.role !== 'admin') {
           btnAdd.classList.remove('d-none');
         } else {
           btnAdd.classList.add('d-none');
@@ -480,7 +481,9 @@
     // ============================================================
     function renderTable() {
       const q        = document.getElementById('search').value.toLowerCase();
-      const isLocked = !currentStocktake || currentStocktake.status !== 'draft';
+      // 只有老闆審核完成後才鎖死；submitted 狀態仍可繼續分段補填，
+      // 不然員工按了提交、發現還有漏填的品項就再也填不進去。
+      const isLocked = !currentStocktake || currentStocktake.status === 'reviewed';
 
       let filtered = allItems.filter(i =>
         i.name.toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q)
@@ -711,7 +714,7 @@
     }
 
     async function saveItem(itemId) {
-      if (!currentStocktake || currentStocktake.status !== 'draft') return;
+      if (!currentStocktake || currentStocktake.status === 'reviewed') return;
 
       const qtyEl  = document.getElementById(`qty-${itemId}`);
       const noteEl = document.getElementById(`note-${itemId}`);
@@ -767,9 +770,12 @@
         const e = countMap[i.id];
         return e && e.counted_qty !== null && e.counted_qty !== undefined;
       }).length;
+      const alreadySubmitted = currentStocktake.status === 'submitted';
       const msg = counted === 0
         ? '尚未填寫任何盤點數量，確定還是要提交嗎？'
-        : `已盤 ${counted} / ${allItems.length} 品項，確定提交？提交後不可修改。`;
+        : alreadySubmitted
+          ? `已盤 ${counted} / ${allItems.length} 品項，確定再次提交通知老闆？（提交後仍可繼續補填，直到老闆確認審核前都能修改）`
+          : `已盤 ${counted} / ${allItems.length} 品項，確定提交？（提交後仍可繼續補填，直到老闆確認審核前都能修改）`;
       if (!confirm(msg)) return;
 
       const { error } = await supabase
@@ -779,7 +785,7 @@
 
       if (error) { showToast('提交失敗：' + error.message, 'danger'); return; }
       currentStocktake.status = 'submitted';
-      showToast('盤點已提交！等待老闆審核 ✅');
+      showToast(alreadySubmitted ? '已再次提交，通知老闆你補了新資料 ✅' : '盤點已提交！等待老闆審核 ✅');
       updateStatusUI();
       renderTable();
     }
