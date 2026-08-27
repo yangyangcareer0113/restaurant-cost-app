@@ -22,6 +22,9 @@ function injectNav() {
         <a href="inventory.html">
           <span class="nav-icon">🏪</span> 庫存總覽
         </a>
+        <a href="withdrawal.html">
+          <span class="nav-icon">📤</span> 每日提領
+        </a>
         <a href="stocktake.html">
           <span class="nav-icon">📋</span> 月底盤點
         </a>
