@@ -45,9 +45,9 @@
 
               <div class="mb-3">
                 <label class="form-label fw-semibold">品項 <span class="text-danger">*</span></label>
-                <input type="text" id="rec-item-search" class="form-control" list="rec-item-list" placeholder="輸入關鍵字搜尋品項" autocomplete="off" oninput="onItemChange()">
-                <datalist id="rec-item-list"></datalist>
-                <input type="hidden" id="rec-item">
+                <select id="rec-item" class="form-select" onchange="onItemChange()">
+                  <option value="">選擇品項…</option>
+                </select>
               </div>
 
               <!-- 目前庫存提示 -->
@@ -132,8 +132,8 @@
   <script>
     let currentProfile = null;
     let itemsMap = {};
-    let itemNameToId = {};
     let currentBase = null; // { base, source, date } — 目前選定品項的庫存基準
+    let _itemChangeSeq = 0; // 快速切換品項時，避免舊查詢覆寫新結果
 
     document.addEventListener('DOMContentLoaded', async () => {
       await requireAuth();
@@ -181,27 +181,40 @@
     async function loadItemsDropdown() {
       const storeId = activeStoreId();
       const isAdmin = currentProfile.role === 'admin';
-      let q = supabase.from('items').select('id,name,unit,category,is_confidential').eq('is_active', true).order('category').order('name');
+      let q = supabase.from('items').select('id,name,unit,category,store_id,is_confidential').eq('is_active', true).order('category').order('name');
       if (storeId) q = q.eq('store_id', storeId);
       const { data } = await q;
 
       const visibleItems = isAdmin ? (data || []) : (data || []).filter(i => !i.is_confidential);
 
       itemsMap = {};
-      itemNameToId = {};
-      const list = document.getElementById('rec-item-list');
-      list.innerHTML = '';
+      const sel = document.getElementById('rec-item');
+      sel.innerHTML = '<option value="">選擇品項…</option>';
+
+      // 依分類分組（用 DOM API 建立，品項名稱含特殊字元也不會出錯）
+      const groups = {};
       visibleItems.forEach(i => {
         itemsMap[i.id] = i;
-        const label = `${i.name}（${i.unit}）`;
-        itemNameToId[label] = i.id;
-        list.insertAdjacentHTML('beforeend', `<option value="${label}">`);
+        const cat = i.category || '未分類';
+        (groups[cat] = groups[cat] || []).push(i);
+      });
+      Object.keys(groups).forEach(cat => {
+        const og = document.createElement('optgroup');
+        og.label = cat;
+        groups[cat].forEach(i => {
+          const opt = document.createElement('option');
+          opt.value = i.id;
+          const nm = (i.name || '').trim();
+          const u = (i.unit || '').trim();
+          opt.textContent = u ? `${nm}（${u}）` : nm;
+          og.appendChild(opt);
+        });
+        sel.appendChild(og);
       });
     }
 
     function resetItem() {
       document.getElementById('rec-item').value = '';
-      document.getElementById('rec-item-search').value = '';
       document.getElementById('rec-qty').value = '';
       document.getElementById('rec-notes').value = '';
       document.getElementById('qty-unit').textContent = '—';
@@ -248,9 +261,8 @@
     }
 
     async function onItemChange() {
-      const name = document.getElementById('rec-item-search').value;
-      const itemId = itemNameToId[name] || '';
-      document.getElementById('rec-item').value = itemId;
+      const seq = ++_itemChangeSeq;
+      const itemId = document.getElementById('rec-item').value;
       const item = itemsMap[itemId];
       const hint = document.getElementById('stock-hint');
 
@@ -262,12 +274,14 @@
         return;
       }
 
-      document.getElementById('qty-unit').textContent = item.unit;
-      currentBase = await getBaseStock(itemId, activeStoreId());
+      document.getElementById('qty-unit').textContent = item.unit || '—';
+      const base = await getBaseStock(itemId, activeStoreId());
+      if (seq !== _itemChangeSeq) return; // 使用者已切換到別的品項，放棄這次結果
+      currentBase = base;
 
       hint.classList.remove('d-none');
       document.getElementById('hint-base').textContent = currentBase.base !== null
-        ? `${formatNumber(currentBase.base, 2)} ${item.unit}`
+        ? `${formatNumber(currentBase.base, 2)} ${item.unit || ''}`.trim()
         : '無庫存資料（無法自動算剩餘）';
       document.getElementById('hint-source').textContent = currentBase.source || '—';
       calcPreview();
@@ -282,7 +296,7 @@
       const el = document.getElementById('prev-remain');
       if (currentBase && currentBase.base !== null) {
         const remain = currentBase.base - qty;
-        el.textContent = `${formatNumber(remain, 2)} ${item.unit}`;
+        el.textContent = `${formatNumber(remain, 2)} ${item.unit || ''}`.trim();
         el.classList.toggle('text-danger', remain < 0);
         el.classList.toggle('text-primary', remain >= 0);
       } else {
@@ -318,7 +332,7 @@
       const { error } = await supabase.from('withdrawal_records').insert(payload);
       if (error) { showToast('儲存失敗：' + error.message, 'danger'); return; }
 
-      const unit = itemsMap[itemId].unit;
+      const unit = itemsMap[itemId].unit || '';
       showToast(`✓ 已提領：${itemsMap[itemId].name} × ${qty} ${unit}${remaining !== null ? `，剩餘 ${formatNumber(remaining, 2)} ${unit}` : ''}`);
 
       resetItem();
