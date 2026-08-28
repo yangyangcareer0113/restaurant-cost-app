@@ -23,6 +23,9 @@ async function requireAuth() {
     window.location.href = 'login.html';
     return null;
   }
+  // 閒置逾時檢查（先擋掉逾時的 session，再啟動監聽）
+  if (await enforceIdleTimeout()) return null;
+  startIdleWatch();
   return session;
 }
 
@@ -43,6 +46,66 @@ async function logout() {
   await supabase.auth.signOut();
   window.location.href = 'login.html';
 }
+
+// ============================================================
+// 閒置自動登出：連續 30 分鐘沒有任何操作就登出，回登入頁
+// ============================================================
+const IDLE_LIMIT_MS = 30 * 60 * 1000; // 30 分鐘
+const IDLE_KEY = 'fw_last_active';
+
+let _idleLastWrite = 0;
+function markActive() {
+  const now = Date.now();
+  if (now - _idleLastWrite < 5000) return; // 節流：最多每 5 秒寫一次 localStorage
+  _idleLastWrite = now;
+  try { localStorage.setItem(IDLE_KEY, String(now)); } catch (e) {}
+}
+
+function idleExceeded() {
+  let last = 0;
+  try { last = parseInt(localStorage.getItem(IDLE_KEY) || '0', 10); } catch (e) { return false; }
+  if (!last) return false;
+  return Date.now() - last > IDLE_LIMIT_MS;
+}
+
+// 逾時就登出並轉回登入頁；回傳是否已逾時
+async function enforceIdleTimeout() {
+  if (!idleExceeded()) return false;
+  try { localStorage.removeItem(IDLE_KEY); } catch (e) {}
+  try { await supabase.auth.signOut(); } catch (e) {}
+  window.location.href = 'login.html?expired=1';
+  return true;
+}
+
+let _idleWatchStarted = false;
+function startIdleWatch() {
+  if (_idleWatchStarted) return;
+  _idleWatchStarted = true;
+  markActive();
+  ['click', 'keydown', 'mousedown', 'touchstart', 'scroll'].forEach(evt => {
+    window.addEventListener(evt, markActive, { passive: true });
+  });
+  // 每 30 秒主動檢查一次（涵蓋整頁沒動、放著不管的情況）
+  setInterval(enforceIdleTimeout, 30 * 1000);
+  // 分頁切回前景時立即檢查
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') enforceIdleTimeout();
+  });
+  // 其他分頁 / 裝置登出時，本頁也跟著回登入頁
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT') window.location.href = 'login.html';
+  });
+}
+
+// 頁面載入即啟動閒置監聽（登入頁除外；沒有 session 就交給各頁 requireAuth 處理）
+async function initIdleGuard() {
+  if (location.pathname.split('/').pop() === 'login.html') return;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  if (await enforceIdleTimeout()) return;
+  startIdleWatch();
+}
+document.addEventListener('DOMContentLoaded', initIdleGuard);
 
 // 渲染導覽列用戶資訊
 async function renderUserInfo() {
