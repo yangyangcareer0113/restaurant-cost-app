@@ -45,9 +45,12 @@
 
               <div class="mb-3">
                 <label class="form-label fw-semibold">品項 <span class="text-danger">*</span></label>
-                <select id="rec-item" class="form-select" onchange="onItemChange()">
-                  <option value="">選擇品項…</option>
-                </select>
+                <div class="ic-wrap">
+                  <input type="text" id="rec-item-search" class="form-control" placeholder="打字搜尋，或點 ▾ 展開全部" autocomplete="off">
+                  <button type="button" class="ic-caret" id="rec-item-caret" aria-label="展開品項清單">▾</button>
+                  <div id="rec-item-panel" class="ic-panel d-none"></div>
+                </div>
+                <input type="hidden" id="rec-item">
               </div>
 
               <!-- 目前庫存提示 -->
@@ -129,9 +132,11 @@
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/nav.js"></script>
+  <script src="js/item-combo.js"></script>
   <script>
     let currentProfile = null;
     let itemsMap = {};
+    let itemCombo = null;
     let currentBase = null; // { base, source, date } — 目前選定品項的庫存基準
     let _itemChangeSeq = 0; // 快速切換品項時，避免舊查詢覆寫新結果
 
@@ -150,6 +155,14 @@
         await loadStoresFilter();
         document.getElementById('store-filter').classList.remove('d-none');
       }
+
+      itemCombo = createItemCombo({
+        input:  document.getElementById('rec-item-search'),
+        panel:  document.getElementById('rec-item-panel'),
+        hidden: document.getElementById('rec-item'),
+        caret:  document.getElementById('rec-item-caret'),
+        onSelect: onItemChange
+      });
 
       await loadItemsDropdown();
       await loadRecords();
@@ -188,32 +201,12 @@
       const visibleItems = isAdmin ? (data || []) : (data || []).filter(i => !i.is_confidential);
 
       itemsMap = {};
-      const sel = document.getElementById('rec-item');
-      sel.innerHTML = '<option value="">選擇品項…</option>';
-
-      // 依分類分組（用 DOM API 建立，品項名稱含特殊字元也不會出錯）
-      const groups = {};
-      visibleItems.forEach(i => {
-        itemsMap[i.id] = i;
-        const cat = i.category || '未分類';
-        (groups[cat] = groups[cat] || []).push(i);
-      });
-      Object.keys(groups).forEach(cat => {
-        const og = document.createElement('optgroup');
-        og.label = cat;
-        groups[cat].forEach(i => {
-          const opt = document.createElement('option');
-          opt.value = i.id;
-          const nm = (i.name || '').trim();
-          const u = (i.unit || '').trim();
-          opt.textContent = u ? `${nm}（${u}）` : nm;
-          og.appendChild(opt);
-        });
-        sel.appendChild(og);
-      });
+      visibleItems.forEach(i => { itemsMap[i.id] = i; });
+      itemCombo.setItems(visibleItems);
     }
 
     function resetItem() {
+      if (itemCombo) itemCombo.clear();
       document.getElementById('rec-item').value = '';
       document.getElementById('rec-qty').value = '';
       document.getElementById('rec-notes').value = '';
@@ -260,9 +253,9 @@
       return { base: null, source: null, date: null };
     }
 
-    async function onItemChange() {
+    async function onItemChange(itemId) {
       const seq = ++_itemChangeSeq;
-      const itemId = document.getElementById('rec-item').value;
+      itemId = itemId || document.getElementById('rec-item').value;
       const item = itemsMap[itemId];
       const hint = document.getElementById('stock-hint');
 
