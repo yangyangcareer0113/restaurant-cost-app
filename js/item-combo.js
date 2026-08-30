@@ -77,6 +77,10 @@ function createItemCombo(opts) {
   function render() {
     const list = filtered();
     panel.innerHTML = '';
+    if (!items.length) {
+      panel.innerHTML = '<div class="ic-empty">品項尚未載入，請重新整理頁面</div>';
+      return;
+    }
     if (!list.length) {
       panel.innerHTML = '<div class="ic-empty">找不到符合的品項</div>';
       return;

@@ -66,18 +66,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js"></script>
   <script>
-    // 閒置逾時被踢回來：顯示提示、清乾淨 session，不要自動跳回去
+    // 已登入就直接跳儀表板
     (async () => {
-      const params = new URLSearchParams(location.search);
-      if (params.get('expired') === '1') {
-        try { localStorage.removeItem('fw_last_active'); } catch (e) {}
-        try { await supabase.auth.signOut(); } catch (e) {}
-        const errEl = document.getElementById('error-msg');
-        errEl.textContent = '閒置逾時，請重新登入';
-        errEl.classList.remove('d-none');
-        return;
-      }
-      // 已登入就直接跳儀表板
       const { data: { session } } = await supabase.auth.getSession();
       if (session) window.location.href = 'dashboard.html';
     })();
@@ -101,7 +91,6 @@
         btn.disabled = false;
         btn.textContent = '登入';
       } else {
-        try { localStorage.setItem('fw_last_active', String(Date.now())); } catch (e) {}
         window.location.href = 'dashboard.html';
       }
     });

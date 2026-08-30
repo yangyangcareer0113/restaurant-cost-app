@@ -193,12 +193,12 @@
 
     async function loadItemsDropdown() {
       const storeId = activeStoreId();
-      const isAdmin = currentProfile.role === 'admin';
-      let q = supabase.from('items').select('id,name,unit,category,store_id,is_confidential').eq('is_active', true).order('category').order('name');
+      let q = supabase.from('items').select('id,name,unit,category,store_id').eq('is_active', true).order('category').order('name');
       if (storeId) q = q.eq('store_id', storeId);
       const { data } = await q;
 
-      const visibleItems = isAdmin ? (data || []) : (data || []).filter(i => !i.is_confidential);
+      // 提領頁沒有成本欄位，機密品項（大陸進貨）員工一樣要能提領登記，不做過濾
+      const visibleItems = data || [];
 
       itemsMap = {};
       visibleItems.forEach(i => { itemsMap[i.id] = i; });
