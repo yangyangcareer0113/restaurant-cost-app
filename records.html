@@ -12,7 +12,11 @@
                  margin-bottom:1rem; }
     .total-bar .total-label { font-size:0.88rem; color:#15803d; font-weight:600; }
     .total-bar .total-val   { font-size:1.5rem; font-weight:800; color:#15803d; }
+    .total-bar.waste-bar { background:#fef2f2; border-color:#fecaca; }
+    .total-bar.waste-bar .total-label { color:#b91c1c; }
+    .total-bar.waste-bar .total-val   { color:#b91c1c; font-size:1.25rem; }
     .calc-box { background:#f8fafc; border-radius:8px; padding:12px 14px; font-size:0.85rem; }
+    tr.wrow > td { background:#fef2f2; }
   </style>
 </head>
 <body>
@@ -35,11 +39,17 @@
         <div class="col-12 col-lg-4" id="entry-form-col">
           <div class="table-card">
             <div class="table-header">
-              <span class="fw-semibold">📥 新增進貨</span>
+              <span class="fw-semibold" id="entry-form-title">📥 新增進貨</span>
             </div>
             <div class="p-3">
+              <div class="btn-group w-100 mb-3" role="group" aria-label="記錄類型">
+                <input type="radio" class="btn-check" name="entry-mode" id="mode-purchase" value="purchase" checked onchange="onModeChange()">
+                <label class="btn btn-outline-primary" for="mode-purchase">📥 進貨</label>
+                <input type="radio" class="btn-check" name="entry-mode" id="mode-waste" value="waste" onchange="onModeChange()">
+                <label class="btn btn-outline-danger" for="mode-waste">🗑️ 耗損</label>
+              </div>
               <div class="mb-3">
-                <label class="form-label fw-semibold">進貨日期</label>
+                <label class="form-label fw-semibold" id="date-label">進貨日期</label>
                 <input type="date" id="rec-date" class="form-control" onchange="onRecDateChange()">
               </div>
               <div class="mb-3">
@@ -69,14 +79,14 @@
               </div>
 
               <div class="row g-2 mb-3">
-                <div class="col-6">
-                  <label class="form-label fw-semibold">進貨數量</label>
+                <div class="col-6" id="qty-col">
+                  <label class="form-label fw-semibold" id="qty-label">進貨數量</label>
                   <div class="input-group">
                     <input type="number" id="rec-qty" class="form-control" min="0" step="0.01" value="" placeholder="0" oninput="calcPreview()">
                     <span class="input-group-text" id="qty-unit" style="font-size:0.8rem;min-width:40px;">—</span>
                   </div>
                 </div>
-                <div class="col-6">
+                <div class="col-6" id="unit-cost-col">
                   <label class="form-label fw-semibold" id="unit-cost-label">本次單位成本</label>
                   <div class="input-group">
                     <span class="input-group-text">$</span>
@@ -93,7 +103,7 @@
                 </div>
               </div>
 
-              <div class="mb-3">
+              <div class="mb-3" id="current-stock-block">
                 <label class="form-label fw-semibold">目前庫存（盤點）</label>
                 <div class="input-group">
                   <input type="number" id="rec-current-stock" class="form-control" min="0" step="0.01" placeholder="現場實際盤到的庫存量">
@@ -103,11 +113,11 @@
               </div>
 
               <div class="mb-3">
-                <label class="form-label fw-semibold">備註（廠商、發票號等）</label>
+                <label class="form-label fw-semibold" id="notes-label">備註（廠商、發票號等）</label>
                 <input type="text" id="rec-notes" class="form-control" placeholder="選填">
               </div>
 
-              <button class="btn btn-primary w-100" onclick="saveRecord()">✓ 儲存進貨記錄</button>
+              <button class="btn btn-primary w-100" id="save-btn" onclick="saveRecord()">✓ 儲存進貨記錄</button>
             </div>
           </div>
         </div>
@@ -119,6 +129,10 @@
           <div class="total-bar">
             <span class="total-label">📅 <span id="display-date">今日</span> 進貨總金額</span>
             <span class="total-val">$<span id="daily-total">0</span></span>
+          </div>
+          <div class="total-bar waste-bar" id="daily-waste-bar" style="display:none;">
+            <span class="total-label">🗑️ 耗損金額（估算，未併入進貨總額）</span>
+            <span class="total-val">$<span id="daily-waste">0</span></span>
           </div>
 
           <div class="table-card">
@@ -186,6 +200,29 @@
       const { data } = await supabase.from('stores').select('id,name').order('name');
       const sel = document.getElementById('store-filter');
       (data||[]).forEach(s => sel.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.name}</option>`));
+    }
+
+    // 目前記錄類型：'purchase'（進貨）或 'waste'（耗損）
+    function entryMode() {
+      return document.querySelector('input[name="entry-mode"]:checked')?.value || 'purchase';
+    }
+
+    // 切換「進貨 / 耗損」：耗損模式隱藏單位成本與盤點欄，只留品項＋數量
+    function onModeChange() {
+      const waste = entryMode() === 'waste';
+      document.getElementById('entry-form-title').textContent = waste ? '🗑️ 新增耗損' : '📥 新增進貨';
+      document.getElementById('date-label').textContent = waste ? '耗損日期' : '進貨日期';
+      document.getElementById('qty-label').textContent = waste ? '耗損數量' : '進貨數量';
+      document.getElementById('notes-label').textContent = waste ? '備註（原因，如：腐壞、打翻）' : '備註（廠商、發票號等）';
+      document.getElementById('unit-cost-col').classList.toggle('d-none', waste);
+      document.getElementById('qty-col').classList.toggle('col-12', waste);
+      document.getElementById('qty-col').classList.toggle('col-6', !waste);
+      document.getElementById('current-stock-block').classList.toggle('d-none', waste);
+      const btn = document.getElementById('save-btn');
+      btn.textContent = waste ? '✓ 儲存耗損記錄' : '✓ 儲存進貨記錄';
+      btn.classList.toggle('btn-danger', waste);
+      btn.classList.toggle('btn-primary', !waste);
+      calcPreview();
     }
 
     // 左邊「進貨日期」改了，右邊清單跟著切到同一天，不用再手動調右上角的日期篩選
@@ -265,7 +302,7 @@
       const effectiveCost = lastUnitCost != null ? lastUnitCost : item.unit_cost;
 
       document.getElementById('hint-unit-cost').textContent = effectiveCost > 0
-        ? `$${formatNumber(effectiveCost, 0)} / ${item.unit}${lastUnitCost != null ? `（${lastRec.record_date} 最近一次進貨）` : '（品項管理設定值，尚無進貨記錄）'}`
+        ? `$${formatMoney(effectiveCost)} / ${item.unit}${lastUnitCost != null ? `（${lastRec.record_date} 最近一次進貨）` : '（品項管理設定值，尚無進貨記錄）'}`
         : '—（尚未設定）';
 
       if (effectiveCost > 0) {
@@ -276,16 +313,31 @@
 
     function calcPreview() {
       const qty = parseFloat(document.getElementById('rec-qty').value) || 0;
-      const unitCost = parseFloat(document.getElementById('rec-unit-cost').value) || 0;
       const preview = document.getElementById('calc-preview');
+      const totalEl = document.getElementById('prev-total');
+      const labelEl = document.getElementById('prev-total-label');
+      const itemId = document.getElementById('rec-item').value;
+
+      if (entryMode() === 'waste') {
+        const unitCost = itemsMap[itemId]?.unit_cost || 0;
+        if (!qty) { preview.classList.add('d-none'); return; }
+        preview.classList.remove('d-none');
+        const lost = qty * unitCost;
+        labelEl.textContent = '耗損金額（估算）';
+        totalEl.textContent = unitCost > 0 ? `$${formatMoney(lost)}` : '—（此品項未設單位成本）';
+        totalEl.classList.remove('text-success', 'text-primary');
+        totalEl.classList.add('text-danger');
+        return;
+      }
+
+      const unitCost = parseFloat(document.getElementById('rec-unit-cost').value) || 0;
       if (!qty && !unitCost) { preview.classList.add('d-none'); return; }
       preview.classList.remove('d-none');
-      const itemId = document.getElementById('rec-item').value;
       const isIncome = !!itemsMap[itemId]?.is_income;
       const total = qty * unitCost;
-      const totalEl = document.getElementById('prev-total');
-      document.getElementById('prev-total-label').textContent = isIncome ? '回收收入金額' : '進貨總金額';
-      totalEl.textContent = isIncome ? `+$${formatNumber(total, 0)}` : `$${formatNumber(total, 0)}`;
+      labelEl.textContent = isIncome ? '回收收入金額' : '進貨總金額';
+      totalEl.textContent = isIncome ? `+$${formatMoney(total)}` : `$${formatMoney(total)}`;
+      totalEl.classList.remove('text-danger');
       totalEl.classList.toggle('text-primary', isIncome);
       totalEl.classList.toggle('text-success', !isIncome);
     }
@@ -294,38 +346,52 @@
       const itemId = document.getElementById('rec-item').value;
       if (!itemId) { showToast('請選擇品項', 'danger'); return; }
 
+      const mode = entryMode();
       const qty = parseFloat(document.getElementById('rec-qty').value) || 0;
-      const unitCost = parseFloat(document.getElementById('rec-unit-cost').value) || 0;
-      const stockInput = document.getElementById('rec-current-stock').value;
-      const currentStock = stockInput === '' ? null : parseFloat(stockInput);
-      if (qty <= 0 && currentStock === null) { showToast('請填寫進貨數量或目前庫存', 'danger'); return; }
-
+      const item = itemsMap[itemId];
       const storeId = currentProfile.role === 'admin'
-        ? document.getElementById('store-filter').value || itemsMap[itemId]?.store_id
+        ? document.getElementById('store-filter').value || item?.store_id
         : currentProfile.store_id;
-
       const { data: { session } } = await supabase.auth.getSession();
+      const recDate = document.getElementById('rec-date').value;
+      const notes = document.getElementById('rec-notes').value.trim() || null;
 
-      // 收入品項（如廢油回收）金額存成負數，這樣現有的成本加總邏輯
-      // （每日總金額／儀表板／報表）單純加總 purchase_cost 就會自動把它扣掉，不用另外改。
-      const isIncome = !!itemsMap[itemId]?.is_income;
-      const rawTotal = qty * unitCost;
-      const payload = {
-        item_id: itemId,
-        store_id: storeId,
-        record_date: document.getElementById('rec-date').value,
-        purchase_qty: qty,
-        purchase_cost: isIncome ? -rawTotal : rawTotal,
-        waste_qty: 0,
-        current_stock: currentStock,
-        notes: document.getElementById('rec-notes').value.trim() || null,
-        created_by: session.user.id
-      };
+      let payload;
+      if (mode === 'waste') {
+        // 耗損記錄：只填 waste_qty，purchase_qty/purchase_cost 都留 0，
+        // 完全不影響進貨成本加總；耗損金額由前端用單位成本估算、獨立顯示。
+        if (qty <= 0) { showToast('請填寫耗損數量', 'danger'); return; }
+        payload = {
+          item_id: itemId, store_id: storeId, record_date: recDate,
+          purchase_qty: 0, purchase_cost: 0, waste_qty: qty,
+          current_stock: null, notes, created_by: session.user.id
+        };
+      } else {
+        const unitCost = parseFloat(document.getElementById('rec-unit-cost').value) || 0;
+        const stockInput = document.getElementById('rec-current-stock').value;
+        const currentStock = stockInput === '' ? null : parseFloat(stockInput);
+        if (qty <= 0 && currentStock === null) { showToast('請填寫進貨數量或目前庫存', 'danger'); return; }
+        // 收入品項（如廢油回收）金額存成負數，這樣現有的成本加總邏輯
+        // （每日總金額／儀表板／報表）單純加總 purchase_cost 就會自動把它扣掉，不用另外改。
+        const isIncome = !!item?.is_income;
+        const rawTotal = qty * unitCost;
+        payload = {
+          item_id: itemId, store_id: storeId, record_date: recDate,
+          purchase_qty: qty, purchase_cost: isIncome ? -rawTotal : rawTotal,
+          waste_qty: 0, current_stock: currentStock, notes, created_by: session.user.id
+        };
+      }
 
       const { error } = await supabase.from('inventory_records').insert(payload);
       if (error) { showToast('儲存失敗：' + error.message, 'danger'); return; }
 
-      showToast(`✓ 已記錄：${itemsMap[itemId].name} × ${qty} ${itemsMap[itemId].unit}，${isIncome ? '+' : ''}$${formatNumber(Math.abs(payload.purchase_cost), 0)}${currentStock !== null ? `，庫存 ${currentStock}` : ''}`);
+      if (mode === 'waste') {
+        const lost = qty * (item?.unit_cost || 0);
+        showToast(`🗑️ 已記錄耗損：${item.name} × ${qty} ${item.unit}${item?.unit_cost ? `，約 $${formatMoney(lost)}` : ''}`);
+      } else {
+        const isIncome = !!item?.is_income;
+        showToast(`✓ 已記錄：${item.name} × ${qty} ${item.unit}，${isIncome ? '+' : ''}$${formatMoney(Math.abs(payload.purchase_cost))}${payload.current_stock !== null ? `，庫存 ${payload.current_stock}` : ''}`);
+      }
 
       document.getElementById('rec-item').value = '';
       document.getElementById('rec-item-search').value = '';
@@ -368,10 +434,19 @@
         document.getElementById('display-date').textContent = `${d.getMonth()+1}/${d.getDate()}`;
       }
 
-      // 計算今日總金額
+      const isWaste = (r) => (r.waste_qty || 0) > 0 && !((r.purchase_qty || 0) > 0);
+
+      // 今日進貨總金額：耗損列 purchase_cost 為 0，加總不受影響
       const total = records.reduce((s, r) => s + (r.purchase_cost || 0), 0);
-      document.getElementById('daily-total').textContent = formatNumber(total, 0);
+      document.getElementById('daily-total').textContent = formatMoney(total);
       document.getElementById('record-count').textContent = `${records.length} 筆`;
+
+      // 今日耗損金額（估算）：耗損量 × 該品項單位成本，獨立顯示
+      const wasteRows = records.filter(isWaste);
+      const wasteTotal = wasteRows.reduce((s, r) => s + (r.waste_qty || 0) * (itemsMap[r.item_id]?.unit_cost || 0), 0);
+      const wasteBar = document.getElementById('daily-waste-bar');
+      wasteBar.style.display = wasteRows.length ? 'flex' : 'none';
+      document.getElementById('daily-waste').textContent = formatMoney(wasteTotal);
 
       const tbody = document.getElementById('records-table');
       if (!records.length) {
@@ -384,20 +459,37 @@
 
       tbody.innerHTML = records.map(r => {
         const masked = r.purchase_cost === null || r.purchase_cost === undefined;
+
+        if (isWaste(r)) {
+          const uc = itemsMap[r.item_id]?.unit_cost || 0;
+          const lost = (r.waste_qty || 0) * uc;
+          return `
+          <tr class="wrow">
+            <td data-label="品項"><strong>${r.items?.name || '—'}</strong> <span class="badge bg-danger" style="font-size:0.65rem;">🗑️ 耗損</span></td>
+            <td data-label="類別"><span class="badge bg-light text-secondary border" style="font-size:0.72rem;">${r.items?.category || '—'}</span></td>
+            <td data-label="廠商" class="text-muted" style="font-size:0.85rem;">—</td>
+            <td data-label="數量"><span class="fw-semibold text-danger">-${formatNumber(r.waste_qty, 2)}</span> ${r.items?.unit || ''}</td>
+            <td data-label="單位成本" class="text-muted">${uc > 0 ? `$${formatMoney(uc)}` : '—'}</td>
+            <td data-label="總金額">${uc > 0 ? `<strong class="text-danger">🗑️ $${formatMoney(lost)}</strong>` : '<span class="text-muted">—</span>'}</td>
+            <td data-label="備註" class="text-muted" style="font-size:0.82rem;">${r.notes || '—'}</td>
+            <td><button class="btn btn-sm btn-outline-danger" onclick="deleteRecord('${r.id}')">刪除</button></td>
+          </tr>`;
+        }
+
         const isIncome = !masked && r.purchase_cost < 0;
         const unitCost = !masked && r.purchase_qty > 0 ? Math.abs(r.purchase_cost) / r.purchase_qty : 0;
         const totalCell = masked
           ? '<span class="text-muted">🔒 機密</span>'
           : isIncome
-            ? `<strong class="text-primary">+$${formatNumber(Math.abs(r.purchase_cost), 0)}</strong>`
-            : `<strong class="text-success">$${formatNumber(r.purchase_cost, 0)}</strong>`;
+            ? `<strong class="text-primary">+$${formatMoney(Math.abs(r.purchase_cost))}</strong>`
+            : `<strong class="text-success">$${formatMoney(r.purchase_cost)}</strong>`;
         return `
           <tr>
             <td data-label="品項"><strong>${r.items?.name || '—'}</strong>${isIncome ? ' <span class="badge bg-primary" style="font-size:0.65rem;">💰 收入</span>' : ''}</td>
             <td data-label="類別"><span class="badge bg-light text-secondary border" style="font-size:0.72rem;">${r.items?.category || '—'}</span></td>
             <td data-label="廠商" class="text-muted" style="font-size:0.85rem;">${r.items?.supplier || '—'}</td>
             <td data-label="數量"><span class="fw-semibold">${formatNumber(r.purchase_qty, 2)}</span> ${r.items?.unit || ''}</td>
-            <td data-label="單位成本" class="text-muted">${masked ? '🔒 機密' : `$${formatNumber(unitCost, 0)}`}</td>
+            <td data-label="單位成本" class="text-muted">${masked ? '🔒 機密' : `$${formatMoney(unitCost)}`}</td>
             <td data-label="總金額">${totalCell}</td>
             <td data-label="備註" class="text-muted" style="font-size:0.82rem;">${r.notes || '—'}</td>
             <td><button class="btn btn-sm btn-outline-danger" onclick="deleteRecord('${r.id}')">刪除</button></td>

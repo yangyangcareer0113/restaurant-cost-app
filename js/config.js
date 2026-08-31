@@ -66,6 +66,15 @@ function formatNumber(num, decimals = 0) {
   });
 }
 
+// 金額顯示：有小數才顯示，最多兩位（12 → "12"、12.5 → "12.5"、12.567 → "12.57"）
+function formatMoney(num) {
+  if (num === null || num === undefined) return '—';
+  return Number(num).toLocaleString('zh-TW', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+}
+
 // 庫存警示等級
 function stockAlertLevel(currentStock, minStock) {
   if (currentStock <= 0) return 'danger';

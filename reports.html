@@ -310,8 +310,10 @@
         let totalConsumption = 0, consumptionCount = 0;
         for (let i = 0; i < records.length; i++) {
           const prevStock = i === 0 ? prevMap[itemId]?.current_stock : records[i-1].current_stock;
-          if (prevStock != null) {
-            const c = parseFloat(prevStock) + (records[i].purchase_qty||0) - (records[i].waste_qty||0) - (records[i].current_stock||0);
+          const curStock = records[i].current_stock;
+          // 起訖兩端都要有實際盤點數字才算消耗量；沒盤點的列（含純耗損列）跳過，避免當成庫存歸零
+          if (prevStock != null && curStock != null) {
+            const c = parseFloat(prevStock) + (records[i].purchase_qty||0) - (records[i].waste_qty||0) - parseFloat(curStock);
             if (c >= 0) { totalConsumption += c; consumptionCount++; }
           }
         }
@@ -396,8 +398,8 @@
           const unitCost = calcCostPerUnit(r.purchase_cost, r.purchase_qty);
           const margin = calcGrossMargin(r.items?.selling_price, unitCost);
           let consumption = null;
-          if (i > 0) {
-            const c = parseFloat(records[i-1].current_stock)+(r.purchase_qty||0)-(r.waste_qty||0)-(r.current_stock||0);
+          if (i > 0 && records[i-1].current_stock != null && r.current_stock != null) {
+            const c = parseFloat(records[i-1].current_stock)+(r.purchase_qty||0)-(r.waste_qty||0)-parseFloat(r.current_stock);
             if (c >= 0) consumption = c;
           }
           reportData.push({ ...r, unitCost, margin, consumption });
