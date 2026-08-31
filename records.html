@@ -101,6 +101,10 @@
                   <span class="text-muted" id="prev-total-label">進貨總金額</span>
                   <strong id="prev-total" class="text-success fs-6">—</strong>
                 </div>
+                <div class="d-flex justify-content-between mt-1 d-none" id="prev-stock-row">
+                  <span class="text-muted">扣庫存後</span>
+                  <strong id="prev-stock">—</strong>
+                </div>
               </div>
 
               <div class="mb-3" id="current-stock-block">
@@ -175,6 +179,27 @@
     let currentProfile = null;
     let itemsMap = {};
     let itemNameToId = {};
+    let itemBaseStock = null; // 目前選定品項的最新庫存數字（給耗損扣庫存用）
+
+    // 取某品項最新一筆有填的庫存數字（比照庫存總覽的取法）
+    async function getLatestStock(itemId, storeId) {
+      let q = supabase.from('inventory_records')
+        .select('current_stock')
+        .eq('item_id', itemId)
+        .not('current_stock', 'is', null)
+        .order('record_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (storeId) q = q.eq('store_id', storeId);
+      const { data } = await q;
+      return data && data[0] ? parseFloat(data[0].current_stock) : null;
+    }
+
+    function activeStoreId() {
+      return currentProfile.role === 'admin'
+        ? (document.getElementById('store-filter').value || null)
+        : currentProfile.store_id;
+    }
 
     document.addEventListener('DOMContentLoaded', async () => {
       await requireAuth();
@@ -276,8 +301,11 @@
         unitEl.textContent = '—';
         document.getElementById('rec-unit-cost').value = '';
         document.getElementById('calc-preview').classList.add('d-none');
+        itemBaseStock = null;
         return;
       }
+
+      itemBaseStock = await getLatestStock(itemId, activeStoreId());
 
       hint.classList.remove('d-none');
       document.getElementById('hint-income-badge').classList.toggle('d-none', !item.is_income);
@@ -316,6 +344,7 @@
       const preview = document.getElementById('calc-preview');
       const totalEl = document.getElementById('prev-total');
       const labelEl = document.getElementById('prev-total-label');
+      const stockRow = document.getElementById('prev-stock-row');
       const itemId = document.getElementById('rec-item').value;
 
       if (entryMode() === 'waste') {
@@ -327,9 +356,22 @@
         totalEl.textContent = unitCost > 0 ? `$${formatMoney(lost)}` : '—（此品項未設單位成本）';
         totalEl.classList.remove('text-success', 'text-primary');
         totalEl.classList.add('text-danger');
+        // 扣庫存預覽
+        const unit = itemsMap[itemId]?.unit || '';
+        if (itemBaseStock != null) {
+          const after = Math.max(0, itemBaseStock - qty);
+          document.getElementById('prev-stock').textContent = `${formatNumber(itemBaseStock, 2)} → ${formatNumber(after, 2)} ${unit}`;
+          document.getElementById('prev-stock').className = after <= 0 ? 'text-danger' : '';
+          stockRow.classList.remove('d-none');
+        } else {
+          document.getElementById('prev-stock').textContent = '尚無庫存基準，這筆不會扣庫存';
+          document.getElementById('prev-stock').className = 'text-muted';
+          stockRow.classList.remove('d-none');
+        }
         return;
       }
 
+      stockRow.classList.add('d-none');
       const unitCost = parseFloat(document.getElementById('rec-unit-cost').value) || 0;
       if (!qty && !unitCost) { preview.classList.add('d-none'); return; }
       preview.classList.remove('d-none');
@@ -356,15 +398,19 @@
       const recDate = document.getElementById('rec-date').value;
       const notes = document.getElementById('rec-notes').value.trim() || null;
 
-      let payload;
+      let payload, wasteBase = null, wasteAfter = null;
       if (mode === 'waste') {
         // 耗損記錄：只填 waste_qty，purchase_qty/purchase_cost 都留 0，
         // 完全不影響進貨成本加總；耗損金額由前端用單位成本估算、獨立顯示。
+        // current_stock 寫入「最新庫存 − 耗損量」，讓庫存總覽／提領頁同步扣掉；
+        // 沒有任何庫存基準時留 null（無法確定絕對庫存，不硬扣）。
         if (qty <= 0) { showToast('請填寫耗損數量', 'danger'); return; }
+        wasteBase = await getLatestStock(itemId, storeId);
+        wasteAfter = wasteBase != null ? Math.max(0, wasteBase - qty) : null;
         payload = {
           item_id: itemId, store_id: storeId, record_date: recDate,
           purchase_qty: 0, purchase_cost: 0, waste_qty: qty,
-          current_stock: null, notes, created_by: session.user.id
+          current_stock: wasteAfter, notes, created_by: session.user.id
         };
       } else {
         const unitCost = parseFloat(document.getElementById('rec-unit-cost').value) || 0;
@@ -387,7 +433,9 @@
 
       if (mode === 'waste') {
         const lost = qty * (item?.unit_cost || 0);
-        showToast(`🗑️ 已記錄耗損：${item.name} × ${qty} ${item.unit}${item?.unit_cost ? `，約 $${formatMoney(lost)}` : ''}`);
+        const money = item?.unit_cost ? `，約 $${formatMoney(lost)}` : '';
+        const stockMsg = wasteAfter != null ? `，庫存 ${formatNumber(wasteBase, 2)} → ${formatNumber(wasteAfter, 2)}` : '（尚無庫存基準，未扣庫存）';
+        showToast(`🗑️ 已記錄耗損：${item.name} × ${qty} ${item.unit}${money}${stockMsg}`);
       } else {
         const isIncome = !!item?.is_income;
         showToast(`✓ 已記錄：${item.name} × ${qty} ${item.unit}，${isIncome ? '+' : ''}$${formatMoney(Math.abs(payload.purchase_cost))}${payload.current_stock !== null ? `，庫存 ${payload.current_stock}` : ''}`);
@@ -402,7 +450,9 @@
       document.getElementById('rec-notes').value = '';
       document.getElementById('item-hint').classList.add('d-none');
       document.getElementById('calc-preview').classList.add('d-none');
+      document.getElementById('prev-stock-row').classList.add('d-none');
       document.getElementById('qty-unit').textContent = '—';
+      itemBaseStock = null;
 
       await loadRecords();
     }

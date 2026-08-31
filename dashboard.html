@@ -665,8 +665,10 @@
 
     async function loadLatestInventory(storeId) {
       let q = supabase.from('inventory_records')
-        .select('current_stock, item_id, items(name,min_stock_qty)')
-        .order('record_date', { ascending: false });
+        .select('current_stock, item_id, record_date, created_at, items(name,min_stock_qty)')
+        .not('current_stock', 'is', null)
+        .order('record_date', { ascending: false })
+        .order('created_at', { ascending: false });
       if (storeId) q = q.eq('store_id', storeId);
       const { data } = await q;
       const latestMap = {};
