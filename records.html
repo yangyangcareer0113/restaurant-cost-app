@@ -330,7 +330,7 @@
       const effectiveCost = lastUnitCost != null ? lastUnitCost : item.unit_cost;
 
       document.getElementById('hint-unit-cost').textContent = effectiveCost > 0
-        ? `$${formatMoney(effectiveCost)} / ${item.unit}${lastUnitCost != null ? `（${lastRec.record_date} 最近一次進貨）` : '（品項管理設定值，尚無進貨記錄）'}`
+        ? `$${formatNumber(effectiveCost, 0)} / ${item.unit}${lastUnitCost != null ? `（${lastRec.record_date} 最近一次進貨）` : '（品項管理設定值，尚無進貨記錄）'}`
         : '—（尚未設定）';
 
       if (effectiveCost > 0) {
@@ -353,7 +353,7 @@
         preview.classList.remove('d-none');
         const lost = qty * unitCost;
         labelEl.textContent = '耗損金額（估算）';
-        totalEl.textContent = unitCost > 0 ? `$${formatMoney(lost)}` : '—（此品項未設單位成本）';
+        totalEl.textContent = unitCost > 0 ? `$${formatNumber(lost, 0)}` : '—（此品項未設單位成本）';
         totalEl.classList.remove('text-success', 'text-primary');
         totalEl.classList.add('text-danger');
         // 扣庫存預覽
@@ -378,7 +378,7 @@
       const isIncome = !!itemsMap[itemId]?.is_income;
       const total = qty * unitCost;
       labelEl.textContent = isIncome ? '回收收入金額' : '進貨總金額';
-      totalEl.textContent = isIncome ? `+$${formatMoney(total)}` : `$${formatMoney(total)}`;
+      totalEl.textContent = isIncome ? `+$${formatNumber(total, 0)}` : `$${formatNumber(total, 0)}`;
       totalEl.classList.remove('text-danger');
       totalEl.classList.toggle('text-primary', isIncome);
       totalEl.classList.toggle('text-success', !isIncome);
@@ -433,12 +433,12 @@
 
       if (mode === 'waste') {
         const lost = qty * (item?.unit_cost || 0);
-        const money = item?.unit_cost ? `，約 $${formatMoney(lost)}` : '';
+        const money = item?.unit_cost ? `，約 $${formatNumber(lost, 0)}` : '';
         const stockMsg = wasteAfter != null ? `，庫存 ${formatNumber(wasteBase, 2)} → ${formatNumber(wasteAfter, 2)}` : '（尚無庫存基準，未扣庫存）';
         showToast(`🗑️ 已記錄耗損：${item.name} × ${qty} ${item.unit}${money}${stockMsg}`);
       } else {
         const isIncome = !!item?.is_income;
-        showToast(`✓ 已記錄：${item.name} × ${qty} ${item.unit}，${isIncome ? '+' : ''}$${formatMoney(Math.abs(payload.purchase_cost))}${payload.current_stock !== null ? `，庫存 ${payload.current_stock}` : ''}`);
+        showToast(`✓ 已記錄：${item.name} × ${qty} ${item.unit}，${isIncome ? '+' : ''}$${formatNumber(Math.abs(payload.purchase_cost), 0)}${payload.current_stock !== null ? `，庫存 ${payload.current_stock}` : ''}`);
       }
 
       document.getElementById('rec-item').value = '';
@@ -488,7 +488,7 @@
 
       // 今日進貨總金額：耗損列 purchase_cost 為 0，加總不受影響
       const total = records.reduce((s, r) => s + (r.purchase_cost || 0), 0);
-      document.getElementById('daily-total').textContent = formatMoney(total);
+      document.getElementById('daily-total').textContent = formatNumber(total, 0);
       document.getElementById('record-count').textContent = `${records.length} 筆`;
 
       // 今日耗損金額（估算）：耗損量 × 該品項單位成本，獨立顯示
@@ -496,7 +496,7 @@
       const wasteTotal = wasteRows.reduce((s, r) => s + (r.waste_qty || 0) * (itemsMap[r.item_id]?.unit_cost || 0), 0);
       const wasteBar = document.getElementById('daily-waste-bar');
       wasteBar.style.display = wasteRows.length ? 'flex' : 'none';
-      document.getElementById('daily-waste').textContent = formatMoney(wasteTotal);
+      document.getElementById('daily-waste').textContent = formatNumber(wasteTotal, 0);
 
       const tbody = document.getElementById('records-table');
       if (!records.length) {
@@ -519,8 +519,8 @@
             <td data-label="類別"><span class="badge bg-light text-secondary border" style="font-size:0.72rem;">${r.items?.category || '—'}</span></td>
             <td data-label="廠商" class="text-muted" style="font-size:0.85rem;">—</td>
             <td data-label="數量"><span class="fw-semibold text-danger">-${formatNumber(r.waste_qty, 2)}</span> ${r.items?.unit || ''}</td>
-            <td data-label="單位成本" class="text-muted">${uc > 0 ? `$${formatMoney(uc)}` : '—'}</td>
-            <td data-label="總金額">${uc > 0 ? `<strong class="text-danger">🗑️ $${formatMoney(lost)}</strong>` : '<span class="text-muted">—</span>'}</td>
+            <td data-label="單位成本" class="text-muted">${uc > 0 ? `$${formatNumber(uc, 0)}` : '—'}</td>
+            <td data-label="總金額">${uc > 0 ? `<strong class="text-danger">🗑️ $${formatNumber(lost, 0)}</strong>` : '<span class="text-muted">—</span>'}</td>
             <td data-label="備註" class="text-muted" style="font-size:0.82rem;">${r.notes || '—'}</td>
             <td><button class="btn btn-sm btn-outline-danger" onclick="deleteRecord('${r.id}')">刪除</button></td>
           </tr>`;
@@ -531,15 +531,15 @@
         const totalCell = masked
           ? '<span class="text-muted">🔒 機密</span>'
           : isIncome
-            ? `<strong class="text-primary">+$${formatMoney(Math.abs(r.purchase_cost))}</strong>`
-            : `<strong class="text-success">$${formatMoney(r.purchase_cost)}</strong>`;
+            ? `<strong class="text-primary">+$${formatNumber(Math.abs(r.purchase_cost), 0)}</strong>`
+            : `<strong class="text-success">$${formatNumber(r.purchase_cost, 0)}</strong>`;
         return `
           <tr>
             <td data-label="品項"><strong>${r.items?.name || '—'}</strong>${isIncome ? ' <span class="badge bg-primary" style="font-size:0.65rem;">💰 收入</span>' : ''}</td>
             <td data-label="類別"><span class="badge bg-light text-secondary border" style="font-size:0.72rem;">${r.items?.category || '—'}</span></td>
             <td data-label="廠商" class="text-muted" style="font-size:0.85rem;">${r.items?.supplier || '—'}</td>
             <td data-label="數量"><span class="fw-semibold">${formatNumber(r.purchase_qty, 2)}</span> ${r.items?.unit || ''}</td>
-            <td data-label="單位成本" class="text-muted">${masked ? '🔒 機密' : `$${formatMoney(unitCost)}`}</td>
+            <td data-label="單位成本" class="text-muted">${masked ? '🔒 機密' : `$${formatNumber(unitCost, 0)}`}</td>
             <td data-label="總金額">${totalCell}</td>
             <td data-label="備註" class="text-muted" style="font-size:0.82rem;">${r.notes || '—'}</td>
             <td><button class="btn btn-sm btn-outline-danger" onclick="deleteRecord('${r.id}')">刪除</button></td>

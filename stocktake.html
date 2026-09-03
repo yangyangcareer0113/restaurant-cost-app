@@ -359,7 +359,7 @@
       // 載入品項
       const { data: items } = await supabase
         .from('items')
-        .select('id, name, unit, category, min_stock_qty, unit_cost, abc_class')
+        .select('id, name, unit, count_unit, category, min_stock_qty, unit_cost, abc_class')
         .eq('store_id', currentStoreId)
         .eq('is_active', true)
         .order('category')
@@ -499,6 +499,7 @@
       const cols = 6 + (hasPrev ? 1 : 0);
 
       const buildItemRow = (item) => {
+        const unit     = item.count_unit || item.unit; // 盤點單位（沒設就用進貨單位）
         const entry    = countMap[item.id];
         const qty      = (entry?.counted_qty !== null && entry?.counted_qty !== undefined) ? entry.counted_qty : '';
         const notes    = entry?.notes || '';
@@ -515,7 +516,7 @@
           ? (prevQty > 0 ? prevQty : (item.min_stock_qty > 0 ? item.min_stock_qty * 3 : 0))
           : 0;
         const refLabel = isC && refQty > 0
-          ? (prevQty > 0 ? `基準：上月 ${refQty}${item.unit}` : `基準：安庫 ×3 ${refQty}${item.unit}`)
+          ? (prevQty > 0 ? `基準：上月 ${refQty}${unit}` : `基準：安庫 ×3 ${refQty}${unit}`)
           : '';
         const qfHtml = !isC || isLocked ? '' : refQty > 0 ? `
           <div class="qf-wrap">
@@ -530,8 +531,8 @@
         return `
           <tr>
             <td><strong>${item.name}</strong></td>
-            <td class="text-muted">${item.unit}</td>
-            <td class="text-end text-muted small">${item.min_stock_qty} ${item.unit}</td>
+            <td class="text-muted">${unit}</td>
+            <td class="text-end text-muted small">${item.min_stock_qty} ${unit}</td>
             ${hasPrev ? `<td class="text-end text-muted small">${prevDisplay}</td>` : ''}
             <td class="text-end">
               <input type="number" class="count-input ${filledCls}" id="qty-${item.id}"

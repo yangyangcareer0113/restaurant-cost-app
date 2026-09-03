@@ -79,15 +79,20 @@
             </div>
           </div>
           <div class="row g-2 mb-3">
-            <div class="col-6">
+            <div class="col-4">
               <label class="form-label fw-semibold">進貨單位 <span class="text-danger">*</span></label>
-              <input type="text" id="item-unit" class="form-control" placeholder="例：kg、包、箱、瓶、顆">
+              <input type="text" id="item-unit" class="form-control" placeholder="例：kg、箱、瓶">
             </div>
-            <div class="col-6">
+            <div class="col-4">
+              <label class="form-label fw-semibold">盤點單位</label>
+              <input type="text" id="item-count-unit" class="form-control" placeholder="留空＝同進貨單位">
+            </div>
+            <div class="col-4">
               <label class="form-label fw-semibold">標準單位成本（元）</label>
-              <input type="number" id="item-unit-cost" class="form-control" min="0" step="0.01" value="0" placeholder="每單位進貨成本">
+              <input type="number" id="item-unit-cost" class="form-control" min="0" step="0.01" value="0" placeholder="每進貨單位成本">
             </div>
           </div>
+          <div class="form-text mb-3" style="margin-top:-0.5rem;">進貨與盤點用不同單位時才填盤點單位（例：可樂進貨「箱」、盤點「罐」）。注意標準單位成本是「每進貨單位」，盤點估值會用它，單位不一致時估值僅供參考。</div>
           <div class="mb-3">
             <label class="form-label fw-semibold">規格說明</label>
             <input type="text" id="item-spec" class="form-control" placeholder="例：每包2kg、每箱24瓶、每包1023元">
@@ -258,7 +263,7 @@
           <td data-label="品項名稱"><strong>${item.name}</strong>${item.is_income ? ' <span class="badge bg-primary" style="font-size:0.65rem;">💰 收入</span>' : ''}</td>
           <td data-label="類別"><span class="badge bg-light text-secondary border">${item.category || '—'}</span></td>
           <td data-label="廠商">${item.supplier || '<span class="text-muted">—</span>'}</td>
-          <td data-label="單位">${item.unit}</td>
+          <td data-label="單位">${item.unit}${item.count_unit ? ` <span class="text-muted small">(盤:${item.count_unit})</span>` : ''}</td>
           <td data-label="標準單位成本">${costCell}</td>
           <td data-label="規格說明" class="text-muted" style="font-size:0.85rem;">${item.spec_note || '—'}</td>
           <td data-label="安全庫存">${formatNumber(item.min_stock_qty, 0)} ${item.unit}</td>
@@ -299,6 +304,7 @@
       document.getElementById('item-category').value = '';
       document.getElementById('item-supplier').value = '';
       document.getElementById('item-unit').value = '';
+      document.getElementById('item-count-unit').value = '';
       document.getElementById('item-unit-cost').value = '0';
       document.getElementById('item-spec').value = '';
       document.getElementById('item-minstk').value = '0';
@@ -317,6 +323,7 @@
       document.getElementById('item-category').value = item.category || '';
       document.getElementById('item-supplier').value = item.supplier || '';
       document.getElementById('item-unit').value = item.unit;
+      document.getElementById('item-count-unit').value = item.count_unit || '';
       document.getElementById('item-unit-cost').value = item.unit_cost || 0;
       document.getElementById('item-spec').value = item.spec_note || '';
       document.getElementById('item-minstk').value = item.min_stock_qty;
@@ -347,6 +354,7 @@
         category: document.getElementById('item-category').value.trim() || null,
         supplier: document.getElementById('item-supplier').value.trim() || null,
         unit: document.getElementById('item-unit').value.trim() || '個',
+        count_unit: document.getElementById('item-count-unit').value.trim() || null,
         unit_cost: parseFloat(document.getElementById('item-unit-cost').value) || 0,
         spec_note: document.getElementById('item-spec').value.trim() || null,
         min_stock_qty: parseFloat(document.getElementById('item-minstk').value) || 0,
