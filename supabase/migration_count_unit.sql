@@ -17,8 +17,9 @@ SELECT
   id, store_id, name, unit, category, supplier, spec_note,
   min_stock_qty, abc_class, bom_unit, bom_conversion, is_active,
   is_confidential, created_at,
-  CASE WHEN is_confidential AND NOT is_admin() THEN NULL ELSE unit_cost END AS unit_cost,
+  CASE WHEN is_confidential AND NOT is_admin() THEN NULL::numeric ELSE unit_cost END AS unit_cost,
   serving_qty,
+  is_income,
   count_unit
 FROM items;
 
