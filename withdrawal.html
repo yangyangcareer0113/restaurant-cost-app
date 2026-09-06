@@ -217,8 +217,12 @@
     }
 
     // 取得該品項的庫存基準：
-    // 比較「最新一筆有填庫存的進貨／盤點記錄」與「最新一筆提領記錄的剩餘庫存」，
-    // 取日期較新的當基準，讓連續多次提領可以接著往下扣。
+    // 三個來源比日期，取最新的當基準——
+    //   1. 最新一張「已提交／已審核」月底盤點的實際盤點數量（counted_qty）
+    //   2. 最新一筆有填庫存的進貨／耗損記錄（inventory_records.current_stock）
+    //   3. 最新一筆提領記錄的剩餘庫存（withdrawal_records.remaining_stock）
+    // 同一天時的優先序：提領後剩餘 > 盤點結果 > 進貨庫存記錄
+    //   （提領已經接在盤點之後往下扣，盤點是實際清點數，優先於進貨推估）
     async function getBaseStock(itemId, storeId) {
       let invQ = supabase.from('inventory_records')
         .select('current_stock, record_date, created_at')
@@ -246,11 +250,47 @@
         ? { val: parseFloat(w[0].remaining_stock), date: w[0].record_date }
         : null;
 
-      if (lastW && (!snap || lastW.date >= snap.date))
-        return { base: lastW.val, source: `接續 ${lastW.date} 的提領後剩餘`, date: lastW.date };
-      if (snap)
-        return { base: snap.val, source: `${snap.date} 的庫存記錄`, date: snap.date };
-      return { base: null, source: null, date: null };
+      const stk = await getLatestStocktakeCount(itemId, storeId);
+
+      const cands = [];
+      if (lastW) cands.push({ val: lastW.val, date: lastW.date, pri: 3, source: `接續 ${lastW.date} 的提領後剩餘` });
+      if (stk)   cands.push({ val: stk.val,   date: stk.date,   pri: 2, source: `${stk.period} 月底盤點結果` });
+      if (snap)  cands.push({ val: snap.val,  date: snap.date,  pri: 1, source: `${snap.date} 的庫存記錄` });
+      if (!cands.length) return { base: null, source: null, date: null };
+
+      cands.sort((a, b) => (a.date === b.date ? b.pri - a.pri : (a.date < b.date ? 1 : -1)));
+      const win = cands[0];
+      return { base: win.val, source: win.source, date: win.date };
+    }
+
+    // 最新一張「已提交／已審核」盤點單裡，有盤到這個品項的盤點數量。
+    // 盤點單只有 period（YYYY-MM），實際生效日取 reviewed_at／submitted_at 的日期。
+    async function getLatestStocktakeCount(itemId, storeId) {
+      let stQ = supabase.from('stocktakes')
+        .select('id, period, submitted_at, reviewed_at')
+        .in('status', ['submitted', 'reviewed'])
+        .order('period', { ascending: false })
+        .limit(6);
+      if (storeId) stQ = stQ.eq('store_id', storeId);
+      const { data: sts } = await stQ;
+      if (!sts || !sts.length) return null;
+
+      const byId = {};
+      sts.forEach(s => { byId[s.id] = s; });
+
+      const { data: sis } = await supabase.from('stocktake_items')
+        .select('stocktake_id, counted_qty')
+        .in('stocktake_id', sts.map(s => s.id))
+        .eq('item_id', itemId)
+        .not('counted_qty', 'is', null);
+      if (!sis || !sis.length) return null;
+
+      // 這些盤點單裡，period 最新且有盤到本品項的那一張
+      sis.sort((a, b) => byId[b.stocktake_id].period.localeCompare(byId[a.stocktake_id].period));
+      const hit = sis[0];
+      const st  = byId[hit.stocktake_id];
+      const eff = (st.reviewed_at || st.submitted_at || `${st.period}-28`).slice(0, 10);
+      return { val: parseFloat(hit.counted_qty), date: eff, period: st.period };
     }
 
     async function onItemChange(itemId) {
