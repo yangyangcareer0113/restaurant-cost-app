@@ -199,6 +199,7 @@
   <script>
     let currentProfile = null;
     let allItems = [];
+    let lastSavedItemId = null;   // 剛新增/編輯完成的品項，列表會標記完成符號
 
     document.addEventListener('DOMContentLoaded', async () => {
       await requireAuth();
@@ -238,13 +239,15 @@
       const { data } = await q;
       allItems = data || [];
 
-      // 填充廠商篩選
+      // 填充廠商篩選（保留員工目前選好的廠商，編輯完不跳回「所有廠商」）
       const sups = [...new Set(allItems.map(i => i.supplier).filter(s => s && s !== '待確認'))].sort();
       const supSel = document.getElementById('sup-filter');
+      const prevSup = supSel.value;
       supSel.innerHTML = '<option value="">所有廠商</option>';
       sups.forEach(s => supSel.insertAdjacentHTML('beforeend', `<option value="${s}">${s}</option>`));
+      if (prevSup && sups.includes(prevSup)) supSel.value = prevSup;
 
-      renderTable(allItems);
+      filterItems();   // 沿用目前的搜尋字＋廠商篩選重繪，不重置回全清單
     }
 
     function filterItems() {
@@ -255,6 +258,20 @@
         (!sup || i.supplier === sup)
       ));
     }
+
+    // 一個品項「內部條件」清單（缺哪些會影響建議總覽評估）
+    function itemMissingFields(item) {
+      if (item.is_income) return item.unit_cost > 0 ? [] : ['進貨金額'];
+      const miss = [];
+      if (!item.category)              miss.push('類別');
+      if (!item.supplier)              miss.push('廠商');
+      if (!(item.unit_cost > 0))       miss.push('標準單位成本');
+      if (!(item.bom_conversion > 0))  miss.push('BOM換算');
+      if (!(item.serving_qty > 0))     miss.push('每份用量');
+      if (!(item.serving_price > 0))   miss.push('每份售價');
+      return miss;
+    }
+    const itemSetupComplete = item => itemMissingFields(item).length === 0;
 
     function renderTable(items) {
       const tbody = document.getElementById('items-table');
@@ -284,8 +301,22 @@
           ? '<span class="text-muted" style="font-size:0.8rem;">🔒 由總部管理</span>'
           : `<button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal(${JSON.stringify(item).replace(/"/g, '&quot;')})">編輯</button>
              <button class="btn btn-sm btn-outline-danger" onclick="toggleActive('${item.id}', false)">移除</button>`;
+
+        const complete  = !locked && itemSetupComplete(item);
+        const justSaved = item.id === lastSavedItemId;
+        let doneMark = '';
+        if (!locked) {
+          if (complete) {
+            doneMark = `<span title="內部條件已建置完整${justSaved ? '（剛更新）' : ''}" style="color:#16a34a;font-weight:800;margin-left:5px;">✓</span>`;
+          } else if (justSaved) {
+            doneMark = `<span title="剛更新，尚缺：${itemMissingFields(item).join('、')}" style="color:#16a34a;font-weight:800;margin-left:5px;">✓</span>`;
+          } else {
+            doneMark = `<span title="待補：${itemMissingFields(item).join('、')}" style="color:#cbd5e1;margin-left:5px;cursor:help;">✓</span>`;
+          }
+        }
+
         return `
-        <tr>
+        <tr${justSaved ? ' style="background:#f0fdf4;"' : ''}>
           <td data-label="品項名稱"><strong>${item.name}</strong>${item.is_income ? ' <span class="badge bg-primary" style="font-size:0.65rem;">💰 收入</span>' : ''}</td>
           <td data-label="類別"><span class="badge bg-light text-secondary border">${item.category || '—'}</span></td>
           <td data-label="廠商">${item.supplier || '<span class="text-muted">—</span>'}</td>
@@ -295,7 +326,7 @@
           <td data-label="規格說明" class="text-muted" style="font-size:0.85rem;">${item.spec_note || '—'}</td>
           <td data-label="安全庫存">${formatNumber(item.min_stock_qty, 0)} ${item.unit}</td>
           <td data-label="ABC">
-            <span class="badge ${item.abc_class === 'A' ? 'bg-danger' : item.abc_class === 'C' ? 'bg-secondary' : 'bg-warning text-dark'}">${item.abc_class || 'B'}</span>
+            <span class="badge ${item.abc_class === 'A' ? 'bg-danger' : item.abc_class === 'C' ? 'bg-secondary' : 'bg-warning text-dark'}">${item.abc_class || 'B'}</span>${doneMark}
           </td>
           <td data-label="操作">${actionsCell}</td>
         </tr>`;
@@ -418,13 +449,15 @@
         priorServingQty = priorItem?.serving_qty || null;
       }
 
-      let error;
+      let error, savedId = id;
       if (id) {
         ({ error } = await supabase.from('items').update(payload).eq('id', id));
       } else {
-        ({ error } = await supabase.from('items').insert(payload));
+        const res = await supabase.from('items').insert(payload).select('id').single();
+        error = res.error; savedId = res.data?.id || null;
       }
       if (error) { showToast('儲存失敗：' + error.message, 'danger'); return; }
+      lastSavedItemId = savedId;
 
       if (id && !priorServingQty && servingQty > 0) {
         const { data: lines } = await supabase.from('bom_lines')
