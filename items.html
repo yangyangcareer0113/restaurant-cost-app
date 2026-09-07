@@ -39,6 +39,7 @@
                 <th>廠商</th>
                 <th>單位</th>
                 <th>標準單位成本</th>
+                <th>每份成本／售價</th>
                 <th>規格說明</th>
                 <th>安全庫存</th>
                 <th>ABC</th>
@@ -46,7 +47,7 @@
               </tr>
             </thead>
             <tbody id="items-table">
-              <tr><td colspan="8" class="text-center text-muted py-4">載入中...</td></tr>
+              <tr><td colspan="10" class="text-center text-muted py-4">載入中...</td></tr>
             </tbody>
           </table>
         </div>
@@ -139,6 +140,19 @@
                 <label class="form-label" style="font-size:0.82rem;">每份成本</label>
                 <div class="form-control form-control-sm bg-white" id="serving-cost-preview" style="color:#166534;font-weight:600;">—</div>
                 <div class="form-text">填了以後，配方裡用到這個品項就是用「幾份」計價</div>
+              </div>
+            </div>
+            <hr class="my-2">
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label" style="font-size:0.82rem;">每份售價（元）</label>
+                <input type="number" id="item-serving-price" class="form-control form-control-sm" min="0" step="1" placeholder="這一份對客人賣多少" oninput="updateBomHint()">
+                <div class="form-text">單品加點的對客售價，用於「成本 BOM → 建議總覽」比對</div>
+              </div>
+              <div class="col-6">
+                <label class="form-label" style="font-size:0.82rem;">每份成本佔售價</label>
+                <div class="form-control form-control-sm bg-white" id="serving-rate-preview" style="font-weight:600;">—</div>
+                <div class="form-text">成本 ÷ 售價，火鍋業建議帶請見建議總覽</div>
               </div>
             </div>
           </div>
@@ -245,7 +259,7 @@
     function renderTable(items) {
       const tbody = document.getElementById('items-table');
       if (!items.length) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-5">尚無品項，點右上角「+ 新增品項」開始建立廠商進貨清單</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-5">尚無品項，點右上角「+ 新增品項」開始建立廠商進貨清單</td></tr>';
         return;
       }
       const isAdmin = currentProfile.role === 'admin';
@@ -254,6 +268,18 @@
         const costCell = locked
           ? '<span class="text-muted">🔒 機密</span>'
           : (item.unit_cost > 0 ? `<span class="fw-semibold">$${formatNumber(item.unit_cost, 0)} / ${item.unit}</span>` : '<span class="text-muted">—</span>');
+
+        const sCost  = (!locked && item.serving_qty > 0 && item.bom_conversion > 0) ? costPerServing(item) : 0;
+        const sPrice = item.serving_price > 0 ? item.serving_price : 0;
+        const sRate  = (sCost > 0 && sPrice > 0) ? sCost / sPrice * 100 : null;
+        const rateColor = sRate === null ? '' : (sRate <= 35 ? '#166534' : sRate <= 45 ? '#b45309' : '#b91c1c');
+        const servingCell = (sCost > 0 || sPrice > 0)
+          ? `<span style="font-size:0.85rem;">
+               ${sCost > 0 ? `成本 $${sCost.toFixed(1)}` : '成本 —'}
+               ${sPrice > 0 ? ` ／ 售 $${formatNumber(sPrice,0)}` : ' ／ <span class="text-muted">售價待填</span>'}
+               ${sRate !== null ? `<br><span style="color:${rateColor};font-weight:600;">佔售價 ${sRate.toFixed(1)}%</span>` : ''}
+             </span>`
+          : '<span class="text-muted">—</span>';
         const actionsCell = locked
           ? '<span class="text-muted" style="font-size:0.8rem;">🔒 由總部管理</span>'
           : `<button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal(${JSON.stringify(item).replace(/"/g, '&quot;')})">編輯</button>
@@ -265,6 +291,7 @@
           <td data-label="廠商">${item.supplier || '<span class="text-muted">—</span>'}</td>
           <td data-label="單位">${item.unit}${item.count_unit ? ` <span class="text-muted small">(盤:${item.count_unit})</span>` : ''}</td>
           <td data-label="標準單位成本">${costCell}</td>
+          <td data-label="每份成本／售價">${servingCell}</td>
           <td data-label="規格說明" class="text-muted" style="font-size:0.85rem;">${item.spec_note || '—'}</td>
           <td data-label="安全庫存">${formatNumber(item.min_stock_qty, 0)} ${item.unit}</td>
           <td data-label="ABC">
@@ -287,12 +314,22 @@
       hint.textContent = `1 ${unit||'進貨單位'} = ${conv} ${bomUnit}${cpbu}`;
 
       const servingPreview = document.getElementById('serving-cost-preview');
+      const servingCost = (servingQty > 0 && conv > 0) ? (unitCost / conv) * servingQty : 0;
       if (servingPreview) {
-        if (servingQty > 0 && conv > 0) {
-          const cost = (unitCost / conv) * servingQty;
-          servingPreview.textContent = `1 份（${servingQty}${bomUnit}）≈ $${cost.toFixed(2)}`;
+        servingPreview.textContent = servingCost > 0
+          ? `1 份（${servingQty}${bomUnit}）≈ $${servingCost.toFixed(2)}`
+          : '—';
+      }
+
+      const ratePreview = document.getElementById('serving-rate-preview');
+      const servingPrice = parseFloat(document.getElementById('item-serving-price')?.value) || 0;
+      if (ratePreview) {
+        if (servingCost > 0 && servingPrice > 0) {
+          const rate = servingCost / servingPrice * 100;
+          const color = rate <= 35 ? '#166534' : rate <= 45 ? '#b45309' : '#b91c1c';
+          ratePreview.innerHTML = `<span style="color:${color};">${rate.toFixed(1)}%</span>`;
         } else {
-          servingPreview.textContent = '—';
+          ratePreview.textContent = '—';
         }
       }
     }
@@ -311,6 +348,7 @@
       document.getElementById('item-bom-unit').value = 'g';
       document.getElementById('item-bom-conversion').value = '1';
       document.getElementById('item-serving-qty').value = '';
+      document.getElementById('item-serving-price').value = '';
       document.getElementById('item-is-income').checked = false;
       document.getElementById('abc-B').checked = true;
       updateBomHint();
@@ -330,6 +368,7 @@
       document.getElementById('item-bom-unit').value = item.bom_unit || 'g';
       document.getElementById('item-bom-conversion').value = item.bom_conversion || 1;
       document.getElementById('item-serving-qty').value = item.serving_qty || '';
+      document.getElementById('item-serving-price').value = item.serving_price || '';
       document.getElementById('item-is-income').checked = !!item.is_income;
       const abcVal = item.abc_class || 'B';
       const abcRadio = document.getElementById(`abc-${abcVal}`);
@@ -347,6 +386,7 @@
         ? document.getElementById('item-store').value
         : currentProfile.store_id;
       const servingQty = parseFloat(document.getElementById('item-serving-qty').value) || null;
+      const servingPrice = parseFloat(document.getElementById('item-serving-price').value) || null;
 
       const payload = {
         store_id: storeId,
@@ -361,6 +401,7 @@
         bom_unit: document.getElementById('item-bom-unit').value || 'g',
         bom_conversion: parseFloat(document.getElementById('item-bom-conversion').value) || 1,
         serving_qty: servingQty,
+        serving_price: servingPrice,
         abc_class: document.querySelector('input[name="abc-class"]:checked')?.value || 'B',
         is_income: document.getElementById('item-is-income').checked,
       };

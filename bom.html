@@ -206,16 +206,32 @@
       <!-- ══════════════════════════ Tab 3: 建議總覽（僅 admin）══════════════════════════ -->
       <div class="tab-pane fade" id="tab-reco">
         <div class="text-muted mb-3" style="font-size:0.8rem;line-height:1.7;">
-          彙整「菜品成本分析」中，成本佔售價比例<b>落在火鍋業建議區間外</b>的菜品，並給出具體調整數值（漲價 / 降價 / 加量 / 減料）。
-          <br>建議售價區間 ＝「依現有食材成本，成本率落在建議帶所對應的售價範圍」；漲價數值已進位到 $5，降價數值退位到 $5。此分頁僅老闆帳號可見。
+          <b>單品加點</b>：直接抓「品項管理」每個品項的每份成本（每份用量 × 每 BOM 單位成本）＋員工在品項管理 key 的每份售價，算成本佔售價比例。
+          <br><b>組合菜品</b>：抓「菜品成本分析」的配方成本 ÷ 售價。兩者都比對火鍋業建議區間，區間外的列出具體調整數值（漲價 / 降價 / 加量 / 減料）。
+          <br>建議售價區間 ＝「依現有食材成本，成本率落在建議帶所對應的售價範圍」；漲價數值進位到 $5，降價數值退位到 $5。此分頁僅老闆帳號可見。
         </div>
 
         <div class="row g-3 mb-3">
-          <div class="col-4"><div class="stat-card"><div class="stat-value text-danger" id="reco-kpi-over">—</div><div class="stat-label">🔺 成本率超標</div></div></div>
-          <div class="col-4"><div class="stat-card"><div class="stat-value text-primary" id="reco-kpi-under">—</div><div class="stat-label">🔵 成本率偏低</div></div></div>
-          <div class="col-4"><div class="stat-card"><div class="stat-value text-secondary" id="reco-kpi-todo">—</div><div class="stat-label">⚑ 待補配方/售價</div></div></div>
+          <div class="col-3"><div class="stat-card"><div class="stat-value text-danger" id="reco-kpi-over">—</div><div class="stat-label">🔺 成本率超標</div></div></div>
+          <div class="col-3"><div class="stat-card"><div class="stat-value text-primary" id="reco-kpi-under">—</div><div class="stat-label">🔵 成本率偏低</div></div></div>
+          <div class="col-3"><div class="stat-card"><div class="stat-value text-success" id="reco-kpi-ok">—</div><div class="stat-label">✅ 落在建議區間</div></div></div>
+          <div class="col-3"><div class="stat-card"><div class="stat-value text-secondary" id="reco-kpi-todo">—</div><div class="stat-label">⚑ 待補售價/配方</div></div></div>
         </div>
 
+        <div class="fw-bold mb-2" style="font-size:0.92rem;color:#334155;">📋 單品加點｜每份成本 vs 每份售價</div>
+        <div class="table-card mb-4">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0" style="font-size:0.86rem;">
+              <thead><tr>
+                <th>品項</th><th>類別</th><th class="text-end">每份成本</th><th class="text-end">每份售價</th>
+                <th class="text-end">成本佔售價</th><th>火鍋業建議區間</th><th>判定</th>
+              </tr></thead>
+              <tbody id="reco-item-table"><tr><td colspan="7" class="text-center text-muted py-4">載入中...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="fw-bold mb-2" style="font-size:0.92rem;color:#334155;">🛠️ 需調整明細（具體數值）</div>
         <div id="reco-list">
           <div class="text-center text-muted py-5">載入中...</div>
         </div>
@@ -266,7 +282,7 @@ async function loadAllData() {
   const itemsTable = isAdmin ? 'items' : 'items_masked';
 
   const [{ data: items }, { data: semis }, { data: dishes }] = await Promise.all([
-    supabase.from(itemsTable).select('id,name,unit,unit_cost,bom_unit,bom_conversion,serving_qty,category,supplier,spec_note,min_stock_qty,is_confidential').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
+    supabase.from(itemsTable).select('id,name,unit,unit_cost,bom_unit,bom_conversion,serving_qty,serving_price,category,supplier,spec_note,min_stock_qty,is_confidential').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
     supabase.from('semi_products').select('id,name,category,output_qty,output_unit').eq('store_id',sid).eq('is_active',true).order('name'),
     supabase.from('dishes').select('*').eq('store_id',sid).eq('is_active',true).order('category').order('name')
   ]);
@@ -592,52 +608,98 @@ const floor5 = n => Math.max(5, Math.floor(n / 5) * 5);
 
 function renderRecommendations() {
   const box = document.getElementById('reco-list');
+  const itemTbody = document.getElementById('reco-item-table');
   if (!box) return;
-  const isAdmin = currentProfile.role === 'admin';
-  if (!isAdmin) {
+  const kpiIds = ['reco-kpi-over','reco-kpi-under','reco-kpi-ok','reco-kpi-todo'];
+
+  if (currentProfile.role !== 'admin') {
     box.innerHTML = '<div class="text-center text-muted py-5" style="font-size:0.9rem;">此分頁僅老闆帳號可見</div>';
-    ['reco-kpi-over','reco-kpi-under','reco-kpi-todo'].forEach(id => document.getElementById(id).textContent = '—');
+    if (itemTbody) itemTbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">此分頁僅老闆帳號可見</td></tr>';
+    kpiIds.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '—'; });
     return;
   }
 
-  const all = getDishesWithCost();
-
-  // 需調整：成本率落在建議區間外
-  const flagged = all
-    .filter(d => d.costRate !== null)
-    .map(d => {
-      const band = hotpotBand(d);
-      return { d, band, st: bandStatus(d.costRate, band) };
+  // ── 單品加點：直接抓品項管理「每份成本」（每份用量 × 每 BOM 單位成本）＋員工 key 的「每份售價」──
+  const servingItems = (allItems || [])
+    .filter(i => i.serving_qty > 0 && i.bom_conversion > 0)
+    .map(i => {
+      const cost  = costPerServing(i);
+      const price = i.serving_price > 0 ? i.serving_price : null;
+      return {
+        _src: '單品', id: i.id, name: i.name, category: i.category,
+        totalCost: cost, selling_price: price,
+        costRate: (cost > 0 && price) ? cost / price * 100 : null,
+      };
     })
-    .filter(x => x.st === 'over' || x.st === 'under')
-    .sort((a, b) => recoDeviation(b) - recoDeviation(a));
+    .filter(x => x.totalCost > 0);
 
-  // 待補：有配方沒售價 / 有售價沒配方
-  const todo = all.filter(d => d.costRate === null).map(d => ({
-    d,
-    reason: !d.lines.length ? '尚未建立配方' : (!(d.selling_price > 0) ? '尚未設定售價' : '成本待補'),
+  // ── 組合菜品：菜品成本分析的配方成本 ÷ 售價 ──
+  const dishEntries = getDishesWithCost().map(d => ({
+    _src: '菜品', id: d.id, name: d.name, category: d.category, lines: d.lines,
+    totalCost: d.totalCost, selling_price: d.selling_price, costRate: d.costRate,
   }));
 
-  const over  = flagged.filter(x => x.st === 'over').length;
-  const under = flagged.filter(x => x.st === 'under').length;
-  document.getElementById('reco-kpi-over').textContent  = over;
-  document.getElementById('reco-kpi-under').textContent = under;
+  const withBand = [...servingItems, ...dishEntries]
+    .filter(x => x.costRate !== null)
+    .map(x => { const band = hotpotBand(x); return { d: x, band, st: bandStatus(x.costRate, band) }; });
+
+  const flagged = withBand
+    .filter(x => x.st === 'over' || x.st === 'under')
+    .sort((a, b) => recoDeviation(b) - recoDeviation(a));
+  const okCount = withBand.filter(x => x.st === 'in').length;
+
+  const todo = [
+    ...servingItems.filter(x => x.costRate === null)
+      .map(x => ({ name: x.name, category: x.category, reason: '待員工在「品項管理」填每份售價', href: 'items.html' })),
+    ...dishEntries.filter(x => x.costRate === null)
+      .map(x => ({ name: x.name, category: x.category,
+        reason: !x.lines.length ? '尚未建立配方' : (!(x.selling_price > 0) ? '尚未設定售價' : '成本待補'),
+        href: 'dishes.html' })),
+  ];
+
+  document.getElementById('reco-kpi-over').textContent  = flagged.filter(x => x.st === 'over').length;
+  document.getElementById('reco-kpi-under').textContent = flagged.filter(x => x.st === 'under').length;
+  document.getElementById('reco-kpi-ok').textContent    = okCount;
   document.getElementById('reco-kpi-todo').textContent  = todo.length;
 
-  let html = '';
-
-  if (!flagged.length) {
-    html += `<div class="text-center text-muted py-4" style="font-size:0.9rem;">✅ 目前所有已建配方＋已設售價的菜品，成本佔售價比例都落在火鍋業建議區間，無需調整</div>`;
-  } else {
-    html += flagged.map(({ d, band, st }) => buildRecoCard(d, band, st)).join('');
+  // ── 單品加點總表（每份成本 vs 每份售價）──
+  if (itemTbody) {
+    const rows = [...servingItems].sort((a, b) => {
+      if (a.costRate === null && b.costRate === null) return a.name.localeCompare(b.name, 'zh-Hant');
+      if (a.costRate === null) return 1;
+      if (b.costRate === null) return -1;
+      return b.costRate - a.costRate;
+    });
+    itemTbody.innerHTML = rows.length ? rows.map(x => {
+      const band = hotpotBand(x);
+      const st = x.costRate !== null ? bandStatus(x.costRate, band) : null;
+      const verdict = st === 'in'    ? '<span style="color:#166534;font-weight:700;">✅ 區間內</span>'
+                    : st === 'over'  ? '<span style="color:#b91c1c;font-weight:700;">🔺 超標</span>'
+                    : st === 'under' ? '<span style="color:#1e40af;font-weight:700;">🔵 偏低</span>'
+                    : '<span style="color:#b45309;">⚑ 待填售價</span>';
+      return `<tr>
+        <td><strong>${x.name}</strong></td>
+        <td><span class="badge bg-light text-secondary border" style="font-size:0.72rem;">${x.category || '—'}</span></td>
+        <td class="text-end">$${formatNumber(x.totalCost,1)}</td>
+        <td class="text-end">${x.selling_price ? '$' + formatNumber(x.selling_price,0) : '<span class="text-muted">—</span>'}</td>
+        <td class="text-end">${x.costRate !== null ? x.costRate.toFixed(1) + '%' : '—'}</td>
+        <td style="font-size:0.8rem;color:#64748b;">${band.label}</td>
+        <td>${verdict}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="7" class="text-center text-muted py-4">「品項管理」尚無設定「每份用量」的品項</td></tr>';
   }
 
+  // ── 需調整明細（具體數值）──
+  let html = flagged.length
+    ? flagged.map(({ d, band, st }) => buildRecoCard(d, band, st)).join('')
+    : '<div class="text-center text-muted py-4" style="font-size:0.9rem;">✅ 目前所有可評估的單品與菜品，成本佔售價比例都落在火鍋業建議區間，無需調整</div>';
+
   if (todo.length) {
-    html += `<div style="margin-top:18px;font-weight:700;font-size:0.9rem;color:#334155;">⚑ 待補資料（無法評估成本率，${todo.length} 項）</div>`;
+    html += `<div style="margin-top:18px;font-weight:700;font-size:0.9rem;color:#334155;">⚑ 待補資料（無法評估，${todo.length} 項）</div>`;
     html += `<div class="table-card" style="margin-top:8px;"><div class="p-2">` + todo.map(t => `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:0.85rem;">
-        <span>${t.d.name}${t.d.category ? ` <span style="color:#94a3b8;font-size:0.78rem;">・${t.d.category}</span>` : ''}</span>
-        <span style="color:#b45309;">${t.reason} → <a href="dishes.html">前往補齊</a></span>
+        <span>${t.name}${t.category ? ` <span style="color:#94a3b8;font-size:0.78rem;">・${t.category}</span>` : ''}</span>
+        <span style="color:#b45309;">${t.reason} → <a href="${t.href}">前往補齊</a></span>
       </div>`).join('') + `</div></div>`;
   }
 
@@ -650,10 +712,14 @@ function recoDeviation({ d, band, st }) {
 }
 
 function buildRecoCard(d, band, st) {
-  const C = d.totalCost;              // 食材成本
+  const C = d.totalCost;              // 每份成本 / 食材成本
   const P = d.selling_price;          // 售價
   const R = d.costRate;               // 成本佔售價 %
   const cat = d.category ? `<span style="color:#94a3b8;font-size:0.78rem;">・${d.category}</span>` : '';
+  const srcTag = d._src
+    ? `<span style="background:${d._src === '單品' ? '#eef2ff;color:#3730a3' : '#f0fdf4;color:#166534'};border-radius:8px;padding:1px 7px;font-size:0.68rem;font-weight:700;margin-left:6px;">${d._src === '單品' ? '單品加點' : '組合菜品'}</span>`
+    : '';
+  const costLabel = d._src === '單品' ? '每份成本' : '食材成本';
 
   // 建議售價區間（依現有食材成本 C）：[C/hi, C/lo]（lo=0 時上不封頂）
   const priceMin = ceil5(C / (band.hi / 100));
@@ -676,9 +742,9 @@ function buildRecoCard(d, band, st) {
 
     head = `<span style="background:#fee2e2;color:#991b1b;border-radius:10px;padding:2px 9px;font-size:0.72rem;font-weight:700;">🔺 成本率超標 ${R.toFixed(1)}%（建議 ≤${band.hi}%，高 ${(R-band.hi).toFixed(1)} 個百分點）</span>`;
     plans = `
-      <div style="margin-top:8px;font-size:0.83rem;color:#334155;">建議售價區間（現有食材成本 $${formatNumber(C,1)}）：<b>${priceRange}</b></div>
+      <div style="margin-top:8px;font-size:0.83rem;color:#334155;">建議售價區間（現有${costLabel} $${formatNumber(C,1)}）：<b>${priceRange}</b></div>
       <div class="reco-plan"><b>方案 A｜漲價</b>：售價 <b>$${formatNumber(P,0)} → $${formatNumber(newP,0)}</b>（+$${formatNumber(incP,0)}，+${incPct.toFixed(1)}%），成本率降到 ${newRAtNewP.toFixed(1)}%</div>
-      <div class="reco-plan"><b>方案 B｜降食材成本</b>（售價不動）：食材成本 <b>$${formatNumber(C,1)} → $${formatNumber(newC,1)}</b>（−$${formatNumber(cutC,1)}），約等於每份少放 <b>${cutPct.toFixed(1)}%</b> 的料（或改用單價較低的替代食材）</div>`;
+      <div class="reco-plan"><b>方案 B｜降${costLabel}</b>（售價不動）：${costLabel} <b>$${formatNumber(C,1)} → $${formatNumber(newC,1)}</b>（−$${formatNumber(cutC,1)}），約等於每份少放 <b>${cutPct.toFixed(1)}%</b> 的料（或改用單價較低的替代食材）</div>`;
   } else {
     // under：只可能發生在 lo>0 的帶（肉品海鮮 40–45%、菜盤主食 30–35%）
     const newC  = P * band.lo / 100;                      // 售價不動，加量把成本率拉到下限
@@ -692,16 +758,16 @@ function buildRecoCard(d, band, st) {
 
     head = `<span style="background:#dbeafe;color:#1e40af;border-radius:10px;padding:2px 9px;font-size:0.72rem;font-weight:700;">🔵 成本率偏低 ${R.toFixed(1)}%（建議 ${band.lo}–${band.hi}%，低 ${(band.lo-R).toFixed(1)} 個百分點）</span>`;
     plans = `
-      <div style="margin-top:8px;font-size:0.83rem;color:#334155;">建議售價區間（現有食材成本 $${formatNumber(C,1)}）：<b>${priceRange}</b>　目前 $${formatNumber(P,0)} 偏高</div>
-      <div class="reco-plan"><b>方案 A｜加量</b>（售價不動，份量更有感）：食材成本 <b>$${formatNumber(C,1)} → $${formatNumber(newC,1)}</b>（+$${formatNumber(addC,1)}），約等於每份多給 <b>${addPct.toFixed(1)}%</b> 的肉／料，成本率拉到 ${band.lo}%</div>
+      <div style="margin-top:8px;font-size:0.83rem;color:#334155;">建議售價區間（現有${costLabel} $${formatNumber(C,1)}）：<b>${priceRange}</b>　目前 $${formatNumber(P,0)} 偏高</div>
+      <div class="reco-plan"><b>方案 A｜加量</b>（售價不動，份量更有感）：${costLabel} <b>$${formatNumber(C,1)} → $${formatNumber(newC,1)}</b>（+$${formatNumber(addC,1)}），約等於每份多給 <b>${addPct.toFixed(1)}%</b> 的肉／料，成本率拉到 ${band.lo}%</div>
       <div class="reco-plan"><b>方案 B｜降價</b>（衝買氣）：售價 <b>$${formatNumber(P,0)} → $${formatNumber(newP,0)}</b>（−$${formatNumber(cutP,0)}，−${cutPct.toFixed(1)}%），成本率拉到 ${newRAtNewP.toFixed(1)}%</div>`;
   }
 
   return `<div class="table-card" style="margin-bottom:10px;">
     <div style="padding:12px 14px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
-        <div><span style="font-weight:700;font-size:0.95rem;">${d.name}</span>${cat}
-          <div style="font-size:0.8rem;color:#64748b;margin-top:2px;">食材成本 $${formatNumber(C,1)} ／ 售價 $${formatNumber(P,0)} ／ 成本佔售價 ${R.toFixed(1)}%　·　${band.label}</div>
+        <div><span style="font-weight:700;font-size:0.95rem;">${d.name}</span>${cat}${srcTag}
+          <div style="font-size:0.8rem;color:#64748b;margin-top:2px;">${costLabel} $${formatNumber(C,1)} ／ 售價 $${formatNumber(P,0)} ／ 成本佔售價 ${R.toFixed(1)}%　·　${band.label}</div>
         </div>
         <div>${head}</div>
       </div>
