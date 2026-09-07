@@ -63,5 +63,24 @@ SELECT name, unit AS 進貨單位, bom_unit AS BOM單位, bom_conversion AS 換�
 FROM items
 WHERE is_active AND name = '響鈴捲';
 
--- ── 待確認：豆醬（大陸／調味類）1 桶 = ? g，確認後：
---   UPDATE items SET bom_conversion = <每桶g數> WHERE is_active AND name = '豆醬';
+-- ============================================================
+-- 豆醬：1 桶 = 5 公斤 = 5000 g → BOM 以 g 計，每 g 成本 = 每桶成本 ÷ 5000
+-- （進貨單位維持「桶」）
+-- ============================================================
+
+-- 預覽
+SELECT name, unit AS 進貨單位, bom_unit AS BOM單位, bom_conversion AS 目前換算,
+       unit_cost AS 每桶成本, round(unit_cost / 5000.0, 4) AS 改後每g成本
+FROM items
+WHERE is_active AND name = '豆醬';
+
+-- 修正
+UPDATE items
+SET bom_unit = 'g', bom_conversion = 5000
+WHERE is_active AND name = '豆醬';
+
+-- 驗證
+SELECT name, unit AS 進貨單位, bom_unit AS BOM單位, bom_conversion AS 換算,
+       round(unit_cost / NULLIF(bom_conversion,0), 4) AS 每g成本
+FROM items
+WHERE is_active AND name = '豆醬';
