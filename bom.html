@@ -112,17 +112,11 @@
             <option value="high">🚨 &gt;45%</option>
             <option value="none">⚑ 尚無配方</option>
           </select>
-          <select id="dish-band-filter" class="form-select form-select-sm" style="width:auto;" onchange="renderDishBOM()">
-            <option value="">所有建議區間</option>
-            <option value="in">✅ 落在建議區間</option>
-            <option value="under">🔵 低於建議區間</option>
-            <option value="over">🔺 高於建議上限</option>
-          </select>
         </div>
 
-        <div class="text-muted mb-3" style="font-size:0.78rem;line-height:1.7;">
-          🍲 <b>火鍋業食材成本率建議區間</b>（市面常見）：鍋底/藥膳 ≤25%　·　菜盤/餃類/主食/加點 30–35%　·　肉品/海鮮 40–45%　·　飲料/甜點 ≤20%。
-          <br>肉品海鮮單價高、份量要實在，成本率天生偏高，落在 40–45% 屬正常；鍋底湯料便宜又可回沖，壓在 25% 以內。每道菜下方會標示實際比例是否落在區間。
+        <div id="hotpot-band-legend" class="text-muted mb-3" style="display:none;font-size:0.78rem;line-height:1.7;">
+          🍲 <b>火鍋業食材成本率建議區間</b>（市面常見）：鍋底/湯頭 ≤25%　·　涼拌小菜/前菜 30–35%　·　菜盤/餃類/主食/加點 30–35%　·　肉品/海鮮 40–45%　·　飲料/甜點 ≤20%。
+          <br>肉品海鮮單價高、份量要實在，成本率天生偏高，落在 40–45% 屬正常；鍋物一律歸鍋底，湯料便宜又可回沖，壓在 25% 以內。右側比例旁會同步標示是否落在區間（僅老闆帳號可見）。
         </div>
 
         <!-- 菜品列表（可展開） -->
@@ -339,14 +333,27 @@ function rateFilter(rate, filter) {
 
 // ── 火鍋業分層食材成本率建議區間（Cherish 指定 2026-09-07）──
 // 依菜品類別／品名關鍵字歸類，回傳建議區間 {lo, hi, label}
+// 判斷順序很重要：
+//   1. 鍋物一律歸「鍋底」——不管湯頭裡有沒有肉、藥材（Cherish 2026-09-07 指正）
+//   2. 飲料 / 甜點
+//   3. 涼拌小菜 / 前菜 / 滷味——先攔，避免「豬耳朵」被下面的肉品關鍵字誤判成肉盤
+//   4. 單點肉盤 / 海鮮盤
+//   5. 其餘：菜盤 / 餃類 / 主食 / 加點
 function hotpotBand(d) {
   const s = `${d.category || ''} ${d.name || ''}`;
-  if (/鍋底|湯底|湯頭|高湯|藥膳|養生鍋|自然鍋|昆布/.test(s))
-    return { lo: 0, hi: 25, label: '鍋底/藥膳 ≤25%' };
-  if (/肉|牛|豬|羊|雞|鴨|鵝|培根|梅花|霜降|雪花|海鮮|蝦|蟹|魚|貝|蛤|蜆|花枝|中卷|小卷|透抽|龍蝦|干貝|鮮蚵|生蠔|鮑/.test(s))
-    return { lo: 40, hi: 45, label: '肉品/海鮮 40–45%' };
-  if (/飲|茶|汽水|可樂|沙士|果汁|甜點|布丁|冰淇淋|愛玉|仙草|豆花|雪花冰/.test(s))
+
+  if (/鍋|煲|湯底|湯頭|高湯|湯品/.test(s))
+    return { lo: 0, hi: 25, label: '鍋底/湯頭 ≤25%' };
+
+  if (/飲料|飲品|茶飲|奶茶|紅茶|綠茶|烏龍|汽水|可樂|沙士|雪碧|果汁|冬瓜|梅汁|甜點|布丁|冰淇淋|雪花冰|剉冰|愛玉|仙草|豆花|杏仁豆腐|甜湯/.test(s))
     return { lo: 0, hi: 20, label: '飲料/甜點 ≤20%' };
+
+  if (/涼拌|小菜|前菜|開胃|滷味|滷菜|泡菜|醃|毛豆|豆干|豆乾|海帶|花生|木耳|耳朵|嘴邊肉|豬頭皮|脆腸|鴨舌/.test(s))
+    return { lo: 30, hi: 35, label: '涼拌小菜/前菜 30–35%' };
+
+  if (/肉片|肉盤|肉盅|梅花|霜降|雪花|五花|松阪|松板|培根|牛小排|牛舌|嫩牛|板腱|翼板|沙朗|里肌|梅花豬|豬肉片|牛肉片|羊肉片|雞肉片|鴨肉|肉丸|貢丸|花枝丸|蝦丸|海鮮|蝦|蟹|魚|貝|蛤|蜆|花枝|中卷|小卷|透抽|軟絲|龍蝦|干貝|鮮蚵|生蠔|鮑魚|文蛤|蛤蜊|鯛|鮭|鱸/.test(s))
+    return { lo: 40, hi: 45, label: '肉品/海鮮 40–45%' };
+
   return { lo: 30, hi: 35, label: '菜盤/餃類/主食/加點 30–35%' };
 }
 
@@ -356,6 +363,19 @@ function bandStatus(rate, band) {
   if (rate > band.hi + 0.05) return 'over';
   if (band.lo > 0 && rate < band.lo - 0.05) return 'under';
   return 'in';
+}
+
+// 右側比例旁的同步小燈號（僅老闆帳號呼叫）
+function bandBadgeHtml(rate, band) {
+  const st = bandStatus(rate, band);
+  if (!st) return '';
+  const map = {
+    in:    ['#dcfce7', '#166534', `✅ 區間內 (${band.lo || 0}–${band.hi}%)`],
+    under: ['#dbeafe', '#1e40af', `🔵 偏低 (建議 ${band.lo}–${band.hi}%)`],
+    over:  ['#fee2e2', '#991b1b', `🔺 超標 (建議 ≤${band.hi}%)`],
+  };
+  const [bg, fg, txt] = map[st];
+  return `<span style="background:${bg};color:${fg};border-radius:10px;padding:2px 9px;font-size:0.72rem;font-weight:700;white-space:nowrap;">${txt}</span>`;
 }
 
 function bandVerdictHtml(rate, band) {
@@ -371,9 +391,10 @@ function renderDishBOM() {
   const q       = document.getElementById('dish-search')?.value.toLowerCase() || '';
   const cat     = document.getElementById('dish-cat-filter')?.value || '';
   const rateFlt = document.getElementById('dish-rate-filter')?.value || '';
-  const bandFlt = document.getElementById('dish-band-filter')?.value || '';
 
   const isAdmin = currentProfile.role === 'admin';
+  const legend = document.getElementById('hotpot-band-legend');
+  if (legend) legend.style.display = isAdmin ? '' : 'none';
   let good = 0, warn = 0, high = 0;
   const dishesWithCost = allDishes.map(d => {
     const lines = dishLinesData[d.id] || [];
@@ -399,8 +420,7 @@ function renderDishBOM() {
   const filtered = dishesWithCost.filter(d =>
     (!q || d.name.toLowerCase().includes(q)) &&
     (!cat || d.category === cat) &&
-    rateFilter(d.costRate, rateFlt) &&
-    (!bandFlt || bandStatus(d.costRate, hotpotBand(d)) === bandFlt)
+    rateFilter(d.costRate, rateFlt)
   );
 
   const box = document.getElementById('dish-bom-list');
@@ -472,6 +492,7 @@ function renderDishBOM() {
         </div>
         <div class="d-flex align-items-center gap-2">
           ${costBadge(d.costRate)}
+          ${isAdmin ? bandBadgeHtml(d.costRate, hotpotBand(d)) : ''}
           <span class="text-muted" style="font-size:0.75rem;" id="dc${idx}-arrow">▼</span>
         </div>
       </div>
@@ -503,7 +524,7 @@ function renderDishBOM() {
               <div class="ct-label mt-1">成本佔售價比例</div>
             </div>
           </div>
-          ${d.costRate!==null ? `<div style="margin-top:8px;font-size:0.8rem;padding:9px 12px;border-radius:6px;background:#fff;border:1px solid #e2e8f0;line-height:1.6;">
+          ${isAdmin && d.costRate!==null ? `<div style="margin-top:8px;font-size:0.8rem;padding:9px 12px;border-radius:6px;background:#fff;border:1px solid #e2e8f0;line-height:1.6;">
             <span style="color:#64748b;">🍲 火鍋業建議區間：</span><b>${hotpotBand(d).label}</b>
             <span style="margin:0 6px;color:#cbd5e1;">|</span>本菜 ${d.costRate.toFixed(1)}%　${bandVerdictHtml(d.costRate, hotpotBand(d))}
           </div>` : ''}
