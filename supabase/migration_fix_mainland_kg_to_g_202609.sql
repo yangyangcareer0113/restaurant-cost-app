@@ -40,6 +40,28 @@ WHERE is_active
   AND bom_unit = 'g'
 ORDER BY category, name;
 
--- ── （選）非 kg 但換算 = 1、成本卻很大的大陸品項，人工確認每單位重量後另外改 ──
---   例：UPDATE items SET bom_conversion = 3000 WHERE name = '豆醬';      -- 1 桶 = 3000 g（待確認）
---       UPDATE items SET bom_conversion = 2000 WHERE name = '響鈴捲';    -- 1 箱 = 2000 g（待確認）
+-- ============================================================
+-- 響鈴捲：1 箱 = 300 卷 → BOM 以「卷」計，每卷成本 = 每箱成本 ÷ 300
+-- （進貨單位維持「箱」，配方裡用「卷」計價）
+-- ============================================================
+
+-- 預覽
+SELECT name, category, supplier, unit AS 進貨單位, bom_unit AS BOM單位,
+       bom_conversion AS 目前換算, unit_cost AS 每箱成本,
+       round(unit_cost / 300.0, 4) AS 改後每卷成本
+FROM items
+WHERE is_active AND name = '響鈴捲';
+
+-- 修正
+UPDATE items
+SET bom_unit = '卷', bom_conversion = 300
+WHERE is_active AND name = '響鈴捲';
+
+-- 驗證
+SELECT name, unit AS 進貨單位, bom_unit AS BOM單位, bom_conversion AS 換算,
+       round(unit_cost / NULLIF(bom_conversion,0), 4) AS 每卷成本
+FROM items
+WHERE is_active AND name = '響鈴捲';
+
+-- ── 待確認：豆醬（大陸／調味類）1 桶 = ? g，確認後：
+--   UPDATE items SET bom_conversion = <每桶g數> WHERE is_active AND name = '豆醬';
