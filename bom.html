@@ -208,13 +208,13 @@
         <div class="text-muted mb-3" style="font-size:0.8rem;line-height:1.7;">
           以<b>消費者立場</b>看目前的成本與定價合不合理，只列<b>已 key 售價</b>的品項（品項管理的每份售價）與<b>已設售價</b>的成品菜單。
           <br><span style="color:#c2410c;">🟠 售價偏低</span>＝這個價格相對成本太便宜、份量/用料給太多，客人覺得「賺到」，你可以漲價或把份量收斂。
-          <br><span style="color:#1e40af;">🔵 售價偏高</span>＝這個價格相對給的東西偏貴，客人容易覺得「不值」，建議降價或加量／升級用料。
+          <br><span style="color:#b91c1c;">🔴 售價偏高</span>＝這個價格相對給的東西偏貴，客人容易覺得「不值」，建議降價或加量／升級用料。
           <br>合理售價 ＝ 依現在的成本，落在火鍋業合理帶所對應的售價範圍；漲價進位到 $5、降價退位到 $5。此分頁僅老闆帳號可見。
         </div>
 
         <div class="row g-3 mb-3">
           <div class="col-3"><div class="stat-card"><div class="stat-value" style="color:#c2410c;" id="reco-kpi-over">—</div><div class="stat-label">🟠 售價偏低（賣太便宜）</div></div></div>
-          <div class="col-3"><div class="stat-card"><div class="stat-value text-primary" id="reco-kpi-under">—</div><div class="stat-label">🔵 售價偏高（客人覺得貴）</div></div></div>
+          <div class="col-3"><div class="stat-card"><div class="stat-value text-danger" id="reco-kpi-under">—</div><div class="stat-label">🔴 售價偏高（客人覺得貴）</div></div></div>
           <div class="col-3"><div class="stat-card"><div class="stat-value text-success" id="reco-kpi-ok">—</div><div class="stat-label">✅ 定價合理</div></div></div>
           <div class="col-3"><div class="stat-card"><div class="stat-value text-secondary" id="reco-kpi-todo">—</div><div class="stat-label">⚑ 有售價・待補成本</div></div></div>
         </div>
@@ -687,7 +687,7 @@ function renderRecommendations() {
       const pr = x.totalCost > 0 ? reasonablePrice(x.totalCost, band) : null;
       const verdict = st === 'in'    ? '<span style="color:#166534;font-weight:700;">✅ 定價合理</span>'
                     : st === 'over'  ? '<span style="color:#c2410c;font-weight:700;">🟠 售價偏低</span>'
-                    : st === 'under' ? '<span style="color:#1e40af;font-weight:700;">🔵 售價偏高</span>'
+                    : st === 'under' ? '<span style="color:#b91c1c;font-weight:700;">🔴 售價偏高</span>'
                     : '<span style="color:#b45309;">⚑ 待補成本</span>';
       return `<tr title="${x.costRate !== null ? '成本佔售價 ' + x.costRate.toFixed(1) + '％（火鍋業合理帶 ' + band.label + '）' : ''}">
         <td><strong>${x.name}</strong></td>
@@ -706,7 +706,7 @@ function renderRecommendations() {
     : '<div class="text-center text-muted py-4" style="font-size:0.9rem;">✅ 目前所有已設售價的單品與成品菜單，定價都落在合理範圍，無需調整</div>';
 
   if (flagged.length) {
-    html = `<div class="text-muted mb-2" style="font-size:0.8rem;">🟠 售價偏低＝賣太便宜／給太多，可漲價或收斂份量；🔵 售價偏高＝客人覺得不值，可降價或加量。</div>` + html;
+    html = `<div class="text-muted mb-2" style="font-size:0.8rem;">🟠 售價偏低＝賣太便宜／給太多，可漲價或收斂份量；🔴 售價偏高＝客人覺得不值，可降價或加量。</div>` + html;
   }
 
   if (pending.length) {
@@ -766,7 +766,7 @@ function buildRecoCard(d, band, st) {
     const addC  = newC - C;
     const addPct = C > 0 ? addC / C * 100 : 0;
 
-    head = `<span style="background:#dbeafe;color:#1e40af;border-radius:10px;padding:2px 9px;font-size:0.72rem;font-weight:700;">🔵 售價偏高（比合理帶高約 $${formatNumber(gapHigh,0)}）</span>`;
+    head = `<span style="background:#fee2e2;color:#b91c1c;border-radius:10px;padding:2px 9px;font-size:0.72rem;font-weight:700;">🔴 售價偏高（比合理帶高約 $${formatNumber(gapHigh,0)}）</span>`;
     consumerNote = `消費者角度：花 $${formatNumber(P,0)} 只拿到成本 $${formatNumber(C,1)} 的份量／用料，容易覺得「這個價格不太值」——建議降價，或把東西加到對得起這個價。`;
     plans = `
       <div style="margin-top:8px;font-size:0.83rem;color:#334155;">合理售價（依現在的成本 $${formatNumber(C,1)}）：<b>${pr.text}</b>　目前 $${formatNumber(P,0)}</div>
