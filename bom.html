@@ -206,7 +206,7 @@
       <!-- ══════════════════════════ Tab 3: 建議總覽（僅 admin）══════════════════════════ -->
       <div class="tab-pane fade" id="tab-reco">
         <div class="text-muted mb-3" style="font-size:0.8rem;line-height:1.7;">
-          定價法（九和集團 威利執行長建議）：<b>建議售價 = 每份成本 × 定位倍率</b> — 主銷 <b>×3</b>、副銷（炸類／副餐／費工）<b>×4</b>、利潤類（甜點／飲料）<b>×5</b>。定位可在「品項管理」手動指定，未指定時依類別／品名自動判斷。
+          定價法（烽味 à la carte 火鍋）：<b>建議售價 = 每份成本 × 定位倍率</b> — 純鍋底 <b>×4</b>、一般加點（脆皮雞肉／豬／丸餃／一般海鮮）<b>×3.2</b>、比價肉品（牛肉／高階海鮮）<b>×2.2</b>、配料主食（菜盤／麵飯／醬料）<b>×5</b>、利潤飲品（自製茶飲／氣泡飲）<b>×7</b>。定位可在「品項管理」手動指定，未指定時依類別／品名自動判斷。
           <br><span style="color:#c2410c;">🟠 售價偏低</span>＝目前售價低於建議售價 10% 以上，可以往上帶、多賺一點。
           <br><span style="color:#b91c1c;">🔴 售價偏高</span>＝目前售價高於建議售價 10% 以上，客人容易覺得不值，建議降價或把份量／用料加到位。
           <br>每個品項下方另標「火鍋業成本率合理帶」供對照。只列已 key 售價的品項與已設售價的成品菜單；此分頁僅老闆帳號可見。
@@ -734,7 +734,7 @@ function buildRecoCard(e) {
     plans = `
       <div style="margin-top:8px;font-size:0.83rem;color:#334155;">建議售價（${role} 成本×${m}，成本 $${formatNumber(C,1)}）：<b>$${formatNumber(T,0)}</b>　目前 $${formatNumber(P,0)}</div>
       <div class="reco-plan"><b>方案｜漲價到建議價</b>：售價 <b>$${formatNumber(P,0)} → $${formatNumber(T,0)}</b>（+$${formatNumber(gain,0)}，+${gainPct.toFixed(1)}%）</div>
-      <div class="reco-plan" style="border-left-color:#e2e8f0;color:#64748b;">若這是刻意壓低的招牌／引流品可維持——但要確認利潤有從其他品項（副銷 ×4、利潤類 ×5）補回來。</div>`;
+      <div class="reco-plan" style="border-left-color:#e2e8f0;color:#64748b;">若這是刻意壓低的招牌／引流品可維持——但要確認利潤有從其他品項（純鍋底 ×4、配料主食 ×5、利潤飲品 ×7）補回來。</div>`;
   } else {
     const cut = P - T;
     const cutPct = P > 0 ? cut / P * 100 : 0;

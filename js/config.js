@@ -57,20 +57,38 @@ function calcItemLineCost(item, qty, wasteRate) {
   return costPerBomUnit(item) * q * wasteMult;
 }
 
-// ── 銷售定位 → 定價倍率（九和集團 威利執行長建議：主銷×3、副銷×4、利潤類×5）──
-const PRICING_MULT = { '主銷': 3, '副銷': 4, '利潤類': 5 };
+// ── 銷售定位 → 定價倍率（烽味 à la carte 火鍋版）──
+// 純鍋底 ×4（每桌必買＋扛免費冰淇淋，利潤引擎）
+// 一般加點 ×3.2（脆皮雞肉、豬、非招牌雞、丸餃火鍋料、一般海鮮、罐裝飲料）
+// 比價肉品 ×2.2（牛肉、高階海鮮——價格透明、薄利）
+// 配料主食 ×5（菜盤、麵飯年糕、醬料——成本低、不透明）
+// 利潤飲品 ×7（自製茶飲／氣泡飲——冰淇淋免費後唯一利潤類）
+const PRICING_MULT = {
+  '純鍋底': 4, '一般加點': 3.2, '比價肉品': 2.2, '配料主食': 5, '利潤飲品': 7,
+  // 舊值相容（主銷/副銷/利潤類）
+  '主銷': 3.2, '副銷': 5, '利潤類': 7,
+};
 
 // 回傳 { role, mult, auto }。o 可帶 pricing_role（手動指定）/ category / name。
 function pricingRoleOf(o) {
   if (o && PRICING_MULT[o.pricing_role]) {
-    return { role: o.pricing_role, mult: PRICING_MULT[o.pricing_role], auto: false };
+    const raw = o.pricing_role;
+    const role = { '主銷': '一般加點', '副銷': '配料主食', '利潤類': '利潤飲品' }[raw] || raw;
+    return { role, mult: PRICING_MULT[raw], auto: false };
   }
   const s = `${(o && o.category) || ''} ${(o && o.name) || ''}`;
-  let role = '主銷';
-  if (/甜點|布丁|愛玉|仙草|豆花|杏仁豆腐|雪花冰|剉冰|冰淇淋|甜湯|飲料|飲品|茶飲|奶茶|紅茶|綠茶|烏龍茶|青茶|汽水|可樂|沙士|雪碧|果汁|冬瓜茶|梅[汁子]|沙瓦|氣泡/.test(s)) {
-    role = '利潤類';
-  } else if (/炸|酥|天婦羅|唐揚|鹽酥|副餐|點心|鍋貼|燒賣|春捲|蝦捲|月亮蝦餅|銀絲卷|饅頭|薯條|薯餅|甜不辣|黑輪|白飯|白米|米飯|炒飯|燴飯|滷肉飯|拌麵|炒麵|拉麵|烏龍麵|王子麵|科學麵|冬粉|米粉|年糕|蘿蔔糕|粿/.test(s)) {
-    role = '副銷';
+  let role = '一般加點';
+  if (/套餐|雙人|四人|多人|饗宴/.test(s)) {
+    return { role: '套餐', mult: 0, auto: true };   // 套餐請用「套餐管理」檢視，不套倍率
+  }
+  if (/鍋底|湯底|湯頭|純鍋|清湯鍋|個人鍋|共鍋/.test(s)) {
+    role = '純鍋底';
+  } else if (/牛肉|牛五花|牛小排|牛舌|沙朗|霜降|雪花|翼板|板腱|嫩肩|安格斯|和牛|龍蝦|帝王蟹|松葉蟹|生蠔|鮑魚|大干貝/.test(s)) {
+    role = '比價肉品';
+  } else if (/自製|手作|氣泡|沙瓦|水果茶|果茶|冬瓜茶|梅子綠|檸檬|奶蓋|多多/.test(s)) {
+    role = '利潤飲品';
+  } else if (/菜盤|蔬菜|高麗菜|白菜|茼蒿|青菜|菇盤|金針菇|鴻喜菇|香菇|杏鮑菇|木耳|豆腐|凍豆腐|油豆腐|王子麵|科學麵|意麵|烏龍麵|冬粉|米粉|白飯|米飯|飯$|年糕|粿|玉米|南瓜|地瓜|冬粉|醬料|沾醬/.test(s)) {
+    role = '配料主食';
   }
   return { role, mult: PRICING_MULT[role], auto: true };
 }
