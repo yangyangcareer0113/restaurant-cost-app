@@ -213,8 +213,8 @@
         </div>
 
         <div class="row g-3 mb-3">
-          <div class="col-3"><div class="stat-card"><div class="stat-value" style="color:#c2410c;" id="reco-kpi-over">—</div><div class="stat-label">🟠 售價偏低（可多賺）</div></div></div>
           <div class="col-3"><div class="stat-card"><div class="stat-value text-danger" id="reco-kpi-under">—</div><div class="stat-label">🔴 售價偏高（客人覺得貴）</div></div></div>
+          <div class="col-3"><div class="stat-card"><div class="stat-value" style="color:#c2410c;" id="reco-kpi-over">—</div><div class="stat-label">🟠 售價偏低（可多賺）</div></div></div>
           <div class="col-3"><div class="stat-card"><div class="stat-value text-success" id="reco-kpi-ok">—</div><div class="stat-label">✅ 定價合理</div></div></div>
           <div class="col-3"><div class="stat-card"><div class="stat-value text-secondary" id="reco-kpi-todo">—</div><div class="stat-label">⚑ 有售價・待補成本</div></div></div>
         </div>
@@ -713,7 +713,7 @@ function renderRecommendations() {
     : '<div class="text-center text-muted py-4" style="font-size:0.9rem;">✅ 目前所有已設售價的單品、成品菜單與套餐，定價都落在合理範圍，無需調整</div>';
 
   if (flagged.length) {
-    html = `<div class="text-muted mb-2" style="font-size:0.8rem;">🟠 售價偏低＝目前售價低於「成本×定位倍率」，可以往上帶；🔴 售價偏高＝高於建議，客人覺得不值，降價或把份量／用料加到位。</div>` + html;
+    html = `<div class="text-muted mb-2" style="font-size:0.8rem;">🔴 售價偏高（排最前面）＝高於建議，客人覺得不值，降價或把份量／用料加到位；🟠 售價偏低＝低於「成本×定位倍率」，可以往上帶。</div>` + html;
   }
 
   if (pending.length) {
