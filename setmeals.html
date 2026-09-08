@@ -48,7 +48,7 @@
     </div>
 
     <div class="text-muted" style="font-size:0.8rem;">
-      💡 成本率目標：25–33%（火鍋套餐）。升級選項的額外毛利 = 加收金額 − 成本差額，請在明細中記錄升級品項。
+      💡 套餐成本率合理帶 28–42%（跟成本 BOM「建議總覽」一致）。低於 25% 留意份量是否對得起定價；高於 42% 先檢查是否有品項沒設「每份用量」。升級選項的額外毛利 = 加收金額 − 成本差額。
     </div>
 
   </div>
@@ -218,10 +218,10 @@
   };
 
   function ratingFromRate(rate) {
-    if (rate < 20) return 'star';
-    if (rate < 30) return 'good';
-    if (rate <= 45) return 'warn';
-    if (rate <= 60) return 'danger';
+    // 套餐合理帶 28–42%（跟成本 BOM 建議總覽一致）
+    if (rate < 25) return 'star';   // 毛利很高，留意份量是否對得起定價
+    if (rate <= 42) return 'good';
+    if (rate <= 58) return 'warn';
     return 'crit';
   }
 
