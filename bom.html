@@ -667,9 +667,10 @@ function renderRecommendations() {
   const evalSets   = setMealEntries.map(evalPricing);
   const evaluated  = [...evalItems, ...evalDishes, ...evalSets];
 
+  const stRank = s => s === 'high' ? 0 : s === 'low' ? 1 : s === 'ok' ? 2 : 3;
   const flagged = evaluated
     .filter(e => e.st === 'low' || e.st === 'high')
-    .sort((a, b) => (b.check.sev || 0) - (a.check.sev || 0));
+    .sort((a, b) => stRank(a.st) - stRank(b.st) || (b.check.sev || 0) - (a.check.sev || 0));
   const okCount = evaluated.filter(e => e.st === 'ok').length;
 
   const pending = evaluated.filter(e => !(e.totalCost > 0)).map(e => ({
@@ -687,11 +688,9 @@ function renderRecommendations() {
 
   // ── 單品加點總表（成本 × 倍率 vs 目前售價）──
   if (itemTbody) {
-    const rows = [...evalItems].sort((a, b) => {
-      const ra = a.target > 0 ? a.selling_price / a.target : 999;
-      const rb = b.target > 0 ? b.selling_price / b.target : 999;
-      return ra - rb;   // 售價相對建議越低（＝越該漲）排前面
-    });
+    const rows = [...evalItems].sort((a, b) =>
+      stRank(a.st) - stRank(b.st) || (b.check.sev || 0) - (a.check.sev || 0)   // 🔴偏貴→🟠偏低→✅合理→⚑待補
+    );
     itemTbody.innerHTML = rows.length ? rows.map(x => {
       const verdict = x.st === 'ok'   ? '<span style="color:#166534;font-weight:700;">✅ 定價合理</span>'
                     : x.st === 'low'  ? '<span style="color:#c2410c;font-weight:700;">🟠 售價偏低</span>'

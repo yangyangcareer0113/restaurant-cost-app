@@ -906,8 +906,12 @@
         return;
       }
 
+      // 🔴 售價偏貴/套餐偏貴 全部排最前面，🟠 售價偏低 擺後面；同燈號內依嚴重度排序
       const problems = rows.filter(r => r.check.status === 'low' || r.check.status === 'high')
-        .sort((a, b) => (b.check.sev || 0) - (a.check.sev || 0));
+        .sort((a, b) => {
+          const rank = s => s === 'high' ? 0 : 1;
+          return rank(a.check.status) - rank(b.check.status) || (b.check.sev || 0) - (a.check.sev || 0);
+        });
       const okCnt = rows.filter(r => r.check.status === 'ok').length;
       const naCnt = rows.filter(r => r.check.status === 'na').length;
       const dot = s => s === 'high'
