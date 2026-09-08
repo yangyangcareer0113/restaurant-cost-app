@@ -107,18 +107,23 @@ function pricingCheck(cost, price, roleInfo) {
   if (!(cost > 0) || !(price > 0)) {
     return { status: 'na', sev: -1, advice: '缺成本或售價，先補齊才能評估' };
   }
-  // 套餐（mult=0）：改用成本率判斷（合理帶 30–42%）
+  // 套餐（mult=0）：改用成本率判斷（合理帶 28–45%）
   if (!roleInfo || roleInfo.mult === 0) {
     const rate = cost / price * 100;
-    if (rate < 30) {
-      const cutPrice = Math.round((price - cost / 0.34) / 10) * 10;
-      const addCost  = Math.round(cost * (0.34 / (rate / 100) - 1));
-      return { status: 'high', rate, sev: 30 - rate,
-        advice: `成本率 ${rate.toFixed(0)}%，套餐偏貴（客人拿到的量相對定價偏少）→ 加約 $${addCost} 的食材，或降價約 $${cutPrice}，讓成本率到 32–35%` };
+    if (rate < 28) {
+      const cutPrice = Math.round((price - cost / 0.33) / 10) * 10;
+      const addCost  = Math.round(cost * (0.33 / (rate / 100) - 1));
+      return { status: 'high', rate, sev: 28 - rate,
+        advice: `成本率 ${rate.toFixed(0)}%，套餐偏貴（客人拿到的量相對定價偏少）→ 加約 $${addCost} 的食材，或降價約 $${cutPrice}，讓成本率到 30–35%` };
     }
-    if (rate > 42) {
-      const upPrice = Math.round((cost / 0.38 - price) / 10) * 10;
-      return { status: 'low', rate, sev: rate - 42,
+    if (rate > 58) {
+      // 明顯虧損：多半是某品項沒設「每份用量」而用到整包／整條，先請店家逐項檢查
+      return { status: 'high', rate, sev: 100 + rate,
+        advice: `成本率 ${rate.toFixed(0)}%，套餐正在虧錢 → 先到「套餐管理」展開此套餐，看哪一行成本特別大：多半是該品項沒設「每份用量」而用到整包／整條的量（像之前的響鈴捲、豆醬）。份量確認無誤後，再抽掉高成本品項或漲價` };
+    }
+    if (rate > 45) {
+      const upPrice = Math.round((cost / 0.40 - price) / 10) * 10;
+      return { status: 'low', rate, sev: rate,
         advice: `成本率 ${rate.toFixed(0)}%，套餐偏虧 → 抽掉高成本品項，或漲價約 $${upPrice}` };
     }
     return { status: 'ok', rate, sev: 0, advice: `成本率 ${rate.toFixed(0)}%，合理` };
