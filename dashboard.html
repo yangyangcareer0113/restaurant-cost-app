@@ -182,37 +182,28 @@
 
       </div>
 
-      <!-- 🍥 烽味定價框架速查（à la carte 火鍋）-->
+      <!-- 🍥 烽味定價體檢 -->
       <details class="table-card mb-3" open style="padding:0;">
         <summary style="cursor:pointer;list-style:none;padding:12px 16px;font-weight:600;background:#fff;border-radius:12px 12px 0 0;">
-          🍥 烽味定價框架速查（à la carte 火鍋）<span style="font-size:0.75rem;color:#94a3b8;font-weight:400;">　— 點擊收合</span>
+          🍥 烽味定價體檢<span style="font-size:0.75rem;color:#94a3b8;font-weight:400;">　— 依現在的成本與售價，該怎麼調（點擊收合）</span>
         </summary>
         <div style="padding:4px 16px 16px;">
           <div class="table-responsive">
             <table class="table table-sm mb-2" style="font-size:0.82rem;">
               <thead><tr style="color:#64748b;">
-                <th>品項</th><th class="text-nowrap">食材成本率</th><th class="text-nowrap">定價倍率</th><th>定位重點</th>
+                <th>品項／套餐</th><th class="text-nowrap">類型</th><th class="text-end text-nowrap">成本</th><th class="text-end text-nowrap">目前售價</th><th class="text-end text-nowrap">建議售價</th><th>建議現在怎麼調（定價／份量）</th>
               </tr></thead>
-              <tbody>
-                <tr><td class="fw-semibold">純鍋底（個人鍋／共鍋）</td><td>18–28%</td><td class="fw-bold text-primary">×3.5–5</td><td>每桌必買＋要扛免費冰淇淋，是<b>利潤引擎</b>，別當引流品做賠本</td></tr>
-                <tr><td class="fw-semibold">脆皮雞肉（招牌加點）</td><td>28–33%</td><td class="fw-bold text-primary">×3–3.5</td><td>英雄商品、有定價權，<b>肉品賺錢靠這一味</b></td></tr>
-                <tr><td>牛肉盤</td><td>44–50%</td><td>×2–2.3</td><td>比價最兇、薄利，是滿足肉控＋拉客單價用，別想在這賺</td></tr>
-                <tr><td>其他海鮮（蝦蟹魚貝）</td><td>38–46%</td><td>×2.3–2.8</td><td>半透明，比牛肉好一點</td></tr>
-                <tr><td>豬／非招牌雞／丸餃火鍋料</td><td>33–40%</td><td>×3–3.5</td><td>比價沒那麼嚴重，可略高</td></tr>
-                <tr><td>菜盤</td><td>17–25%</td><td>×4–6</td><td>成本低不透明，<b>份量給大方</b>讓客人願意加</td></tr>
-                <tr><td>主食（麵／飯／年糕）</td><td>12–20%</td><td>×5–8</td><td>加點率的甜點，毛利友善</td></tr>
-                <tr><td>飲料（罐／瓶裝）</td><td>25–30%</td><td>×3.5–4</td><td>成本透明，別抓太高</td></tr>
-                <tr><td>飲料（自製茶／氣泡飲）</td><td>12–18%</td><td class="fw-bold text-primary">×6–8</td><td>冰淇淋免費後<b>唯一的利潤類</b>，要主推「要不要來一杯」</td></tr>
-                <tr><td>醬料</td><td>&lt;10%</td><td>×5–10</td><td>絕對價鎖 <b>$10–20</b>，是小毛利墊、不是利潤中心，訂貴會有負評</td></tr>
-                <tr><td class="fw-semibold">雙人／四人套餐</td><td>33–40%</td><td>單點合計 <b>×0.82–0.88</b></td><td>要比單點便宜 12–18% 客人才有動機買；成本率會比單點高幾點屬正常，<b>別超過 40%</b></td></tr>
+              <tbody id="pricing-check-body">
+                <tr><td colspan="6" class="text-center text-muted py-3">載入中…</td></tr>
               </tbody>
             </table>
           </div>
           <div style="font-size:0.8rem;line-height:1.75;color:#334155;background:#f8fafc;border-radius:8px;padding:10px 12px;">
             <b>⚠️ 關鍵提醒</b>
-            <br>1. <b>這模式靠「加點率」活</b>：鍋底單買客單很低，錢在「每桌加 3–5 樣」。菜盤／主食 ×4–5 給得漂亮讓人願意加，牛肉別 ×3 把肉控嚇跑。
+            <br>1. <b>這模式靠「加點率」活</b>：鍋底單買客單很低，錢在「每桌加 3–5 樣」。菜盤／主食 ×5 給得漂亮讓人願意加，牛肉別抓太高把肉控嚇跑。
             <br>2. <b>整體物料成本率</b>：內用目標 <b>35%、上限 38%</b>（牛肉點越多越高）。個人鍋外送<b>單獨看</b>——平台抽 30–35% 是通路成本，不是食材失控。
             <br>3. <b>免費冰淇淋</b>：估每客 $10–15，直接算進純鍋底的成本。每月盯「冰淇淋進貨 ÷ 來客數」，超過 $15／客就要處理。
+            <br>4. <b>定價倍率</b>：純鍋底 ×4／一般加點（脆皮雞肉、豬、丸餃、一般海鮮）×3.2／比價肉品（牛肉、高階海鮮）×2.2／配料主食（菜、麵飯、醬料）×5／自製飲品 ×7；套餐成本率合理帶 30–42%。定位可在「品項管理」手動指定。
           </div>
         </div>
       </details>
@@ -443,6 +434,9 @@
 
       // ── 5. 建議 ──
       renderAdvice(revMonth, materialCost, laborCost);
+
+      // ── 6. 定價體檢（不阻塞，獨立載入）──
+      renderPricingCheck(storeId);
     }
 
     // ============================================================
@@ -851,6 +845,88 @@
           </div>
         </div>`).join('');
       document.getElementById('advice-list').innerHTML = html || '<div class="empty-state">✅ 各項指標正常，繼續保持！</div>';
+    }
+
+    // ============================================================
+    // 渲染：烽味定價體檢（單品 / 菜品 / 套餐 vs 定位倍率）
+    // ============================================================
+    let _pricingStoreCache = null;
+    async function renderPricingCheck(storeId) {
+      const tbody = document.getElementById('pricing-check-body');
+      if (!tbody) return;
+      if (currentProfile.role !== 'admin') {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">定價體檢明細僅老闆帳號可見</td></tr>';
+        return;
+      }
+      let sid = storeId;
+      if (!sid) {
+        if (!_pricingStoreCache) {
+          const { data } = await supabase.from('stores').select('id').order('name').limit(1);
+          _pricingStoreCache = data && data[0] && data[0].id;
+        }
+        sid = _pricingStoreCache;
+      }
+      if (!sid) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">找不到門店資料</td></tr>'; return; }
+
+      let itemsRes, dishesRes, dishCostRes, setsRes, setCostRes;
+      try {
+        [itemsRes, dishesRes, dishCostRes, setsRes, setCostRes] = await Promise.all([
+          supabase.from('items').select('*').eq('store_id', sid).eq('is_active', true),
+          supabase.from('dishes').select('id,name,category,selling_price').eq('store_id', sid).eq('is_active', true),
+          supabase.rpc('dishes_total_cost', { p_store_id: sid }),
+          supabase.from('set_meals').select('id,name,price').eq('store_id', sid),
+          supabase.rpc('set_meals_total_cost', { p_store_id: sid }),
+        ]);
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">定價體檢載入失敗</td></tr>';
+        return;
+      }
+
+      const dishCost = {}; (dishCostRes.data || []).forEach(r => { dishCost[r.dish_id] = r.total_cost; });
+      const setCost  = {}; (setCostRes.data  || []).forEach(r => { setCost[r.set_meal_id] = r.total_cost; });
+
+      const rows = [];
+      (itemsRes.data || []).filter(i => i.serving_price > 0).forEach(i => {
+        const cost = (i.serving_qty > 0 && i.bom_conversion > 0) ? costPerServing(i) : 0;
+        const ri = pricingRoleOf(i);
+        rows.push({ name: i.name, kind: '單品', kindTag: ri.role, cost, price: i.serving_price, check: pricingCheck(cost, i.serving_price, ri) });
+      });
+      (dishesRes.data || []).filter(d => d.selling_price > 0).forEach(d => {
+        const cost = dishCost[d.id] || 0;
+        const ri = pricingRoleOf(d);
+        rows.push({ name: d.name, kind: '菜品', kindTag: ri.role, cost, price: d.selling_price, check: pricingCheck(cost, d.selling_price, ri) });
+      });
+      (setsRes.data || []).filter(m => m.price > 0).forEach(m => {
+        const cost = setCost[m.id] || 0;
+        rows.push({ name: m.name, kind: '套餐', kindTag: '套餐', cost, price: m.price, check: pricingCheck(cost, m.price, pricingRoleOf({ name: m.name })) });
+      });
+
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">尚未在「品項管理／套餐管理」設定售價，設定後這裡會出現定價體檢</td></tr>';
+        return;
+      }
+
+      const problems = rows.filter(r => r.check.status === 'low' || r.check.status === 'high')
+        .sort((a, b) => (b.check.sev || 0) - (a.check.sev || 0));
+      const okCnt = rows.filter(r => r.check.status === 'ok').length;
+      const naCnt = rows.filter(r => r.check.status === 'na').length;
+      const dot = s => s === 'high'
+        ? '<span style="color:#b91c1c;font-weight:700;">🔴</span>'
+        : '<span style="color:#c2410c;font-weight:700;">🟠</span>';
+
+      let html = problems.map(r => `
+        <tr>
+          <td><strong>${r.name}</strong></td>
+          <td style="white-space:nowrap;color:#64748b;">${dot(r.check.status)} ${r.kindTag}</td>
+          <td class="text-end">${r.cost > 0 ? '$' + formatNumber(r.cost, r.kind === '套餐' ? 0 : 1) : '—'}</td>
+          <td class="text-end">$${formatNumber(r.price, 0)}</td>
+          <td class="text-end" style="color:#1e40af;font-weight:600;">${r.check.target ? '$' + formatNumber(r.check.target, 0) : '—'}</td>
+          <td style="font-size:0.8rem;">${r.check.advice}</td>
+        </tr>`).join('');
+      html += `<tr><td colspan="6" style="font-size:0.78rem;color:#94a3b8;padding-top:8px;">
+        ${problems.length ? '' : '✅ 目前沒有需要調整的項目。　'}✅ 定價合理 ${okCnt} 項${naCnt ? `　·　⚑ 缺成本／售價 ${naCnt} 項（去品項管理補齊）` : ''}
+      </td></tr>`;
+      tbody.innerHTML = html;
     }
   </script>
 </body>

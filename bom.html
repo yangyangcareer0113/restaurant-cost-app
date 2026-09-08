@@ -206,10 +206,10 @@
       <!-- ══════════════════════════ Tab 3: 建議總覽（僅 admin）══════════════════════════ -->
       <div class="tab-pane fade" id="tab-reco">
         <div class="text-muted mb-3" style="font-size:0.8rem;line-height:1.7;">
-          定價法（烽味 à la carte 火鍋）：<b>建議售價 = 每份成本 × 定位倍率</b> — 純鍋底 <b>×4</b>、一般加點（脆皮雞肉／豬／丸餃／一般海鮮）<b>×3.2</b>、比價肉品（牛肉／高階海鮮）<b>×2.2</b>、配料主食（菜盤／麵飯／醬料）<b>×5</b>、利潤飲品（自製茶飲／氣泡飲）<b>×7</b>。定位可在「品項管理」手動指定，未指定時依類別／品名自動判斷。
-          <br><span style="color:#c2410c;">🟠 售價偏低</span>＝目前售價低於建議售價 10% 以上，可以往上帶、多賺一點。
-          <br><span style="color:#b91c1c;">🔴 售價偏高</span>＝目前售價高於建議售價 10% 以上，客人容易覺得不值，建議降價或把份量／用料加到位。
-          <br>每個品項下方另標「火鍋業成本率合理帶」供對照。只列已 key 售價的品項與已設售價的成品菜單；此分頁僅老闆帳號可見。
+          定價法：<b>單品建議售價 = 每份成本 × 定位倍率</b> — 純鍋底 <b>×4</b>、一般加點（脆皮雞肉／豬／丸餃／一般海鮮）<b>×3.2</b>、比價肉品（牛肉／高階海鮮）<b>×2.2</b>、配料主食（菜盤／麵飯／醬料）<b>×5</b>、利潤飲品（自製茶飲／氣泡飲）<b>×7</b>。<b>套餐</b>用成本率判斷（合理帶 30–42%）。定位可在「品項管理」手動指定，未指定時依類別／品名自動判斷。
+          <br><span style="color:#c2410c;">🟠 售價偏低／套餐偏虧</span>＝賣太便宜，可以往上帶、多賺一點。
+          <br><span style="color:#b91c1c;">🔴 售價偏高／套餐偏貴</span>＝客人容易覺得不值，建議降價或把份量／用料加到位。
+          <br>每個品項下方另標「火鍋業成本率合理帶」供對照。列已 key 售價的單品、已設售價的成品菜單、以及套餐管理裡的套餐；此分頁僅老闆帳號可見。
         </div>
 
         <div class="row g-3 mb-3">
@@ -255,6 +255,7 @@ let allDishes = [];
 let dishLinesData = {};// dishId → lines[]
 let dishTrueCost = {}; // dishId → 真實總成本（非 admin 用 RPC 覆蓋遮蔽後的加總誤差）
 let allItems = [];
+let allSetMeals = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
   await requireAuth();
@@ -282,11 +283,18 @@ async function loadAllData() {
   const isAdmin = currentProfile.role === 'admin';
   const itemsTable = isAdmin ? 'items' : 'items_masked';
 
-  const [{ data: items }, { data: semis }, { data: dishes }] = await Promise.all([
-    supabase.from(itemsTable).select('id,name,unit,unit_cost,bom_unit,bom_conversion,serving_qty,serving_price,pricing_role,category,supplier,spec_note,min_stock_qty,is_confidential').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
+  // 用 select('*')：即使 serving_price / pricing_role migration 還沒跑，查詢也不會整個失敗
+  const [{ data: items }, { data: semis }, { data: dishes }, setMealRes, setMealCostRes] = await Promise.all([
+    supabase.from(itemsTable).select('*').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
     supabase.from('semi_products').select('id,name,category,output_qty,output_unit').eq('store_id',sid).eq('is_active',true).order('name'),
-    supabase.from('dishes').select('*').eq('store_id',sid).eq('is_active',true).order('category').order('name')
+    supabase.from('dishes').select('*').eq('store_id',sid).eq('is_active',true).order('category').order('name'),
+    supabase.from('set_meals').select('id,name,price,store_id').eq('store_id',sid).order('name'),
+    supabase.rpc('set_meals_total_cost', { p_store_id: sid }),
   ]);
+
+  allSetMeals = setMealRes.data || [];
+  const smCost = {}; (setMealCostRes.data || []).forEach(r => { smCost[r.set_meal_id] = r.total_cost; });
+  allSetMeals.forEach(m => { m.totalCost = smCost[m.id] || 0; });
 
   allItems = items || [];
   allItems.forEach(i => { itemsData[i.id] = i; });
@@ -604,21 +612,14 @@ function toggleDishBOM(id) {
 }
 
 /* ═══════════════ Tab 3: 建議總覽（僅 admin）═══════════════ */
-// 目前售價 vs 建議售價（成本×倍率）：低於 10% → 售價偏低；高於 10% → 售價偏高
-function priceStatus(price, target) {
-  if (!(price > 0) || !(target > 0)) return null;
-  if (price < target * 0.9) return 'low';
-  if (price > target * 1.1) return 'high';
-  return 'ok';
-}
-
-// 算出定位倍率、建議售價、判定，回傳附加欄位的物件
+// 算出定位倍率、建議售價、體檢結果（用 config.js 的 pricingCheck）
 function evalPricing(x) {
   const roleInfo = pricingRoleOf(x);                 // {role, mult, auto}
-  const target   = x.totalCost > 0 ? suggestPrice(x.totalCost, roleInfo.mult) : 0;
+  const check    = pricingCheck(x.totalCost, x.selling_price, roleInfo);
+  const target   = check.target || 0;
   const band     = hotpotBand(x);                    // 火鍋業成本率合理帶（僅供對照）
-  const st       = priceStatus(x.selling_price, target);
-  return { ...x, roleInfo, target, band, st };
+  const st       = check.status === 'na' ? null : check.status;   // 'low'|'ok'|'high'
+  return { ...x, roleInfo, target, band, st, check };
 }
 
 function renderRecommendations() {
@@ -653,19 +654,30 @@ function renderRecommendations() {
       totalCost: d.totalCost, selling_price: d.selling_price,
     }));
 
+  // ── 套餐：從套餐管理抓定價＋RPC 總成本，用成本率判斷（30–42% 合理帶）──
+  const setMealEntries = (allSetMeals || [])
+    .filter(m => m.price > 0)
+    .map(m => ({
+      _src: '套餐', id: m.id, name: m.name, category: '套餐',
+      totalCost: m.totalCost, selling_price: m.price,
+    }));
+
   const evalItems  = servingItems.map(evalPricing);
   const evalDishes = dishEntries.map(evalPricing);
-  const evaluated  = [...evalItems, ...evalDishes];
+  const evalSets   = setMealEntries.map(evalPricing);
+  const evaluated  = [...evalItems, ...evalDishes, ...evalSets];
 
   const flagged = evaluated
     .filter(e => e.st === 'low' || e.st === 'high')
-    .sort((a, b) => Math.abs(b.selling_price / b.target - 1) - Math.abs(a.selling_price / a.target - 1));
+    .sort((a, b) => (b.check.sev || 0) - (a.check.sev || 0));
   const okCount = evaluated.filter(e => e.st === 'ok').length;
 
   const pending = evaluated.filter(e => !(e.totalCost > 0)).map(e => ({
     name: e.name, category: e.category,
-    reason: e._src === '單品' ? '缺每份用量或單位成本' : '尚未建立配方或食材成本待補',
-    href: e._src === '單品' ? 'items.html' : 'dishes.html',
+    reason: e._src === '單品' ? '缺每份用量或單位成本'
+          : e._src === '套餐' ? '套餐內容尚未帶入成本'
+          : '尚未建立配方或食材成本待補',
+    href: e._src === '單品' ? 'items.html' : e._src === '套餐' ? 'setmeals.html' : 'dishes.html',
   }));
 
   document.getElementById('reco-kpi-over').textContent  = flagged.filter(e => e.st === 'low').length;
@@ -699,7 +711,7 @@ function renderRecommendations() {
   // ── 需調整明細（具體數值）──
   let html = flagged.length
     ? flagged.map(e => buildRecoCard(e)).join('')
-    : '<div class="text-center text-muted py-4" style="font-size:0.9rem;">✅ 目前所有已設售價的單品與成品菜單，定價都落在建議售價 ±10% 內，無需調整</div>';
+    : '<div class="text-center text-muted py-4" style="font-size:0.9rem;">✅ 目前所有已設售價的單品、成品菜單與套餐，定價都落在合理範圍，無需調整</div>';
 
   if (flagged.length) {
     html = `<div class="text-muted mb-2" style="font-size:0.8rem;">🟠 售價偏低＝目前售價低於「成本×定位倍率」，可以往上帶；🔴 售價偏高＝高於建議，客人覺得不值，降價或把份量／用料加到位。</div>` + html;
@@ -721,8 +733,29 @@ function buildRecoCard(e) {
   const C = e.totalCost, P = e.selling_price, T = e.target;
   const m = e.roleInfo.mult, role = e.roleInfo.role;
   const cat = e.category ? `<span style="color:#94a3b8;font-size:0.78rem;">・${e.category}</span>` : '';
-  const srcTag = `<span style="background:${e._src === '單品' ? '#eef2ff;color:#3730a3' : '#f0fdf4;color:#166534'};border-radius:8px;padding:1px 7px;font-size:0.68rem;font-weight:700;margin-left:6px;">${e._src === '單品' ? '單品加點' : '組合菜品'}</span>`;
-  const costLabel = e._src === '單品' ? '每份成本' : '食材成本';
+  const srcBg = e._src === '單品' ? '#eef2ff;color:#3730a3' : e._src === '套餐' ? '#fef3c7;color:#92400e' : '#f0fdf4;color:#166534';
+  const srcLabel = e._src === '單品' ? '單品加點' : e._src === '套餐' ? '套餐' : '組合菜品';
+  const srcTag = `<span style="background:${srcBg};border-radius:8px;padding:1px 7px;font-size:0.68rem;font-weight:700;margin-left:6px;">${srcLabel}</span>`;
+  const costLabel = e._src === '單品' ? '每份成本' : e._src === '套餐' ? '套餐總成本' : '食材成本';
+
+  // 套餐：用成本率判斷，直接顯示 pricingCheck 的建議
+  if (e._src === '套餐' || m === 0) {
+    const rate = C > 0 && P > 0 ? C / P * 100 : 0;
+    const isHigh = e.st === 'high';
+    const bg = isHigh ? '#fee2e2;color:#b91c1c' : '#ffedd5;color:#9a3412';
+    const label = isHigh ? '🔴 套餐偏貴（客人拿到的量相對定價偏少）' : '🟠 套餐偏虧（賣太便宜）';
+    return `<div class="table-card" style="margin-bottom:10px;">
+      <div style="padding:12px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+          <div><span style="font-weight:700;font-size:0.95rem;">${e.name}</span>${srcTag}
+            <div style="font-size:0.8rem;color:#64748b;margin-top:2px;">總成本 $${formatNumber(C,0)} ／ 定價 $${formatNumber(P,0)} ／ 成本率 ${rate.toFixed(0)}%（套餐合理帶 30–42%）</div>
+          </div>
+          <div><span style="background:${bg};border-radius:10px;padding:2px 9px;font-size:0.72rem;font-weight:700;">${label}</span></div>
+        </div>
+        <div class="reco-plan" style="margin-top:8px;">${e.check.advice}</div>
+      </div>
+    </div>`;
+  }
 
   let head, consumerNote, plans;
 

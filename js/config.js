@@ -100,6 +100,46 @@ function suggestPrice(cost, mult) {
   return raw < 30 ? Math.round(raw) : Math.round(raw / 5) * 5;
 }
 
+// 定價體檢：給 成本 / 售價 / 定位，回傳「現在該怎麼修正」
+// 回傳 { status:'low'|'ok'|'high'|'na', target, rate, sev, advice }
+// sev 數字越大越該處理（給排序用）
+function pricingCheck(cost, price, roleInfo) {
+  if (!(cost > 0) || !(price > 0)) {
+    return { status: 'na', sev: -1, advice: '缺成本或售價，先補齊才能評估' };
+  }
+  // 套餐（mult=0）：改用成本率判斷（合理帶 30–42%）
+  if (!roleInfo || roleInfo.mult === 0) {
+    const rate = cost / price * 100;
+    if (rate < 30) {
+      const cutPrice = Math.round((price - cost / 0.34) / 10) * 10;
+      const addCost  = Math.round(cost * (0.34 / (rate / 100) - 1));
+      return { status: 'high', rate, sev: 30 - rate,
+        advice: `成本率 ${rate.toFixed(0)}%，套餐偏貴（客人拿到的量相對定價偏少）→ 加約 $${addCost} 的食材，或降價約 $${cutPrice}，讓成本率到 32–35%` };
+    }
+    if (rate > 42) {
+      const upPrice = Math.round((cost / 0.38 - price) / 10) * 10;
+      return { status: 'low', rate, sev: rate - 42,
+        advice: `成本率 ${rate.toFixed(0)}%，套餐偏虧 → 抽掉高成本品項，或漲價約 $${upPrice}` };
+    }
+    return { status: 'ok', rate, sev: 0, advice: `成本率 ${rate.toFixed(0)}%，合理` };
+  }
+  const target = suggestPrice(cost, roleInfo.mult);
+  const ratio  = target > 0 ? price / target : 1;
+  if (ratio < 0.9) {
+    const inc = Math.round(target - price);
+    const cutPct = Math.max(0, Math.round((1 - (price / roleInfo.mult) / cost) * 100));
+    return { status: 'low', target, sev: (0.9 - ratio) * 100,
+      advice: `售價偏低 → 漲到 $${target}（+$${inc}），或維持售價但每份少放約 ${cutPct}% 的料` };
+  }
+  if (ratio > 1.1) {
+    const dec = Math.round(price - target);
+    const addPct = Math.max(0, Math.round(((price / roleInfo.mult) / cost - 1) * 100));
+    return { status: 'high', target, sev: (ratio - 1.1) * 100,
+      advice: `售價偏高 → 降到 $${target}（−$${dec}），或維持售價但每份多給約 ${addPct}% 的料` };
+  }
+  return { status: 'ok', target, sev: 0, advice: '定價合理' };
+}
+
 // 格式化數字（加千分位）
 function formatNumber(num, decimals = 0) {
   if (num === null || num === undefined) return '—';
