@@ -57,6 +57,31 @@ function calcItemLineCost(item, qty, wasteRate) {
   return costPerBomUnit(item) * q * wasteMult;
 }
 
+// ── 銷售定位 → 定價倍率（九和集團 威利執行長建議：主銷×3、副銷×4、利潤類×5）──
+const PRICING_MULT = { '主銷': 3, '副銷': 4, '利潤類': 5 };
+
+// 回傳 { role, mult, auto }。o 可帶 pricing_role（手動指定）/ category / name。
+function pricingRoleOf(o) {
+  if (o && PRICING_MULT[o.pricing_role]) {
+    return { role: o.pricing_role, mult: PRICING_MULT[o.pricing_role], auto: false };
+  }
+  const s = `${(o && o.category) || ''} ${(o && o.name) || ''}`;
+  let role = '主銷';
+  if (/甜點|布丁|愛玉|仙草|豆花|杏仁豆腐|雪花冰|剉冰|冰淇淋|甜湯|飲料|飲品|茶飲|奶茶|紅茶|綠茶|烏龍茶|青茶|汽水|可樂|沙士|雪碧|果汁|冬瓜茶|梅[汁子]|沙瓦|氣泡/.test(s)) {
+    role = '利潤類';
+  } else if (/炸|酥|天婦羅|唐揚|鹽酥|副餐|點心|鍋貼|燒賣|春捲|蝦捲|月亮蝦餅|銀絲卷|饅頭|薯條|薯餅|甜不辣|黑輪|白飯|白米|米飯|炒飯|燴飯|滷肉飯|拌麵|炒麵|拉麵|烏龍麵|王子麵|科學麵|冬粉|米粉|年糕|蘿蔔糕|粿/.test(s)) {
+    role = '副銷';
+  }
+  return { role, mult: PRICING_MULT[role], auto: true };
+}
+
+// 建議售價 = 成本 × 倍率，未滿 $30 取整數、否則四捨五入到 $5
+function suggestPrice(cost, mult) {
+  const raw = (cost || 0) * (mult || 0);
+  if (raw <= 0) return 0;
+  return raw < 30 ? Math.round(raw) : Math.round(raw / 5) * 5;
+}
+
 // 格式化數字（加千分位）
 function formatNumber(num, decimals = 0) {
   if (num === null || num === undefined) return '—';

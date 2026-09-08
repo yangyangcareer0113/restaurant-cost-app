@@ -146,14 +146,29 @@
             <hr class="my-2">
             <div class="row g-2">
               <div class="col-6">
+                <label class="form-label" style="font-size:0.82rem;">銷售定位（定價倍率）</label>
+                <select id="item-pricing-role" class="form-select form-select-sm" onchange="updateBomHint()">
+                  <option value="">自動（依品項判斷）</option>
+                  <option value="主銷">主銷 — 成本 ×3</option>
+                  <option value="副銷">副銷 — 成本 ×4（炸類／副餐／費工）</option>
+                  <option value="利潤類">利潤類 — 成本 ×5（甜點／飲料）</option>
+                </select>
+                <div class="form-text">九和集團 威利執行長建議：主推常出品 ×3、費工副餐 ×4、甜點飲料 ×5</div>
+              </div>
+              <div class="col-6">
                 <label class="form-label" style="font-size:0.82rem;">每份售價（元）</label>
                 <input type="number" id="item-serving-price" class="form-control form-control-sm" min="0" step="1" placeholder="這一份對客人賣多少" oninput="updateBomHint()">
-                <div class="form-text">單品加點的對客售價，用於「成本 BOM → 建議總覽」比對</div>
+                <div class="form-text" id="serving-price-hint">單品加點的對客售價，用於「成本 BOM → 建議總覽」比對</div>
+              </div>
+            </div>
+            <div class="row g-2 mt-1">
+              <div class="col-6">
+                <label class="form-label" style="font-size:0.82rem;">建議售價（成本 × 倍率）</label>
+                <div class="form-control form-control-sm bg-white" id="serving-suggest-preview" style="font-weight:600;color:#1e40af;">—</div>
               </div>
               <div class="col-6">
                 <label class="form-label" style="font-size:0.82rem;">每份成本佔售價</label>
                 <div class="form-control form-control-sm bg-white" id="serving-rate-preview" style="font-weight:600;">—</div>
-                <div class="form-text">成本 ÷ 售價，火鍋業建議帶請見建議總覽</div>
               </div>
             </div>
           </div>
@@ -291,11 +306,14 @@
         const sPrice = item.serving_price > 0 ? item.serving_price : 0;
         const sRate  = (sCost > 0 && sPrice > 0) ? sCost / sPrice * 100 : null;
         const rateColor = sRate === null ? '' : (sRate <= 35 ? '#166534' : sRate <= 45 ? '#b45309' : '#b91c1c');
+        const sRoleInfo = pricingRoleOf(item);
+        const sSuggest  = sCost > 0 ? suggestPrice(sCost, sRoleInfo.mult) : 0;
         const servingCell = (sCost > 0 || sPrice > 0)
           ? `<span style="font-size:0.85rem;">
                ${sCost > 0 ? `成本 $${sCost.toFixed(1)}` : '成本 —'}
                ${sPrice > 0 ? ` ／ 售 $${formatNumber(sPrice,0)}` : ' ／ <span class="text-muted">售價待填</span>'}
-               ${sRate !== null ? `<br><span style="color:${rateColor};font-weight:600;">佔售價 ${sRate.toFixed(1)}%</span>` : ''}
+               ${sSuggest > 0 ? `<br><span style="color:#1e40af;">建議 $${formatNumber(sSuggest,0)}（${sRoleInfo.role}×${sRoleInfo.mult}）</span>` : ''}
+               ${sRate !== null ? ` <span style="color:${rateColor};font-weight:600;">佔售價 ${sRate.toFixed(1)}%</span>` : ''}
              </span>`
           : '<span class="text-muted">—</span>';
         const actionsCell = locked
@@ -353,8 +371,23 @@
           : '—';
       }
 
-      const ratePreview = document.getElementById('serving-rate-preview');
       const servingPrice = parseFloat(document.getElementById('item-serving-price')?.value) || 0;
+
+      // 建議售價 = 每份成本 × 定位倍率
+      const roleVal = document.getElementById('item-pricing-role')?.value || '';
+      const r = pricingRoleOf({
+        pricing_role: roleVal,
+        category: document.getElementById('item-category')?.value || '',
+        name: document.getElementById('item-name')?.value || '',
+      });
+      const suggestPreview = document.getElementById('serving-suggest-preview');
+      if (suggestPreview) {
+        suggestPreview.textContent = servingCost > 0
+          ? `$${formatNumber(suggestPrice(servingCost, r.mult), 0)}（${r.role} ×${r.mult}${r.auto ? '，自動判定' : ''}）`
+          : '—';
+      }
+
+      const ratePreview = document.getElementById('serving-rate-preview');
       if (ratePreview) {
         if (servingCost > 0 && servingPrice > 0) {
           const rate = servingCost / servingPrice * 100;
@@ -381,6 +414,7 @@
       document.getElementById('item-bom-conversion').value = '1';
       document.getElementById('item-serving-qty').value = '';
       document.getElementById('item-serving-price').value = '';
+      document.getElementById('item-pricing-role').value = '';
       document.getElementById('item-is-income').checked = false;
       document.getElementById('abc-B').checked = true;
       updateBomHint();
@@ -401,6 +435,7 @@
       document.getElementById('item-bom-conversion').value = item.bom_conversion || 1;
       document.getElementById('item-serving-qty').value = item.serving_qty || '';
       document.getElementById('item-serving-price').value = item.serving_price || '';
+      document.getElementById('item-pricing-role').value = item.pricing_role || '';
       document.getElementById('item-is-income').checked = !!item.is_income;
       const abcVal = item.abc_class || 'B';
       const abcRadio = document.getElementById(`abc-${abcVal}`);
@@ -419,6 +454,7 @@
         : currentProfile.store_id;
       const servingQty = parseFloat(document.getElementById('item-serving-qty').value) || null;
       const servingPrice = parseFloat(document.getElementById('item-serving-price').value) || null;
+      const pricingRole = document.getElementById('item-pricing-role').value || null;
 
       const payload = {
         store_id: storeId,
@@ -434,6 +470,7 @@
         bom_conversion: parseFloat(document.getElementById('item-bom-conversion').value) || 1,
         serving_qty: servingQty,
         serving_price: servingPrice,
+        pricing_role: pricingRole,
         abc_class: document.querySelector('input[name="abc-class"]:checked')?.value || 'B',
         is_income: document.getElementById('item-is-income').checked,
       };
