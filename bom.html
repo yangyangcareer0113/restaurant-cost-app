@@ -219,15 +219,15 @@
           <div class="col-3"><div class="stat-card"><div class="stat-value text-secondary" id="reco-kpi-todo">—</div><div class="stat-label">⚑ 有售價・待補成本</div></div></div>
         </div>
 
-        <div class="fw-bold mb-2" style="font-size:0.92rem;color:#334155;">📋 單品加點｜成本 × 定位倍率 vs 目前售價</div>
+        <div class="fw-bold mb-2" style="font-size:0.92rem;color:#334155;">📋 全品項定價體檢｜單品 · 個人鍋／鍋底 · 成品菜 · 套餐</div>
         <div class="table-card mb-4">
           <div class="table-responsive">
             <table class="table table-hover mb-0" style="font-size:0.86rem;">
               <thead><tr>
-                <th>品項</th><th>定位</th><th class="text-end">每份成本</th><th class="text-end">目前售價</th>
-                <th class="text-end">建議售價</th><th>定價判定</th>
+                <th>品項／套餐</th><th>定位</th><th class="text-end">成本</th><th class="text-end">目前售價</th>
+                <th class="text-end">成本率</th><th class="text-end">建議售價</th><th>定價判定</th>
               </tr></thead>
-              <tbody id="reco-item-table"><tr><td colspan="6" class="text-center text-muted py-4">載入中...</td></tr></tbody>
+              <tbody id="reco-item-table"><tr><td colspan="7" class="text-center text-muted py-4">載入中...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -686,25 +686,36 @@ function renderRecommendations() {
   document.getElementById('reco-kpi-ok').textContent    = okCount;
   document.getElementById('reco-kpi-todo').textContent  = pending.length;
 
-  // ── 單品加點總表（成本 × 倍率 vs 目前售價）──
+  // ── 全品項定價體檢總表（單品＋成品菜/個人鍋＋套餐，全部列出）──
   if (itemTbody) {
-    const rows = [...evalItems].sort((a, b) =>
-      stRank(a.st) - stRank(b.st) || (b.check.sev || 0) - (a.check.sev || 0)   // 🔴偏貴→🟠偏低→✅合理→⚑待補
+    const srcRank = s => s === '套餐' ? 0 : s === '菜品' ? 1 : 2;
+    const rows = [...evaluated].sort((a, b) =>
+      stRank(a.st) - stRank(b.st)
+      || (b.check.sev || 0) - (a.check.sev || 0)
+      || srcRank(a._src) - srcRank(b._src)
+      || a.name.localeCompare(b.name, 'zh-Hant')
     );
     itemTbody.innerHTML = rows.length ? rows.map(x => {
       const verdict = x.st === 'ok'   ? '<span style="color:#166534;font-weight:700;">✅ 定價合理</span>'
                     : x.st === 'low'  ? '<span style="color:#c2410c;font-weight:700;">🟠 售價偏低</span>'
                     : x.st === 'high' ? '<span style="color:#b91c1c;font-weight:700;">🔴 售價偏高</span>'
                     : '<span style="color:#b45309;">⚑ 待補成本</span>';
+      const rate = (x.totalCost > 0 && x.selling_price > 0) ? x.totalCost / x.selling_price * 100 : null;
+      const srcTag = x._src === '單品' ? '單品加點' : x._src === '套餐' ? '套餐'
+                   : (x.roleInfo.role === '純鍋底' ? '個人鍋／鍋底' : '成品菜');
+      const roleStr = x._src === '套餐'
+        ? '<span style="color:#92400e;">套餐（看成本率）</span>'
+        : `${x.roleInfo.role} <span style="color:#94a3b8;">×${x.roleInfo.mult}</span>${x.roleInfo.auto ? '<span style="color:#cbd5e1;font-size:0.7rem;"> 自動</span>' : ''}`;
       return `<tr>
-        <td><strong>${x.name}</strong><div style="font-size:0.72rem;color:#94a3b8;">${x.category || '—'}　·　火鍋業帶 ${x.band.label}</div></td>
-        <td style="white-space:nowrap;">${x.roleInfo.role} <span style="color:#94a3b8;">×${x.roleInfo.mult}</span>${x.roleInfo.auto ? '<span style="color:#cbd5e1;font-size:0.7rem;"> 自動</span>' : ''}</td>
-        <td class="text-end">${x.totalCost > 0 ? '$' + formatNumber(x.totalCost,1) : '<span class="text-muted">—</span>'}</td>
+        <td><strong>${x.name}</strong><div style="font-size:0.72rem;color:#94a3b8;">${srcTag}${x.category && x._src !== '套餐' ? '　·　' + x.category : ''}</div></td>
+        <td style="white-space:nowrap;">${roleStr}</td>
+        <td class="text-end">${x.totalCost > 0 ? '$' + formatNumber(x.totalCost, x._src === '套餐' ? 0 : 1) : '<span class="text-muted">—</span>'}</td>
         <td class="text-end">$${formatNumber(x.selling_price,0)}</td>
+        <td class="text-end" style="color:${rate === null ? '#94a3b8' : rate > 45 ? '#b91c1c' : rate < 15 ? '#c2410c' : '#475569'};">${rate === null ? '—' : rate.toFixed(0) + '%'}</td>
         <td class="text-end" style="color:#1e40af;font-weight:600;">${x.target > 0 ? '$' + formatNumber(x.target,0) : '—'}</td>
         <td>${verdict}</td>
       </tr>`;
-    }).join('') : '<tr><td colspan="6" class="text-center text-muted py-4">「品項管理」尚無 key 每份售價的品項</td></tr>';
+    }).join('') : '<tr><td colspan="7" class="text-center text-muted py-4">尚無已設售價的品項、成品菜或套餐</td></tr>';
   }
 
   // ── 需調整明細（具體數值）──

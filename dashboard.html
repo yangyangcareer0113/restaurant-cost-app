@@ -889,16 +889,17 @@
       (itemsRes.data || []).filter(i => i.serving_price > 0).forEach(i => {
         const cost = (i.serving_qty > 0 && i.bom_conversion > 0) ? costPerServing(i) : 0;
         const ri = pricingRoleOf(i);
-        rows.push({ name: i.name, kind: '單品', kindTag: ri.role, cost, price: i.serving_price, check: pricingCheck(cost, i.serving_price, ri) });
+        rows.push({ name: i.name, kind: '單品', kindTag: ri.role, roleName: ri.role, cost, price: i.serving_price, check: pricingCheck(cost, i.serving_price, ri) });
       });
       (dishesRes.data || []).filter(d => d.selling_price > 0).forEach(d => {
         const cost = dishCost[d.id] || 0;
         const ri = pricingRoleOf(d);
-        rows.push({ name: d.name, kind: '菜品', kindTag: ri.role, cost, price: d.selling_price, check: pricingCheck(cost, d.selling_price, ri) });
+        const tag = ri.role === '純鍋底' ? '個人鍋／鍋底' : ri.role;
+        rows.push({ name: d.name, kind: '菜品', kindTag: tag, roleName: ri.role, cost, price: d.selling_price, check: pricingCheck(cost, d.selling_price, ri) });
       });
       (setsRes.data || []).filter(m => m.price > 0).forEach(m => {
         const cost = setCost[m.id] || 0;
-        rows.push({ name: m.name, kind: '套餐', kindTag: '套餐', cost, price: m.price, check: pricingCheck(cost, m.price, pricingRoleOf({ name: m.name })) });
+        rows.push({ name: m.name, kind: '套餐', kindTag: '套餐', roleName: '套餐', cost, price: m.price, check: pricingCheck(cost, m.price, pricingRoleOf({ name: m.name })) });
       });
 
       if (!rows.length) {
@@ -906,19 +907,22 @@
         return;
       }
 
-      // 🔴 售價偏貴/套餐偏貴 全部排最前面，🟠 售價偏低 擺後面；同燈號內依嚴重度排序
-      const problems = rows.filter(r => r.check.status === 'low' || r.check.status === 'high')
-        .sort((a, b) => {
-          const rank = s => s === 'high' ? 0 : 1;
-          return rank(a.check.status) - rank(b.check.status) || (b.check.sev || 0) - (a.check.sev || 0);
-        });
+      // 顯示：所有需調整的 + 個人鍋/鍋底 + 套餐（就算合理也列出來讓老闆盯）
+      const stRank = s => s === 'high' ? 0 : s === 'low' ? 1 : s === 'ok' ? 2 : 3;
+      const alwaysShow = r => r.kind === '套餐' || r.roleName === '純鍋底';
+      const shown = rows
+        .filter(r => r.check.status === 'low' || r.check.status === 'high' || alwaysShow(r))
+        .sort((a, b) => stRank(a.check.status) - stRank(b.check.status)
+          || (b.check.sev || 0) - (a.check.sev || 0)
+          || a.name.localeCompare(b.name, 'zh-Hant'));
       const okCnt = rows.filter(r => r.check.status === 'ok').length;
       const naCnt = rows.filter(r => r.check.status === 'na').length;
-      const dot = s => s === 'high'
-        ? '<span style="color:#b91c1c;font-weight:700;">🔴</span>'
-        : '<span style="color:#c2410c;font-weight:700;">🟠</span>';
+      const dot = s => s === 'high' ? '<span style="color:#b91c1c;font-weight:700;">🔴</span>'
+                     : s === 'low'  ? '<span style="color:#c2410c;font-weight:700;">🟠</span>'
+                     : s === 'ok'   ? '<span style="color:#16a34a;font-weight:700;">✅</span>'
+                     :                '<span style="color:#b45309;font-weight:700;">⚑</span>';
 
-      let html = problems.map(r => `
+      let html = shown.map(r => `
         <tr>
           <td><strong>${r.name}</strong></td>
           <td style="white-space:nowrap;color:#64748b;">${dot(r.check.status)} ${r.kindTag}</td>
@@ -928,7 +932,7 @@
           <td style="font-size:0.8rem;">${r.check.advice}</td>
         </tr>`).join('');
       html += `<tr><td colspan="6" style="font-size:0.78rem;color:#94a3b8;padding-top:8px;">
-        ${problems.length ? '' : '✅ 目前沒有需要調整的項目。　'}✅ 定價合理 ${okCnt} 項${naCnt ? `　·　⚑ 缺成本／售價 ${naCnt} 項（去品項管理補齊）` : ''}
+        共 ${rows.length} 項已定價　·　✅ 定價合理 ${okCnt} 項${naCnt ? `　·　⚑ 缺成本／售價 ${naCnt} 項（去品項管理補齊）` : ''}${shown.length < rows.length ? `　·　其餘合理的單品未逐一列出，完整清單見「成本 BOM → 建議總覽」` : ''}
       </td></tr>`;
       tbody.innerHTML = html;
     }
