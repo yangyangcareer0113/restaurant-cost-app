@@ -20,6 +20,7 @@
           <option value="all">全部</option>
           <option value="alert">僅預警</option>
           <option value="ok">正常</option>
+          <option value="none">未盤點</option>
         </select>
       </div>
     </div>
@@ -27,22 +28,28 @@
     <div class="page-body">
       <!-- 統計 -->
       <div class="row g-3 mb-3">
-        <div class="col-4">
+        <div class="col-6 col-md-3">
           <div class="stat-card text-center">
             <div class="stat-value" id="cnt-total">—</div>
             <div class="stat-label">品項總數</div>
           </div>
         </div>
-        <div class="col-4">
+        <div class="col-6 col-md-3">
           <div class="stat-card text-center">
             <div class="stat-value text-warning" id="cnt-warn">—</div>
             <div class="stat-label">⚠️ 偏低</div>
           </div>
         </div>
-        <div class="col-4">
+        <div class="col-6 col-md-3">
           <div class="stat-card text-center">
             <div class="stat-value text-danger" id="cnt-danger">—</div>
             <div class="stat-label">🔴 嚴重不足</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="stat-card text-center">
+            <div class="stat-value text-secondary" id="cnt-none">—</div>
+            <div class="stat-label">⚑ 未盤點</div>
           </div>
         </div>
       </div>
@@ -163,9 +170,11 @@
       // 統計
       const warns = inventoryData.filter(i => i.current_stock !== null && stockAlertLevel(i.current_stock, i.min_stock_qty) === 'warning').length;
       const dangers = inventoryData.filter(i => i.current_stock !== null && stockAlertLevel(i.current_stock, i.min_stock_qty) === 'danger').length;
+      const noRecCnt = inventoryData.filter(i => i.current_stock === null).length;
       document.getElementById('cnt-total').textContent = inventoryData.length;
       document.getElementById('cnt-warn').textContent = warns;
       document.getElementById('cnt-danger').textContent = dangers;
+      document.getElementById('cnt-none').textContent = noRecCnt;
 
       renderTable();
     }
@@ -175,8 +184,9 @@
       const filter = document.getElementById('alert-filter').value;
 
       let data = inventoryData.filter(i => i.name.toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q));
-      if (filter === 'alert') data = data.filter(i => stockAlertLevel(i.current_stock, i.min_stock_qty) !== 'ok');
-      if (filter === 'ok') data = data.filter(i => stockAlertLevel(i.current_stock, i.min_stock_qty) === 'ok');
+      if (filter === 'alert') data = data.filter(i => i.current_stock !== null && stockAlertLevel(i.current_stock, i.min_stock_qty) !== 'ok');
+      if (filter === 'ok')    data = data.filter(i => i.current_stock !== null && stockAlertLevel(i.current_stock, i.min_stock_qty) === 'ok');
+      if (filter === 'none')  data = data.filter(i => i.current_stock === null);
 
       const tbody = document.getElementById('inv-table');
       if (!data.length) {
@@ -185,10 +195,17 @@
       }
 
       tbody.innerHTML = data.map(item => {
-        const level = item.current_stock !== null ? stockAlertLevel(item.current_stock, item.min_stock_qty) : 'ok';
-        const badgeCls = level === 'danger' ? 'badge-stock-danger' : level === 'warning' ? 'badge-stock-warning' : 'badge-stock-ok';
-        const badgeText = level === 'danger' ? '🔴 嚴重不足' : level === 'warning' ? '⚠️ 偏低' : '✅ 正常';
-        const stockDisplay = item.current_stock !== null ? `<strong class="stock-${level}">${item.current_stock}</strong>` : '<span class="text-muted">未記錄</span>';
+        const noRec = item.current_stock === null;
+        const level = noRec ? 'none' : stockAlertLevel(item.current_stock, item.min_stock_qty);
+        const badgeCls = level === 'danger' ? 'badge-stock-danger'
+                       : level === 'warning' ? 'badge-stock-warning'
+                       : level === 'none' ? 'bg-secondary text-white'
+                       : 'badge-stock-ok';
+        const badgeText = level === 'danger' ? '🔴 嚴重不足'
+                        : level === 'warning' ? '⚠️ 偏低'
+                        : level === 'none' ? '⚑ 未盤點'
+                        : '✅ 正常';
+        const stockDisplay = noRec ? '<span class="text-muted">未記錄</span>' : `<strong class="stock-${level}">${item.current_stock}</strong>`;
 
         const srcTag = item.last_src
           ? ` <span class="text-muted" style="font-size:0.72rem;">(${item.last_src})</span>`
