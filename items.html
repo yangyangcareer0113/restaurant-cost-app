@@ -386,7 +386,9 @@
       });
       const suggestPreview = document.getElementById('serving-suggest-preview');
       if (suggestPreview) {
-        suggestPreview.textContent = servingCost > 0
+        suggestPreview.textContent = r.mult < 0
+          ? `特殊定價（維持現價、不評估${r.auto ? '，自動判定' : ''}）`
+          : servingCost > 0
           ? `$${formatNumber(suggestPrice(servingCost, r.mult), 0)}（${r.role} ×${r.mult}${r.auto ? '，自動判定' : ''}）`
           : '—';
       }

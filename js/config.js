@@ -82,6 +82,10 @@ function pricingRoleOf(o) {
   if (/套餐|雙人|四人|多人|饗宴/.test(s)) {
     return { role: '套餐', mult: 0, auto: true };   // 套餐用成本率判斷，不套倍率
   }
+  // 銅板湊單主食：定價由「客人心裡的天花板」決定，不套倍率、不評估
+  if (/王子麵|科學麵|統一麵|泡麵|烏龍麵|讚岐|白飯|白米飯|米飯|飯$|冬粉|寬冬粉|米粉/.test(s)) {
+    return { role: '特殊定價', mult: -1, auto: true };
+  }
   if (/鍋底|湯底|湯頭|純鍋|清湯鍋|個人鍋|共鍋|潤鍋|藥膳鍋|養生鍋|鍋$/.test(s)) {
     role = '純鍋底';
   } else if (/牛肉|牛五花|牛小排|牛舌|沙朗|霜降|雪花|翼板|板腱|嫩肩|安格斯|和牛|龍蝦|帝王蟹|松葉蟹|生蠔|鮑魚|大干貝/.test(s)) {
@@ -90,7 +94,7 @@ function pricingRoleOf(o) {
     role = '費工副銷';
   } else if (/自製|手作|氣泡|沙瓦|水果茶|果茶|冬瓜茶|梅子綠|檸檬|奶蓋|多多/.test(s)) {
     role = '利潤飲品';
-  } else if (/菜盤|蔬菜|時蔬|蔬果|高麗菜|大陸妹|白菜|茼蒿|青菜|地瓜葉|A菜|菇盤|綜合菇|菇菇|金針菇|鴻喜菇|香菇|杏鮑菇|美白菇|木耳|豆腐|凍豆腐|油豆腐|蛋豆腐|日式豆腐|王子麵|科學麵|統一麵|泡麵|烏龍麵|讚岐|冬粉|寬冬粉|米粉|白飯|白米飯|米飯|飯$|玉米|南瓜|地瓜|醬料|沾醬|沙茶醬/.test(s)) {
+  } else if (/菜盤|蔬菜|時蔬|蔬果|高麗菜|大陸妹|白菜|茼蒿|青菜|地瓜葉|A菜|菇盤|綜合菇|菇菇|金針菇|鴻喜菇|香菇|杏鮑菇|美白菇|木耳|豆腐|凍豆腐|油豆腐|蛋豆腐|日式豆腐|玉米|南瓜|地瓜|醬料|沾醬|沙茶醬/.test(s)) {
     role = '配料主食';
   }
   return { role, mult: PRICING_MULT[role], auto: true };
@@ -110,10 +114,10 @@ function pricingCheck(cost, price, roleInfo) {
   if (!(cost > 0) || !(price > 0)) {
     return { status: 'na', sev: -1, advice: '缺成本或售價，先補齊才能評估' };
   }
-  // 特殊定價：老闆指定維持現價，不評估
+  // 特殊定價：銅板湊單品／老闆指定，維持現價、不套倍率也不評估
   if (roleInfo && roleInfo.mult < 0) {
     const rate = cost / price * 100;
-    return { status: 'ok', rate, sev: -1, advice: `維持現價（老闆指定不套倍率）　成本率 ${rate.toFixed(0)}%` };
+    return { status: 'ok', rate, sev: -1, advice: `維持現價（銅板湊單品，不套倍率）　成本率 ${rate.toFixed(0)}%` };
   }
   // 套餐（mult=0）：改用成本率判斷（合理帶 28–42%）
   if (!roleInfo || roleInfo.mult === 0) {

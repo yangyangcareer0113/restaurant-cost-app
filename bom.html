@@ -696,15 +696,19 @@ function renderRecommendations() {
       || a.name.localeCompare(b.name, 'zh-Hant')
     );
     itemTbody.innerHTML = rows.length ? rows.map(x => {
-      const verdict = x.st === 'ok'   ? '<span style="color:#166534;font-weight:700;">✅ 定價合理</span>'
-                    : x.st === 'low'  ? '<span style="color:#c2410c;font-weight:700;">🟠 售價偏低</span>'
-                    : x.st === 'high' ? '<span style="color:#b91c1c;font-weight:700;">🔴 售價偏高</span>'
+      const special = x.roleInfo.mult < 0;
+      const verdict = special          ? '<span style="color:#64748b;">— 特殊定價（不評估）</span>'
+                    : x.st === 'ok'    ? '<span style="color:#166534;font-weight:700;">✅ 定價合理</span>'
+                    : x.st === 'low'   ? '<span style="color:#c2410c;font-weight:700;">🟠 售價偏低</span>'
+                    : x.st === 'high'  ? '<span style="color:#b91c1c;font-weight:700;">🔴 售價偏高</span>'
                     : '<span style="color:#b45309;">⚑ 待補成本</span>';
       const rate = (x.totalCost > 0 && x.selling_price > 0) ? x.totalCost / x.selling_price * 100 : null;
       const srcTag = x._src === '單品' ? '單品加點' : x._src === '套餐' ? '套餐'
                    : (x.roleInfo.role === '純鍋底' ? '個人鍋／鍋底' : '成品菜');
       const roleStr = x._src === '套餐'
         ? '<span style="color:#92400e;">套餐（看成本率）</span>'
+        : special
+        ? '<span style="color:#64748b;">特殊定價（銅板湊單）</span>'
         : `${x.roleInfo.role} <span style="color:#94a3b8;">×${x.roleInfo.mult}</span>${x.roleInfo.auto ? '<span style="color:#cbd5e1;font-size:0.7rem;"> 自動</span>' : ''}`;
       return `<tr>
         <td><strong>${x.name}</strong><div style="font-size:0.72rem;color:#94a3b8;">${srcTag}${x.category && x._src !== '套餐' ? '　·　' + x.category : ''}</div></td>
