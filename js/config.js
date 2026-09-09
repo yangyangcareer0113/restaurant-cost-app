@@ -156,6 +156,44 @@ function pricingCheck(cost, price, roleInfo) {
   return { status: 'ok', target, sev: 0, advice: '定價合理' };
 }
 
+// 定價法對照表：系統定位 tier × 市面共鍋食材成本率
+const PRICING_TIER_DEFS = [
+  { role: '純鍋底',   label: '鍋底／湯底（純鍋底）',                                 rate: '20–30%',                          mult: '×4' },
+  { role: '一般加點', label: '豬雞加工肉／一般海鮮／丸餃火鍋料／罐裝飲料（一般加點）', rate: '肉 35–45% · 丸餃 25–38% · 海鮮 40–50%', mult: '×3.2' },
+  { role: '比價肉品', label: '牛肉／龍蝦帝王蟹等高階（比價肉品）',                     rate: '42–55%',                          mult: '×2.2' },
+  { role: '費工副銷', label: '蝦餅／炸物／天婦羅（費工副銷）',                         rate: '25–38%（工錢不算食材）',          mult: '×4' },
+  { role: '配料主食', label: '菜盤／菇／豆腐（配料主食）',                             rate: '20–30%',                          mult: '×4' },
+  { role: '利潤飲品', label: '自製茶飲／氣泡飲／付費甜點（利潤飲品）',                 rate: '飲料 12–20% · 甜點 20–30%',       mult: '×7' },
+  { role: '特殊定價', label: '王子麵／烏龍麵／白飯／冬粉（銅板湊單）',                 rate: '15–28%',                          mult: '不套倍率' },
+  { role: '套餐',     label: '雙人／四人套餐',                                        rate: '28–42%（成本率帶）',              mult: '看成本率' },
+];
+
+// rows: [{ roleName, check:{status} }] → 依定位分組，填入指定 tbody
+function renderPricingTierTable(tbodyId, rows) {
+  const tb = document.getElementById(tbodyId);
+  if (!tb) return;
+  tb.innerHTML = PRICING_TIER_DEFS.map(t => {
+    const grp  = (rows || []).filter(r => r.roleName === t.role);
+    const n    = grp.length;
+    const cnt  = s => grp.filter(r => r.check && r.check.status === s).length;
+    const high = cnt('high'), low = cnt('low'), ok = cnt('ok'), na = cnt('na');
+    let judge, bg = '';
+    if (n === 0) judge = '<span style="color:#cbd5e1;">尚無品項</span>';
+    else if (t.role === '特殊定價') judge = `<span style="color:#64748b;">${n} 項・維持現價不評估</span>`;
+    else if (high + low + na === 0) judge = `<span style="color:#16a34a;font-weight:700;">✅ ${n} 項全合理</span>`;
+    else {
+      const p = [];
+      if (high) p.push(`🔴 ${high} 偏貴`);
+      if (low)  p.push(`🟠 ${low} 偏低`);
+      if (na)   p.push(`⚑ ${na} 待補`);
+      judge = `<span style="color:#b91c1c;font-weight:700;">⚠️ ${p.join('　')}</span>${ok ? `<span style="color:#94a3b8;"> ·✅${ok}</span>` : ''}`;
+      bg = 'background:#fef2f2;';
+    }
+    return `<tr style="${bg}"><td style="font-size:0.76rem;">${t.label}</td><td class="text-nowrap">${t.rate}</td><td class="text-nowrap">${t.mult}</td><td class="text-nowrap">${n ? n + ' 項' : '—'}</td><td>${judge}</td></tr>`;
+  }).join('')
+  + `<tr style="border-top:2px solid #cbd5e1;"><td><b>全店 blended 目標</b></td><td><b>32–40%</b>（共鍋店平均）</td><td>—</td><td>${(rows || []).length} 項</td><td style="color:#94a3b8;font-size:0.76rem;">牛肉海鮮點越多越高；個人鍋外送另計</td></tr>`;
+}
+
 // 格式化數字（加千分位）
 function formatNumber(num, decimals = 0) {
   if (num === null || num === undefined) return '—';

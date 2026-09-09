@@ -188,6 +188,20 @@
           🍥 烽味定價體檢<span style="font-size:0.75rem;color:#94a3b8;font-weight:400;">　— 依現在的成本與售價，該怎麼調（點擊收合）</span>
         </summary>
         <div style="padding:4px 16px 16px;">
+
+          <div style="font-weight:600;font-size:0.86rem;color:#334155;margin-bottom:4px;">📊 定價法對照表：市面共鍋成本率 × 定位倍率 × <b>本店現況</b></div>
+          <div class="table-responsive">
+            <table class="table table-sm mb-3" style="font-size:0.8rem;">
+              <thead><tr style="color:#64748b;">
+                <th>類別（系統定位）</th><th class="text-nowrap">市面共鍋<br>食材成本率</th><th class="text-nowrap">倍率</th><th class="text-nowrap">本店品項</th><th>判斷</th>
+              </tr></thead>
+              <tbody id="pricing-tier-body">
+                <tr><td colspan="5" class="text-center text-muted py-3">載入中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="font-weight:600;font-size:0.86rem;color:#334155;margin:10px 0 4px;">📋 逐項體檢 — 依現在的成本與售價，該怎麼調</div>
           <div class="table-responsive">
             <table class="table table-sm mb-2" style="font-size:0.82rem;">
               <thead><tr style="color:#64748b;">
@@ -203,30 +217,8 @@
             <br>1. <b>這模式靠「加點率」活</b>：鍋底單買客單很低，錢在「每桌加 3–5 樣」。菜盤／配料份量給得漂亮讓人願意加，牛肉別抓太高把肉控嚇跑。
             <br>2. <b>整體物料成本率</b>：內用目標 <b>35%、上限 38%</b>（牛肉點越多越高）。個人鍋外送<b>單獨看</b>——平台抽 30–35% 是通路成本，不是食材失控。
             <br>3. <b>免費冰淇淋</b>：估每客 $10–15，直接算進純鍋底的成本。每月盯「冰淇淋進貨 ÷ 來客數」，超過 $15／客就要處理。
+            <br>4. 全店 blended 目標 <b>32–40%</b>（共鍋店平均）。套餐用成本率判斷、合理帶 28–42%。定位可在「品項管理 → 銷售定位」手動指定。
           </div>
-
-          <details style="margin-top:10px;">
-            <summary style="cursor:pointer;font-size:0.82rem;font-weight:600;color:#334155;">📊 定價法對照表：市面共鍋成本率 × 系統定位倍率（點開）</summary>
-            <div class="table-responsive" style="margin-top:6px;">
-              <table class="table table-sm mb-1" style="font-size:0.8rem;">
-                <thead><tr style="color:#64748b;">
-                  <th>類別</th><th class="text-nowrap">市面共鍋<br>食材成本率</th><th class="text-nowrap">本系統定位 → 倍率</th><th>備註</th>
-                </tr></thead>
-                <tbody>
-                  <tr><td>鍋底／湯底</td><td>20–30%</td><td><b>純鍋底 ×4</b></td><td>可回沖久煮、成本低，共鍋一鍋收一次；要扛免費冰淇淋</td></tr>
-                  <tr><td>主食／附餐（麵飯餃）</td><td>15–28%</td><td>特殊定價（銅板湊單）</td><td>王子麵、烏龍麵、白飯、冬粉 由客人心裡天花板定價，不套倍率</td></tr>
-                  <tr><td>丸餃火鍋料／費工品</td><td>25–38%</td><td>一般加點 ×3.2 ／ 費工副銷（蝦餅、炸物）×4</td><td>炸物工錢不算食材成本，倍率抓高一點</td></tr>
-                  <tr><td>蔬菜類（菜盤、菇、豆腐）</td><td>20–30%</td><td><b>配料主食 ×4</b></td><td>成本低、不透明，毛利友善；大份菜盤自己壓天花板</td></tr>
-                  <tr><td>肉類：豬／雞／加工肉</td><td>35–45%</td><td><b>一般加點 ×3.2</b>（脆皮雞肉招牌可略高）</td><td>比價沒牛肉嚴重</td></tr>
-                  <tr><td>肉類：牛肉／高階</td><td>42–55%</td><td><b>比價肉品 ×2.2</b></td><td>價格最透明、比價最兇，薄利，靠它拉客單價不是靠它賺</td></tr>
-                  <tr><td>海鮮（蝦蟹貝魚）</td><td>40–50%</td><td>一般加點 ×3.2（龍蝦、帝王蟹、生蠔 → 比價肉品 ×2.2）</td><td>損耗高、價格半透明</td></tr>
-                  <tr><td>冰品／飲料</td><td>飲料 12–20%；付費甜點 20–30%</td><td>罐裝飲料 一般加點 ×3.2 ／ 自製茶飲・氣泡飲 <b>利潤飲品 ×7</b></td><td>免費冰淇淋不定價、算進鍋底成本</td></tr>
-                  <tr style="border-top:2px solid #cbd5e1;"><td><b>全店 blended</b></td><td><b>32–40%</b>（共鍋店平均）</td><td>儀表板物料成本率 目標 35%、上限 38%</td><td>牛肉海鮮點越多越高；外送另計</td></tr>
-                </tbody>
-              </table>
-              <div style="font-size:0.75rem;color:#94a3b8;">套餐用成本率判斷，合理帶 28–42%。定位可在「品項管理 → 銷售定位」手動指定。</div>
-            </div>
-          </details>
         </div>
       </details>
 
@@ -875,9 +867,11 @@
     let _pricingStoreCache = null;
     async function renderPricingCheck(storeId) {
       const tbody = document.getElementById('pricing-check-body');
+      const tierTb = document.getElementById('pricing-tier-body');
       if (!tbody) return;
       if (currentProfile.role !== 'admin') {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">定價體檢明細僅老闆帳號可見</td></tr>';
+        if (tierTb) tierTb.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">僅老闆帳號可見</td></tr>';
         return;
       }
       let sid = storeId;
@@ -923,6 +917,8 @@
         const cost = setCost[m.id] || 0;
         rows.push({ name: m.name, kind: '套餐', kindTag: '套餐', roleName: '套餐', cost, price: m.price, check: pricingCheck(cost, m.price, pricingRoleOf({ name: m.name })) });
       });
+
+      renderPricingTierTable('pricing-tier-body', rows);
 
       if (!rows.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">尚未在「品項管理／套餐管理」設定售價，設定後這裡會出現定價體檢</td></tr>';
