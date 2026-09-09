@@ -107,15 +107,6 @@
                 </div>
               </div>
 
-              <div class="mb-3" id="current-stock-block">
-                <label class="form-label fw-semibold">目前庫存（盤點）</label>
-                <div class="input-group">
-                  <input type="number" id="rec-current-stock" class="form-control" min="0" step="0.01" placeholder="現場實際盤到的庫存量">
-                  <span class="input-group-text" id="stock-unit" style="font-size:0.8rem;min-width:40px;">—</span>
-                </div>
-                <div class="form-text">填了才會更新這個品項的庫存快照，用於算月消耗浮動；沒盤點可留空，不會動到庫存資料</div>
-              </div>
-
               <div class="mb-3">
                 <label class="form-label fw-semibold" id="notes-label">備註（廠商、發票號等）</label>
                 <input type="text" id="rec-notes" class="form-control" placeholder="選填">
@@ -232,7 +223,7 @@
       return document.querySelector('input[name="entry-mode"]:checked')?.value || 'purchase';
     }
 
-    // 切換「進貨 / 耗損」：耗損模式隱藏單位成本與盤點欄，只留品項＋數量
+    // 切換「進貨 / 耗損」：耗損模式隱藏單位成本，只留品項＋數量
     function onModeChange() {
       const waste = entryMode() === 'waste';
       document.getElementById('entry-form-title').textContent = waste ? '🗑️ 新增耗損' : '📥 新增進貨';
@@ -242,7 +233,6 @@
       document.getElementById('unit-cost-col').classList.toggle('d-none', waste);
       document.getElementById('qty-col').classList.toggle('col-12', waste);
       document.getElementById('qty-col').classList.toggle('col-6', !waste);
-      document.getElementById('current-stock-block').classList.toggle('d-none', waste);
       const btn = document.getElementById('save-btn');
       btn.textContent = waste ? '✓ 儲存耗損記錄' : '✓ 儲存進貨記錄';
       btn.classList.toggle('btn-danger', waste);
@@ -313,7 +303,6 @@
       document.getElementById('hint-supplier').textContent = item.supplier || '—';
       document.getElementById('hint-spec').textContent = item.spec_note || '—';
       unitEl.textContent = item.unit;
-      document.getElementById('stock-unit').textContent = item.unit;
 
       // 自動帶入單位成本：優先抓「最近一次進貨」的實際單價，而不是品項管理當初設定的標準成本，
       // 因為進貨價會隨時間波動，員工每次記錄時應該看到最新真實成本，不是建檔當時的舊數字
@@ -414,17 +403,16 @@
         };
       } else {
         const unitCost = parseFloat(document.getElementById('rec-unit-cost').value) || 0;
-        const stockInput = document.getElementById('rec-current-stock').value;
-        const currentStock = stockInput === '' ? null : parseFloat(stockInput);
-        if (qty <= 0 && currentStock === null) { showToast('請填寫進貨數量或目前庫存', 'danger'); return; }
+        if (qty <= 0) { showToast('請填寫進貨數量', 'danger'); return; }
         // 收入品項（如廢油回收）金額存成負數，這樣現有的成本加總邏輯
         // （每日總金額／儀表板／報表）單純加總 purchase_cost 就會自動把它扣掉，不用另外改。
+        // 庫存數字一律走「月底盤點」更新，進貨記錄不再帶 current_stock。
         const isIncome = !!item?.is_income;
         const rawTotal = qty * unitCost;
         payload = {
           item_id: itemId, store_id: storeId, record_date: recDate,
           purchase_qty: qty, purchase_cost: isIncome ? -rawTotal : rawTotal,
-          waste_qty: 0, current_stock: currentStock, notes, created_by: session.user.id
+          waste_qty: 0, current_stock: null, notes, created_by: session.user.id
         };
       }
 
@@ -438,15 +426,13 @@
         showToast(`🗑️ 已記錄耗損：${item.name} × ${qty} ${item.unit}${money}${stockMsg}`);
       } else {
         const isIncome = !!item?.is_income;
-        showToast(`✓ 已記錄：${item.name} × ${qty} ${item.unit}，${isIncome ? '+' : ''}$${formatNumber(Math.abs(payload.purchase_cost), 0)}${payload.current_stock !== null ? `，庫存 ${payload.current_stock}` : ''}`);
+        showToast(`✓ 已記錄：${item.name} × ${qty} ${item.unit}，${isIncome ? '+' : ''}$${formatNumber(Math.abs(payload.purchase_cost), 0)}`);
       }
 
       document.getElementById('rec-item').value = '';
       document.getElementById('rec-item-search').value = '';
       document.getElementById('rec-qty').value = '';
       document.getElementById('rec-unit-cost').value = '';
-      document.getElementById('rec-current-stock').value = '';
-      document.getElementById('stock-unit').textContent = '—';
       document.getElementById('rec-notes').value = '';
       document.getElementById('item-hint').classList.add('d-none');
       document.getElementById('calc-preview').classList.add('d-none');
