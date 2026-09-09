@@ -109,14 +109,14 @@
         : currentProfile.store_id;
 
       // 取所有啟用品項
-      let itemQuery = supabase.from('items').select('id, name, unit, category, min_stock_qty').eq('is_active', true).order('category').order('name');
+      let itemQuery = supabase.from('items').select('id, name, unit, count_unit, category, min_stock_qty').eq('is_active', true).order('category').order('name');
       if (storeId) itemQuery = itemQuery.eq('store_id', storeId);
       const { data: items } = await itemQuery;
 
-      // 取每個品項最新一筆「有填庫存」的記錄
+      // (A) 每個品項最新一筆「有填庫存」的進貨／耗損／盤點記錄（inventory_records）
       // 注意：不能單純抓最新一筆 inventory_records，因為大部分進貨記錄的
       // 「目前庫存」欄位是空的（員工只填進貨量），若不過濾掉 null，
-      // 這些空值記錄會蓋掉之前員工實際盤點填入的庫存數字，導致庫存總覽跟盤點對不起來。
+      // 這些空值記錄會蓋掉之前員工實際盤點填入的庫存數字。
       let recQuery = supabase.from('inventory_records')
         .select('item_id, current_stock, record_date, created_at')
         .not('current_stock', 'is', null)
@@ -130,11 +130,35 @@
         if (!latestMap[r.item_id]) latestMap[r.item_id] = r;
       });
 
-      inventoryData = (items || []).map(item => ({
-        ...item,
-        current_stock: latestMap[item.id]?.current_stock ?? null,
-        last_date: latestMap[item.id]?.record_date ?? null
-      }));
+      // (B) 最近的「月底盤點」結果（stocktake_items）——這張表跟 inventory_records 分開，
+      // 若不一起讀，員工做完月底盤點後庫存總覽會一直停在上一次每日記錄的數字。
+      let stQuery = supabase.from('stocktake_items')
+        .select('item_id, counted_qty, updated_at, stocktakes!inner(store_id, period, status, created_at)')
+        .not('counted_qty', 'is', null);
+      if (storeId) stQuery = stQuery.eq('stocktakes.store_id', storeId);
+      const { data: stItems } = await stQuery;
+
+      const stMap = {};
+      (stItems || []).forEach(r => {
+        const d = (r.updated_at || r.stocktakes?.created_at || '').slice(0, 10);
+        if (!d) return;
+        if (!stMap[r.item_id] || d > stMap[r.item_id].date) {
+          stMap[r.item_id] = { qty: r.counted_qty, date: d };
+        }
+      });
+
+      inventoryData = (items || []).map(item => {
+        const rec = latestMap[item.id];                    // 每日記錄的目前庫存
+        const st  = stMap[item.id];                        // 月底盤點的數量
+        let stock = null, date = null, src = null, unit = item.unit;
+        if (st && (!rec || st.date >= (rec.record_date || ''))) {
+          stock = st.qty; date = st.date; src = '盤點';
+          if (item.count_unit && item.count_unit !== item.unit) unit = item.count_unit;
+        } else if (rec) {
+          stock = rec.current_stock; date = rec.record_date; src = '記錄';
+        }
+        return { ...item, current_stock: stock, last_date: date, last_src: src, stock_unit: unit };
+      });
 
       // 統計
       const warns = inventoryData.filter(i => i.current_stock !== null && stockAlertLevel(i.current_stock, i.min_stock_qty) === 'warning').length;
@@ -166,15 +190,19 @@
         const badgeText = level === 'danger' ? '🔴 嚴重不足' : level === 'warning' ? '⚠️ 偏低' : '✅ 正常';
         const stockDisplay = item.current_stock !== null ? `<strong class="stock-${level}">${item.current_stock}</strong>` : '<span class="text-muted">未記錄</span>';
 
+        const srcTag = item.last_src
+          ? ` <span class="text-muted" style="font-size:0.72rem;">(${item.last_src})</span>`
+          : '';
+
         return `
           <tr>
             <td data-label="品項"><strong>${item.name}</strong></td>
             <td data-label="分類">${item.category || '—'}</td>
             <td data-label="單位">${item.unit}</td>
             <td data-label="安全庫存">${item.min_stock_qty} ${item.unit}</td>
-            <td data-label="當前庫存">${stockDisplay} ${item.unit}</td>
+            <td data-label="當前庫存">${stockDisplay} ${item.stock_unit || item.unit}</td>
             <td data-label="狀態"><span class="badge ${badgeCls}">${badgeText}</span></td>
-            <td data-label="最後記錄">${item.last_date || '—'}</td>
+            <td data-label="最後記錄">${item.last_date || '—'}${srcTag}</td>
             <td data-label="操作">
               <a href="records.html" class="btn btn-sm btn-outline-primary">更新</a>
             </td>
